@@ -165,6 +165,12 @@ export const SiloFuelSelectionModal: React.FC<SiloFuelSelectionModalProps> = ({
                                         </div>
                                     )}
 
+                                    {isNuclear && hasRoute && card.usedThisTurn && (
+                                        <div style={{ fontSize: '0.65rem', color: '#ff9900', textAlign: 'center', fontWeight: 'bold', backgroundColor: 'rgba(255, 153, 0, 0.1)', padding: '5px', borderRadius: '4px' }}>
+                                            AGOTADA (YA USADA ESTE TURNO)
+                                        </div>
+                                    )}
+
                                     {card.country && (
                                         <div style={{ fontSize: '0.75rem', color: '#aaa', textAlign: 'center', borderTop: '1px solid #444', paddingTop: '6px' }}>
                                             Origen: {REGIONS.find(r => r.id === card.country)?.title || card.country}

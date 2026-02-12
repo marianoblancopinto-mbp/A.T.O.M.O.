@@ -41,12 +41,14 @@ import { REGIONS } from '../data/mapRegions';
 import { AGENCY_NAMES } from '../data/constants';
 import { useGameContext } from '../context/GameContext';
 import { type PlayerData } from '../types/playerTypes';
+import { useSupplyRoute } from '../hooks/useSupplyRoute';
 
 
 
 
 export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false }) => {
     const { state, dispatch, multiplayer } = useGameContext();
+    const { checkRoute } = useSupplyRoute();
 
     const {
         gamePhase,
@@ -432,6 +434,33 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
         });
     };
 
+    // Global synchronization for Turn and Year Overlays
+    const prevTurnPlayerRef = useRef<number>(currentPlayerIndex);
+    const prevYearRef = useRef<number>(gameDate.getFullYear());
+
+    useEffect(() => {
+        if (!gameStarted || players.length === 0) return;
+
+        // Year change detection
+        const currentYear = gameDate.getFullYear();
+        if (currentYear > prevYearRef.current) {
+            setShowYearStart(currentYear);
+            prevYearRef.current = currentYear;
+        }
+
+        // Turn change detection
+        if (currentPlayerIndex !== prevTurnPlayerRef.current) {
+            // Only show turn overlay if it's NOT a new year (to avoid double overlay)
+            // or if the year reset logic already handled it. 
+            // EndOfRound sets nextYear AND nextPlayerIdx.
+            if (currentYear === prevYearRef.current) {
+                setShowTurnOverlay(true);
+            }
+            prevTurnPlayerRef.current = currentPlayerIndex;
+            resetCardUsageForTurn();
+        }
+    }, [currentPlayerIndex, gameDate, gameStarted, players.length]);
+
     // Mark a card as used this turn
 
 
@@ -626,14 +655,8 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
         setUsedAttackSources(new Set());
         setSelectedRegionId(null);
 
-        // Note: setShowYearStart and setShowTurnOverlay will need to react to state changes or local checks
-        if (isEndOfRound && !nextWinner) {
-            // We can't set local state here for other clients easily unless we trigger off the state change.
-            // But valid to set it locally for the active player who clicked.
-            setShowYearStart(nextGameDate.getFullYear());
-        } else if (!nextWinner) {
-            setShowTurnOverlay(true);
-        }
+        // Note: Global useEffect will handle showing overlays for all players
+        // based on the state update.
     };
 
     const hasNuclearUnlock = (player: PlayerData) => {
@@ -1050,27 +1073,71 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                 {/* CONFIDENTIAL INFO BUTTON */}
                 {
                     hasNuclearUnlock(players[currentPlayerIndex]) && !showTurnOverlay && (
-                        <button
-                            onClick={handleOpenConfidential}
-                            style={{
-                                position: 'absolute',
-                                top: '60px',
-                                right: '20px',
-                                padding: '10px 20px',
-                                backgroundColor: '#330000',
-                                color: '#ff0000',
-                                border: '2px solid #ff0000',
-                                borderRadius: '5px',
-                                cursor: 'pointer',
-                                fontFamily: 'monospace',
-                                fontWeight: 'bold',
-                                zIndex: 1000,
-                                boxShadow: '0 0 15px #ff0000',
-                                animation: 'pulse-red 2s infinite'
-                            }}
-                        >
-                            Úñ INFO CONFIDENCIAL
-                        </button>
+                        <div style={{
+                            position: 'absolute',
+                            top: '60px',
+                            right: '20px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '10px',
+                            zIndex: 1000
+                        }}>
+                            <button
+                                onClick={handleOpenConfidential}
+                                style={{
+                                    padding: '10px 20px',
+                                    backgroundColor: '#002222',
+                                    color: '#00ffff',
+                                    border: '2px solid #00ffff',
+                                    borderRadius: '5px',
+                                    cursor: 'pointer',
+                                    fontFamily: 'monospace',
+                                    fontWeight: 'bold',
+                                    boxShadow: '0 0 15px rgba(0, 255, 255, 0.3)',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                ☢️ INFO CONFIDENCIAL
+                            </button>
+
+                            {/* NUCLEAR VICTORY BUTTON - APPAREARS WHEN CONDITIONS ARE MET */}
+                            {(() => {
+                                const player = players[currentPlayerIndex];
+                                const siloCard = player.specialCards.find(c => c.name === 'SILO DE LANZAMIENTO');
+                                const mineralCard = player.specialCards.find(c => c.name === 'MINERAL SECRETO');
+
+                                if (!siloCard || !mineralCard) return null;
+
+                                const siloRegionId = siloCard.originCountry;
+                                const mineralRegionId = mineralCard.originCountry;
+                                const hasFuel = player.siloFuelCards?.[siloRegionId] !== undefined;
+                                const hasRoute = checkRoute(mineralRegionId, siloRegionId, currentPlayerIndex);
+
+                                if (hasFuel && hasRoute) {
+                                    return (
+                                        <button
+                                            onClick={() => setShowNuclearDeploymentModal(true)}
+                                            style={{
+                                                padding: '12px 20px',
+                                                backgroundColor: '#330000',
+                                                color: '#ff0000',
+                                                border: '2px solid #ff0000',
+                                                borderRadius: '5px',
+                                                cursor: 'pointer',
+                                                fontFamily: 'monospace',
+                                                fontWeight: 'bold',
+                                                boxShadow: '0 0 20px #ff0000',
+                                                animation: 'pulse-red 2s infinite',
+                                                textTransform: 'uppercase'
+                                            }}
+                                        >
+                                            🚀 INICIAR OPERACIÓN FINAL
+                                        </button>
+                                    );
+                                }
+                                return null;
+                            })()}
+                        </div>
                     )
                 }
 
