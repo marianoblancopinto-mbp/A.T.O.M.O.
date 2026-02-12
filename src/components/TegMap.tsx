@@ -789,12 +789,16 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
 
 
 
+    const isMobile = window.innerWidth <= 768;
+
     return (
         <div style={{
-            width: '100vw',
-            height: '100vh',
+            width: isMobile ? 'auto' : '100vw',
+            height: isMobile ? 'auto' : '100vh',
+            minWidth: '100vw',
+            minHeight: '100vh',
             backgroundColor: '#000000',
-            overflow: 'hidden',
+            overflow: 'auto',
             display: 'flex', // Flex layout
             fontFamily: "'Courier New', Courier, monospace",
             // Retro grid effect

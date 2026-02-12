@@ -76,7 +76,7 @@ export const Lobby: React.FC<LobbyProps> = ({ onGameStart }) => {
                 color: '#00ff00',
                 fontFamily: 'monospace',
                 overflowY: 'auto',
-                overflowX: 'hidden'
+                overflowX: 'auto'
             }}>
                 {/* Background Grid/Effect */}
                 <div style={{
