@@ -75,6 +75,7 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
                 zIndex: 100,
                 boxSizing: 'border-box',
                 transition: 'transform 0.3s ease',
+                overflowY: 'auto',
                 ...(isMobile ? {
                     position: 'fixed',
                     top: 0,
