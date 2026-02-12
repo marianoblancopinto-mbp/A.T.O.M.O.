@@ -75,7 +75,7 @@ const LABEL_OFFSETS: Record<string, { x: number; y: number }> = {
 };
 
 interface UseTegMapHelpersProps {
-    owners: Record<string, number | null>;
+    owners: Record<string, string | number | null>;
     players: PlayerData[];
 }
 

@@ -5,7 +5,7 @@ interface AndesMissionModalProps {
     onClose: () => void;
     player: PlayerData;
     currentPlayerIndex: number;
-    owners: Record<string, number | null>;
+    owners: Record<string, string | number | null>;
     onComplete: (foodSupplyId: string) => void;
     onOpenInventory: () => void;
 }

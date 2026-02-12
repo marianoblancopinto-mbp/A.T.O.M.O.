@@ -126,8 +126,14 @@ export const RawMaterialsModal: React.FC<RawMaterialsModalProps> = ({
                                     }}>
                                         {countries.map((countryId: string) => {
                                             const regionData = REGIONS.find(r => r.id === countryId);
+                                            // Ensure we handle the type correctly
                                             const owner = owners[countryId];
-                                            const ownerPlayer = owner !== undefined && owner !== null ? players[owner] : null;
+                                            let ownerPlayer = null;
+                                            if (typeof owner === 'number') {
+                                                ownerPlayer = players[owner];
+                                            } else if (typeof owner === 'string') {
+                                                ownerPlayer = players.find(p => p.id === owner) || null;
+                                            }
 
                                             return (
                                                 <div

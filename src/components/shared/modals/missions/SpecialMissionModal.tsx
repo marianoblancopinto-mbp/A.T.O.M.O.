@@ -1,7 +1,6 @@
 import React from 'react';
 import { useGameContext } from '../../../../context/GameContext';
 import { getSpecialMissions } from '../../../../data/missionData';
-import type { TerritoryCard } from '../../../../types/productionTypes';
 import { REGIONS } from '../../../../data/mapRegions';
 import type { SpecialCard } from '../../../../types/playerTypes';
 import { usePlayerResources } from '../../../../hooks/usePlayerResources';
@@ -271,7 +270,7 @@ export const SpecialMissionModal: React.FC<SpecialMissionModalProps> = ({
             onClose={onClose}
             inventoryCards={inventoryCards}
 
-            onSuccess={(id, title, baseId) => {
+            onSuccess={(id, title) => {
                 dispatch({
                     type: 'SET_NOTIFICATION',
                     payload: {

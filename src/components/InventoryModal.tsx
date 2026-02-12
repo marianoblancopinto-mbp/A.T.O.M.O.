@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { type TerritoryCard, type SupplyType, TECHNOLOGY_PRODUCES, type SupplyItem } from '../types/productionTypes';
+import { type SupplyType, TECHNOLOGY_PRODUCES, type SupplyItem } from '../types/productionTypes';
 import { TECHNOLOGY_DATA, RAW_MATERIAL_DATA, TECHNOLOGY_REQUIREMENTS } from '../data/productionData';
 import { useGameContext } from '../context/GameContext';
 import { useMyPlayer } from '../hooks/useMyPlayer';

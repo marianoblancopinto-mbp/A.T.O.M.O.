@@ -1,4 +1,4 @@
-import type { RawMaterialType, TechnologyType, SupplyType, ProductionInventory, RawMaterialCard, TechnologyCard, TerritoryCard, ProductionDeck } from '../types/productionTypes';
+import type { RawMaterialType, TechnologyType, SupplyType, ProductionInventory, TerritoryCard, ProductionDeck } from '../types/productionTypes';
 
 export const WAR_SECRETS_RESOURCES: { type: RawMaterialType; label: string }[] = [
     { type: 'ALUMINIO', label: 'ALUMINIO' },

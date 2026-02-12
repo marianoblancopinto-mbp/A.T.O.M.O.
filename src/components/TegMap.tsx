@@ -78,17 +78,10 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
         }
     };
 
-    const setGameDate = (action: React.SetStateAction<Date>) => {
-        if (typeof action === 'function') {
-            dispatch({ type: 'UPDATE_GAME_DATE_FN', payload: action as (prev: Date) => Date });
-        } else {
-            dispatch({ type: 'SET_GAME_DATE', payload: action });
-        }
-    };
-
-    const setCurrentPlayerIndex = (index: number) => dispatch({ type: 'SET_CURRENT_PLAYER', payload: index });
-    const setTurnOrder = (order: number[]) => dispatch({ type: 'SET_TURN_ORDER', payload: order });
-    const setTurnOrderIndex = (index: number) => dispatch({ type: 'SET_TURN_ORDER_INDEX', payload: index });
+    // const setGameDate = ... (removed unused)
+    // const setCurrentPlayerIndex = ... (removed unused)
+    // const setTurnOrder = ... (removed unused)
+    // const setTurnOrderIndex = ... (removed unused)
 
 
 

@@ -460,10 +460,10 @@ export const ConfidentialInfoModal: React.FC<ConfidentialInfoModalProps> = ({
                 <EspionageTargetSelectionModal show={true} onClose={() => setActiveSecondary(null)} />
             )}
             {activeSecondary === 'ANDES' && (
-                <AndesMissionModal onClose={() => setActiveSecondary(null)} onSuccess={() => { }} />
+                <AndesMissionModal onClose={() => setActiveSecondary(null)} onComplete={() => { }} onOpenInventory={onClose} show={true} player={targetPlayer} currentPlayerIndex={currentPlayerIndex} owners={owners} />
             )}
             {activeSecondary === 'NORMANDY' && (
-                <NormandyMissionModal show={true} onClose={() => setActiveSecondary(null)} onSuccess={() => { }} />
+                <NormandyMissionModal show={true} onClose={() => setActiveSecondary(null)} />
             )}
             {activeSecondary === 'ALEJANDRO' && (
                 <AlejandroMissionModal show={true} onClose={() => setActiveSecondary(null)} onSuccess={() => { }} onOpenInventory={onClose} />
