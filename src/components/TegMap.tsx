@@ -865,7 +865,13 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                 />
             )}
 
-            <div style={{ flex: 1, height: '100%', position: 'relative', display: 'flex', flexDirection: 'column' }}>
+            <div style={{
+                flex: 1,
+                height: window.innerWidth <= 768 ? 'auto' : '100%',
+                position: 'relative',
+                display: 'flex',
+                flexDirection: 'column'
+            }}>
                 {/* Mobile Menu Toggle Button */}
                 {!spectator && (
                     <button
