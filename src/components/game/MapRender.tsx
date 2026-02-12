@@ -29,6 +29,8 @@ export const MapRender: React.FC<MapRenderProps> = ({ selectedRegionId, onRegion
             style={{
                 width: isMobile ? '1400px' : '100%',
                 height: isMobile ? '700px' : '100%',
+                minWidth: isMobile ? '1400px' : 'none',
+                minHeight: isMobile ? '700px' : 'none',
                 display: 'block'
             }}
             preserveAspectRatio="xMidYMid meet"

@@ -871,10 +871,11 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
 
             <div style={{
                 flex: 1,
-                height: window.innerWidth <= 768 ? 'auto' : '100%',
+                height: isMobile ? 'auto' : '100%',
                 position: 'relative',
                 display: 'flex',
-                flexDirection: 'column'
+                flexDirection: 'column',
+                minWidth: isMobile ? 'max-content' : 'auto'
             }}>
                 {/* Mobile Menu Toggle Button */}
                 {!spectator && (
@@ -897,7 +898,11 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                         MENÚ
                     </button>
                 )}
-                <div style={{ flex: 1, position: 'relative' }}>
+                <div style={{
+                    flex: 1,
+                    position: 'relative',
+                    minWidth: isMobile ? 'max-content' : 'auto'
+                }}>
 
                     <MapRender
                         selectedRegionId={selectedRegionId}
