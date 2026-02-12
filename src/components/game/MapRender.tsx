@@ -27,10 +27,8 @@ export const MapRender: React.FC<MapRenderProps> = ({ selectedRegionId, onRegion
         <svg
             viewBox="0 0 1700.79 835"
             style={{
-                width: isMobile ? '1400px' : '100%',
-                height: isMobile ? '700px' : '100%',
-                minWidth: isMobile ? '1400px' : 'none',
-                minHeight: isMobile ? '700px' : 'none',
+                width: '100%',
+                height: isMobile ? 'auto' : '100%',
                 display: 'block'
             }}
             preserveAspectRatio="xMidYMid meet"

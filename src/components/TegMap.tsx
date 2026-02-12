@@ -874,8 +874,7 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                 height: isMobile ? 'auto' : '100%',
                 position: 'relative',
                 display: 'flex',
-                flexDirection: 'column',
-                minWidth: isMobile ? 'max-content' : 'auto'
+                flexDirection: 'column'
             }}>
                 {/* Mobile Menu Toggle Button */}
                 {!spectator && (
@@ -900,8 +899,7 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                 )}
                 <div style={{
                     flex: 1,
-                    position: 'relative',
-                    minWidth: isMobile ? 'max-content' : 'auto'
+                    position: 'relative'
                 }}>
 
                     <MapRender
