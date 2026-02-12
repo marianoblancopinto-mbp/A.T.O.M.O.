@@ -32,10 +32,14 @@ export const RegionInfoPanel: React.FC<RegionInfoPanelProps> = ({
     const currentPlayer = players[currentPlayerIndex];
 
 
+    const isMobile = window.innerWidth <= 768;
+
     return (
         <div style={{
-            height: '200px',
-            backgroundColor: 'rgba(0, 20, 0, 0.95)',
+            height: isMobile ? 'auto' : '200px',
+            maxHeight: isMobile ? '60vh' : '200px',
+            overflowY: 'auto',
+            backgroundColor: 'rgba(0, 20, 0, 0.98)',
             borderTop: '2px solid #00ff00',
             display: 'flex',
             flexDirection: 'column',
@@ -44,11 +48,15 @@ export const RegionInfoPanel: React.FC<RegionInfoPanelProps> = ({
             color: '#00ff00',
             fontFamily: 'monospace',
             boxShadow: '0 -5px 20px rgba(0, 255, 0, 0.2)',
-            zIndex: 20
+            zIndex: 20,
+            position: isMobile ? 'fixed' : 'relative',
+            bottom: 0,
+            left: 0,
+            width: '100%'
         }}>
 
             <div style={{
-                fontSize: '1.5rem',
+                fontSize: isMobile ? '1.2rem' : '1.5rem',
                 fontWeight: 'bold',
                 textTransform: 'uppercase',
                 borderBottom: '1px solid #005500',
@@ -74,9 +82,16 @@ export const RegionInfoPanel: React.FC<RegionInfoPanelProps> = ({
                 </button>
             </div>
 
-            <div style={{ display: 'flex', flex: 1, gap: '20px', overflow: 'hidden' }}>
+            <div style={{
+                display: 'flex',
+                flex: isMobile ? 'none' : 1,
+                flexDirection: isMobile ? 'column' : 'row',
+                gap: isMobile ? '10px' : '20px',
+                overflow: isMobile ? 'visible' : 'hidden',
+                paddingBottom: isMobile ? '20px' : '0'
+            }}>
                 {/* Geography Column */}
-                <div style={{ flex: 1, border: '1px solid #003300', padding: '10px', backgroundColor: 'rgba(0,10,0,0.5)', overflowY: 'auto' }}>
+                <div style={{ flex: 1, border: '1px solid #003300', padding: '10px', backgroundColor: 'rgba(0,10,0,0.5)', overflowY: isMobile ? 'visible' : 'auto' }}>
                     <h4 style={{ margin: '0 0 10px 0', color: '#00aa00', textTransform: 'uppercase', fontSize: '0.8rem' }}>Geografía</h4>
                     <div style={{ fontSize: '0.8rem', color: '#005500' }}>
                         {REGION_BIOMES[selectedRegionId] ? (
@@ -114,7 +129,7 @@ export const RegionInfoPanel: React.FC<RegionInfoPanelProps> = ({
                 </div>
 
                 {/* Raw Materials Column */}
-                <div style={{ flex: 1, border: '1px solid #003300', padding: '10px', backgroundColor: 'rgba(0,10,0,0.5)', overflowY: 'auto' }}>
+                <div style={{ flex: 1, border: '1px solid #003300', padding: '10px', backgroundColor: 'rgba(0,10,0,0.5)', overflowY: isMobile ? 'visible' : 'auto' }}>
                     <h4 style={{ margin: '0 0 10px 0', color: '#00aa00', textTransform: 'uppercase', fontSize: '0.8rem' }}>Materia Prima</h4>
                     <div style={{ fontSize: '0.8rem', color: '#005500' }}>
                         {regionResources ? (() => {
@@ -149,7 +164,7 @@ export const RegionInfoPanel: React.FC<RegionInfoPanelProps> = ({
                 </div>
 
                 {/* Technologies Column */}
-                <div style={{ flex: 1, border: '1px solid #003300', padding: '10px', backgroundColor: 'rgba(0,10,0,0.5)', overflowY: 'auto' }}>
+                <div style={{ flex: 1, border: '1px solid #003300', padding: '10px', backgroundColor: 'rgba(0,10,0,0.5)', overflowY: isMobile ? 'visible' : 'auto' }}>
                     <h4 style={{ margin: '0 0 10px 0', color: '#00aa00', textTransform: 'uppercase', fontSize: '0.8rem' }}>Tecnología</h4>
                     <div style={{ fontSize: '0.8rem', color: '#005500' }}>
                         {regionResources ? (() => {
@@ -181,7 +196,7 @@ export const RegionInfoPanel: React.FC<RegionInfoPanelProps> = ({
                 </div>
 
                 {/* Specials Column */}
-                <div style={{ flex: 1, border: '1px solid #003300', padding: '10px', backgroundColor: 'rgba(0,10,0,0.5)', overflowY: 'auto' }}>
+                <div style={{ flex: 1, border: '1px solid #003300', padding: '10px', backgroundColor: 'rgba(0,10,0,0.5)', overflowY: isMobile ? 'visible' : 'auto' }}>
                     <h4 style={{ margin: '0 0 10px 0', color: '#00aa00', textTransform: 'uppercase', fontSize: '0.8rem' }}>Especiales</h4>
                     <div style={{ fontSize: '0.8rem', color: '#005500' }}>
                         {(() => {
@@ -215,14 +230,6 @@ export const RegionInfoPanel: React.FC<RegionInfoPanelProps> = ({
                                         <button
                                             onClick={() => onShowNuclearDesignInfo(selectedRegionId)}
                                             style={specialBtnStyle('#1a0a00', '#ff9100', '#ff9100')}
-                                            onMouseEnter={(e) => {
-                                                e.currentTarget.style.backgroundColor = '#ff9100';
-                                                e.currentTarget.style.color = '#000';
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                e.currentTarget.style.backgroundColor = '#1a0a00';
-                                                e.currentTarget.style.color = '#ff9100';
-                                            }}
                                         >
                                             <span style={{ fontSize: '1.2rem' }}>☢️</span>
                                             DISEÑO DE ARMAS NUCLEARES INTERCONTINENTALES
@@ -232,14 +239,6 @@ export const RegionInfoPanel: React.FC<RegionInfoPanelProps> = ({
                                         <button
                                             onClick={() => onShowMineralExtraction(selectedRegionId)}
                                             style={specialBtnStyle('#001a1a', '#00ffff', '#00ffff')}
-                                            onMouseEnter={(e) => {
-                                                e.currentTarget.style.backgroundColor = '#00ffff';
-                                                e.currentTarget.style.color = '#000';
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                e.currentTarget.style.backgroundColor = '#001a1a';
-                                                e.currentTarget.style.color = '#00ffff';
-                                            }}
                                         >
                                             EXTRAER MINERAL SECRETO
                                         </button>
@@ -248,14 +247,6 @@ export const RegionInfoPanel: React.FC<RegionInfoPanelProps> = ({
                                         <button
                                             onClick={() => onShowEspionageNetworkInfo(selectedRegionId)}
                                             style={specialBtnStyle('#001122', '#00ffff', '#00ffff')}
-                                            onMouseEnter={(e) => {
-                                                e.currentTarget.style.backgroundColor = '#00ffff';
-                                                e.currentTarget.style.color = '#000';
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                e.currentTarget.style.backgroundColor = '#001122';
-                                                e.currentTarget.style.color = '#00ffff';
-                                            }}
                                         >
                                             🕵️ RED DE ESPIONAJE
                                         </button>
@@ -267,14 +258,6 @@ export const RegionInfoPanel: React.FC<RegionInfoPanelProps> = ({
                                                 <button
                                                     onClick={() => onShowSpecialMissionInfo(selectedRegionId)}
                                                     style={specialBtnStyle('#002200', '#00ff00', '#00ff00')}
-                                                    onMouseEnter={(e) => {
-                                                        e.currentTarget.style.backgroundColor = '#00ff00';
-                                                        e.currentTarget.style.color = '#000';
-                                                    }}
-                                                    onMouseLeave={(e) => {
-                                                        e.currentTarget.style.backgroundColor = '#002200';
-                                                        e.currentTarget.style.color = '#00ff00';
-                                                    }}
                                                 >
                                                     OPERACIONES ESPECIALES
                                                 </button>
@@ -293,14 +276,14 @@ export const RegionInfoPanel: React.FC<RegionInfoPanelProps> = ({
                 </div>
 
                 {/* Actions Column */}
-                <div style={{ flex: 1, border: '1px solid #003300', padding: '10px', backgroundColor: 'rgba(0,10,0,0.5)' }}>
+                <div style={{ flex: isMobile ? 'none' : 1, border: '1px solid #003300', padding: '10px', backgroundColor: 'rgba(0,10,0,0.5)' }}>
                     <h4 style={{ margin: '0 0 10px 0', color: '#aa0000', textTransform: 'uppercase', fontSize: '0.8rem' }}>Acciones</h4>
                     <button
                         onClick={onAttack}
                         style={{
                             width: '100%',
                             padding: '10px',
-                            fontSize: '1.2rem',
+                            fontSize: isMobile ? '1rem' : '1.2rem',
                             fontWeight: 'bold',
                             backgroundColor: '#330000',
                             color: '#ff0000',
@@ -311,14 +294,6 @@ export const RegionInfoPanel: React.FC<RegionInfoPanelProps> = ({
                             boxShadow: '0 0 10px rgba(255, 0, 0, 0.2)',
                             animation: 'pulse 2s infinite'
                         }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.backgroundColor = '#ff0000';
-                            e.currentTarget.style.color = '#000';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor = '#330000';
-                            e.currentTarget.style.color = '#ff0000';
-                        }}
                     >
                         ATACAR
                     </button>
@@ -326,4 +301,5 @@ export const RegionInfoPanel: React.FC<RegionInfoPanelProps> = ({
             </div>
         </div>
     );
+
 };

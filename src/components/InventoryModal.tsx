@@ -376,7 +376,10 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
     const compatibility = getCompatibilityMessage();
     const canProduce = selectedTech && selectedRaw && compatibility.valid;
 
+    const isMobile = window.innerWidth <= 768;
+
     return (
+
         <div style={{
             position: 'fixed',
             top: 0,
@@ -393,21 +396,21 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
             onClick={onClose}
         >
             <div style={{
-                width: '90%',
+                width: isMobile ? '100%' : '90%',
                 maxWidth: '1200px',
-                height: '90vh', // Increased height
+                height: isMobile ? '100vh' : '90vh',
                 backgroundColor: COLORS.background,
-                border: `2px solid ${color}`,
+                border: isMobile ? 'none' : `2px solid ${color}`,
                 boxShadow: `0 0 30px ${color}30`,
                 display: 'flex',
                 flexDirection: 'column',
-                padding: '30px',
+                padding: isMobile ? '15px' : '30px',
                 overflow: 'hidden',
-                borderRadius: '10px',
+                borderRadius: isMobile ? '0' : '10px',
                 animation: 'fadeIn 0.3s ease-out',
-                position: 'relative' // For absolute positioning of button
+                position: 'relative'
             }}
-                onClick={e => e.stopPropagation()} // Prevent close when clicking inside
+                onClick={e => e.stopPropagation()}
             >
                 {/* Header */}
                 <div style={{
@@ -415,27 +418,27 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     borderBottom: `1px solid ${color}50`,
-                    paddingBottom: '20px',
-                    marginBottom: '20px'
+                    paddingBottom: isMobile ? '10px' : '20px',
+                    marginBottom: isMobile ? '10px' : '20px'
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', gap: isMobile ? '5px' : '20px' }}>
                         <h2 style={{
                             margin: 0,
                             color: color,
                             textTransform: 'uppercase',
-                            fontSize: '2rem',
-                            letterSpacing: '5px',
+                            fontSize: isMobile ? '1.2rem' : '2rem',
+                            letterSpacing: isMobile ? '2px' : '5px',
                             textShadow: `0 0 10px ${color}`
                         }}>
-                            INVENTARIO Y PRODUCCIÓN
+                            INVENTARIO
                         </h2>
                         <span style={{
                             color: '#fff',
-                            fontSize: '1.2rem',
+                            fontSize: isMobile ? '0.8rem' : '1.2rem',
                             opacity: 0.7,
                             fontFamily: 'monospace'
                         }}>
-                            // COMANDANTE {playerName}
+                            // {playerName}
                         </span>
                     </div>
                     <button
@@ -444,14 +447,14 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                             background: 'transparent',
                             border: `1px solid ${color}`,
                             color: color,
-                            padding: '10px 20px',
+                            padding: isMobile ? '5px 10px' : '10px 20px',
                             cursor: 'pointer',
-                            fontSize: '1.2rem',
+                            fontSize: isMobile ? '0.9rem' : '1.2rem',
                             fontWeight: 'bold',
                             textTransform: 'uppercase'
                         }}
                     >
-                        CERRAR [X]
+                        {isMobile ? 'X' : 'CERRAR [X]'}
                     </button>
                 </div>
 
@@ -459,11 +462,11 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                 <div style={{
                     flex: 1,
                     overflowY: 'auto',
-                    paddingRight: '10px',
+                    paddingRight: '5px',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '40px',
-                    paddingBottom: '80px' // Space for production button
+                    gap: isMobile ? '20px' : '40px',
+                    paddingBottom: '100px'
                 }}>
 
                     {/* SECTION 1: SUPPLIES */}
@@ -471,33 +474,33 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                         <h3 style={{
                             color: '#fff',
                             borderLeft: '4px solid #fff',
-                            paddingLeft: '15px',
-                            marginBottom: '20px',
+                            paddingLeft: '10px',
+                            marginBottom: '15px',
                             textTransform: 'uppercase',
-                            letterSpacing: '2px'
+                            letterSpacing: '1px',
+                            fontSize: isMobile ? '0.9rem' : '1.1rem'
                         }}>
-                            Suministros Disponibles ({supplyCards.length})
+                            Suministros ({supplyCards.length})
                         </h3>
                         <div style={{
                             display: 'grid',
-                            gridTemplateColumns: 'repeat(3, 1fr)',
-                            gap: '20px',
-                            padding: '20px',
+                            gridTemplateColumns: `repeat(auto-fill, minmax(130px, 1fr))`,
+                            gap: '10px',
+                            padding: '10px',
                             justifyItems: 'center',
                             backgroundColor: 'rgba(255,255,255,0.03)',
-                            borderRadius: '8px',
-                            minHeight: '250px'
+                            borderRadius: '8px'
                         }}>
                             {supplyCards.length > 0 ? supplyCards : (
-                                <div style={{ color: '#666', fontStyle: 'italic', padding: '20px' }}>
-                                    No hay suministros formados.
+                                <div style={{ color: '#666', fontStyle: 'italic', padding: '10px', gridColumn: '1/-1' }}>
+                                    No hay suministros.
                                 </div>
                             )}
                         </div>
                     </section>
 
                     {/* DOUBLE SECTION FOR PRODUCTION */}
-                    <div style={{ display: 'flex', gap: '20px' }}>
+                    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '20px' }}>
                         {/* SECTION 2: TECHNOLOGIES */}
                         <section style={{ flex: 1 }}>
                             <h3 style={{
@@ -513,17 +516,16 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                             </h3>
                             <div style={{
                                 display: 'grid',
-                                gridTemplateColumns: 'repeat(3, 1fr)',
+                                gridTemplateColumns: `repeat(auto-fill, minmax(130px, 1fr))`,
                                 gap: '5px',
                                 padding: '5px',
                                 justifyItems: 'center',
                                 backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                                borderRadius: '8px',
-                                minHeight: '250px'
+                                borderRadius: '8px'
                             }}>
                                 {techCards.length > 0 ? techCards : (
-                                    <div style={{ color: '#666', fontStyle: 'italic', padding: '10px', fontSize: '0.8rem' }}>
-                                        No hay tecnologías disponibles.
+                                    <div style={{ color: '#666', fontStyle: 'italic', padding: '10px', fontSize: '0.8rem', gridColumn: '1/-1' }}>
+                                        No hay tecnologías.
                                     </div>
                                 )}
                             </div>
@@ -544,17 +546,16 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                             </h3>
                             <div style={{
                                 display: 'grid',
-                                gridTemplateColumns: 'repeat(3, 1fr)',
+                                gridTemplateColumns: `repeat(auto-fill, minmax(130px, 1fr))`,
                                 gap: '5px',
                                 padding: '5px',
                                 justifyItems: 'center',
                                 backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                                borderRadius: '8px',
-                                minHeight: '250px'
+                                borderRadius: '8px'
                             }}>
                                 {rawMaterialCards.length > 0 ? rawMaterialCards : (
-                                    <div style={{ color: '#666', fontStyle: 'italic', padding: '10px', fontSize: '0.8rem' }}>
-                                        No hay materias primas disponibles.
+                                    <div style={{ color: '#666', fontStyle: 'italic', padding: '10px', fontSize: '0.8rem', gridColumn: '1/-1' }}>
+                                        No hay materias primas.
                                     </div>
                                 )}
                             </div>
@@ -568,40 +569,49 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                     bottom: '0',
                     left: '0',
                     width: '100%',
-                    padding: '20px',
-                    backgroundColor: 'rgba(0,0,0,0.9)',
+                    padding: isMobile ? '10px' : '20px',
+                    backgroundColor: 'rgba(0,0,0,0.95)',
                     borderTop: `1px solid ${color}50`,
                     display: 'flex',
-                    justifyContent: 'center', // Centered
+                    flexDirection: isMobile ? 'column' : 'row',
+                    justifyContent: 'center',
                     alignItems: 'center',
-                    gap: '20px'
+                    gap: isMobile ? '10px' : '20px',
+                    zIndex: 20
                 }}>
-                    <div style={{ color: canProduce ? '#4caf50' : compatibility.text ? '#ff5252' : '#fff', fontWeight: 'bold' }}>
+                    <div style={{
+                        color: canProduce ? '#4caf50' : compatibility.text ? '#ff5252' : '#fff',
+                        fontWeight: 'bold',
+                        fontSize: isMobile ? '0.75rem' : '1rem',
+                        textAlign: 'center'
+                    }}>
                         {compatibility.text || (
-                            `Seleccionado: ${selectedTech ? '✅ Tecnología' : '❌ Tecnología'} + ${selectedRaw ? '✅ Materia Prima' : '❌ Materia Prima'}`
+                            `Seleccionado: ${selectedTech ? '✅ Tec.' : '❌ Tec.'} + ${selectedRaw ? '✅ Mat.' : '❌ Mat.'}`
                         )}
                     </div>
                     <button
                         disabled={!canProduce}
                         onClick={handleProduce}
                         style={{
-                            padding: '15px 40px',
+                            padding: isMobile ? '12px 20px' : '15px 40px',
                             backgroundColor: canProduce ? color : '#333',
                             color: canProduce ? '#000' : '#888',
                             border: 'none',
                             borderRadius: '5px',
-                            fontSize: '1.2rem',
+                            fontSize: isMobile ? '1rem' : '1.2rem',
                             fontWeight: 'bold',
                             cursor: canProduce ? 'pointer' : 'not-allowed',
                             textTransform: 'uppercase',
                             boxShadow: canProduce ? `0 0 20px ${color}` : 'none',
-                            transition: 'all 0.3s'
+                            transition: 'all 0.3s',
+                            width: isMobile ? '100%' : 'auto'
                         }}
                     >
-                        PRODUCIR SUMINISTRO
+                        PRODUCIR
                     </button>
                 </div>
             </div>
+
             <style>{`
                 @keyframes fadeIn {
                     from { opacity: 0; transform: scale(0.95); }

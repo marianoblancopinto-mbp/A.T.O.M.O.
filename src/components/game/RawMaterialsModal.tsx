@@ -40,7 +40,7 @@ export const RawMaterialsModal: React.FC<RawMaterialsModalProps> = ({
                 border: '2px solid #d500f9',
                 borderRadius: '10px',
                 padding: '20px',
-                width: '500px',
+                width: window.innerWidth <= 768 ? '95%' : '500px',
                 maxHeight: '80vh',
                 overflowY: 'auto',
                 fontFamily: 'monospace',

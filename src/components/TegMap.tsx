@@ -97,6 +97,7 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
     const [showRawMaterialsModal, setShowRawMaterialsModal] = useState(false);
     const [expandedRawMaterials, setExpandedRawMaterials] = useState<Set<string>>(new Set());
     const [showTechnologiesModal, setShowTechnologiesModal] = useState(false);
+    const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
     // Mission Modals State
 
@@ -859,11 +860,35 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                     onOpenRawMaterials={() => setShowRawMaterialsModal(true)}
                     onOpenTechnologies={() => setShowTechnologiesModal(true)}
                     onOpenConfidential={() => setShowConfidentialModal(true)}
+                    mobileOpen={showMobileSidebar}
+                    onCloseMobile={() => setShowMobileSidebar(false)}
                 />
             )}
 
             <div style={{ flex: 1, height: '100%', position: 'relative', display: 'flex', flexDirection: 'column' }}>
+                {/* Mobile Menu Toggle Button */}
+                {!spectator && (
+                    <button
+                        onClick={() => setShowMobileSidebar(true)}
+                        style={{
+                            position: 'absolute',
+                            top: '10px',
+                            left: '10px',
+                            zIndex: 80,
+                            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                            color: '#00ff00',
+                            border: '1px solid #00ff00',
+                            padding: '8px 12px',
+                            cursor: 'pointer',
+                            fontFamily: 'monospace',
+                            display: window.innerWidth <= 768 ? 'block' : 'none'
+                        }}
+                    >
+                        MENÚ
+                    </button>
+                )}
                 <div style={{ flex: 1, position: 'relative' }}>
+
                     <MapRender
                         selectedRegionId={selectedRegionId}
                         onRegionClick={handleRegionClick}

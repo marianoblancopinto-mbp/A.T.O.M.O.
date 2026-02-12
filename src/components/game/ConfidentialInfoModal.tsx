@@ -213,10 +213,11 @@ export const ConfidentialInfoModal: React.FC<ConfidentialInfoModalProps> = ({
             fontFamily: 'monospace'
         }}>
             <div style={{
-                width: '800px',
+                width: window.innerWidth <= 768 ? '100%' : '800px',
                 maxWidth: '95vw',
-                height: '90vh',
+                height: window.innerWidth <= 768 ? '100vh' : '90vh',
                 backgroundColor: '#001100',
+
                 border: `2px solid ${targetPlayer.color}`,
                 boxShadow: `0 0 30px ${targetPlayer.color}40`,
                 display: 'flex',

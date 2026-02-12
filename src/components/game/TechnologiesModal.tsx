@@ -40,7 +40,7 @@ export const TechnologiesModal: React.FC<TechnologiesModalProps> = ({
                 border: '2px solid #00ff00',
                 borderRadius: '10px',
                 padding: '20px',
-                width: '500px',
+                width: window.innerWidth <= 768 ? '95%' : '500px',
                 maxHeight: '80vh',
                 overflowY: 'auto',
                 fontFamily: 'monospace',

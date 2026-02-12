@@ -173,18 +173,19 @@ export const MapRender: React.FC<MapRenderProps> = ({ selectedRegionId, onRegion
                         textAnchor="middle"
                         dominantBaseline="middle"
                         style={{
-                            fontSize: '11px',
+                            fontSize: window.innerWidth <= 768 ? '16px' : '11px',
                             fontFamily: "Arial, Helvetica, sans-serif",
                             fontWeight: '900',
                             pointerEvents: 'none',
                             fill: '#ffffff',
                             stroke: '#000000',
-                            strokeWidth: '3px',
+                            strokeWidth: window.innerWidth <= 768 ? '4px' : '3px',
                             paintOrder: 'stroke',
                             strokeLinejoin: 'round',
                             letterSpacing: '0.5px',
                             textTransform: 'uppercase'
                         }}
+
                     >
                         {region.title}
                     </text>
