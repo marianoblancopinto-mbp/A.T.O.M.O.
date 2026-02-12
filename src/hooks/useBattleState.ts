@@ -1,0 +1,244 @@
+import { useState } from 'react';
+import type { Card, Regiment, Tier } from '../types/gameTypes';
+import type { PlayerData, SpecialCard } from '../types/playerTypes';
+import { REGIONS } from '../data/mapRegions';
+import { MARITIME_ROUTES, REGION_ADJACENCY, isMaritimeConnection } from '../data/mapData';
+import { useGameContext } from '../context/GameContext';
+import { useGameActions } from './useGameActions';
+// BattleState is now global in types/gameTypes.ts
+
+interface UseBattleStateProps {
+    // Only UI-specific props remain
+    selectedRegionId: string | null;
+    setConquestData: React.Dispatch<React.SetStateAction<{ player: PlayerData, regionName: string } | null>>;
+    showTurnOverlay: boolean;
+    conquestData: any;
+}
+
+export const useBattleState = ({
+    selectedRegionId,
+    setConquestData,
+    showTurnOverlay,
+    conquestData
+}: UseBattleStateProps) => {
+    const { state, dispatch } = useGameContext();
+    const { players, owners, currentPlayerIndex, gameStarted, battleState } = state;
+
+    // Local UI state for source selection (attacker only)
+    const [attackSourceSelection, setAttackSourceSelection] = useState<{
+        targetId: string;
+        validSources: string[];
+    } | null>(null);
+    const [usedAttackSources, setUsedAttackSources] = useState<Set<string>>(new Set());
+
+    const generateDeck = (): Card[] => {
+        const deck: Card[] = [];
+        const regiments: Regiment[] = ['A', 'B', 'C'];
+        const tiers: Tier[] = [1, 2, 3, 4];
+
+        let idCounter = 0;
+        regiments.forEach(reg => {
+            tiers.forEach(tier => {
+                for (let i = 0; i < 5; i++) {
+                    deck.push({
+                        id: `card-${idCounter++}`,
+                        regiment: reg,
+                        tier: tier,
+                        variant: i
+                    });
+                }
+            });
+        });
+        return deck;
+    };
+
+    const shuffleDeck = (deck: Card[]) => {
+        for (let i = deck.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [deck[i], deck[j]] = [deck[j], deck[i]];
+        }
+        return deck;
+    };
+
+    const handleAttackClick = () => {
+        if (!selectedRegionId) return;
+        if (!gameStarted || showTurnOverlay || conquestData) return;
+
+        // Validation: Cannot attack own territory
+        // Check ownership robustly (owners map can store index (number) or ID (string))
+        const ownerValue = owners[selectedRegionId];
+        const currentPlayer = players[currentPlayerIndex];
+
+        let isOwnedByCurrentPlayer = false;
+        if (typeof ownerValue === 'number') {
+            isOwnedByCurrentPlayer = ownerValue === currentPlayerIndex;
+        } else if (typeof ownerValue === 'string') {
+            isOwnedByCurrentPlayer = ownerValue === currentPlayer.id;
+        }
+
+        if (isOwnedByCurrentPlayer) {
+            alert("No puedes atacar tu propio territorio.");
+            return;
+        }
+
+        // Get Neighbors from Adjacency Map
+        const allNeighbors = [...(REGION_ADJACENCY[selectedRegionId] || [])];
+
+        // Also check Maritime Routes explicitly if not in Adjacency (to be safe)
+        // Add any maritime partner
+        MARITIME_ROUTES.forEach(pair => {
+            if (pair[0] === selectedRegionId && !allNeighbors.includes(pair[1])) allNeighbors.push(pair[1]);
+            if (pair[1] === selectedRegionId && !allNeighbors.includes(pair[0])) allNeighbors.push(pair[0]);
+        });
+
+        // Check Wraparound
+        if (selectedRegionId === 'alaska' && !allNeighbors.includes('kamchakta')) allNeighbors.push('kamchakta');
+        if (selectedRegionId === 'kamchakta' && !allNeighbors.includes('alaska')) allNeighbors.push('alaska');
+        if (selectedRegionId === 'chile' && !allNeighbors.includes('australia')) allNeighbors.push('australia');
+        if (selectedRegionId === 'australia' && !allNeighbors.includes('chile')) allNeighbors.push('chile');
+
+        // Alejandro Magno Connection: Greece <-> Turkey
+        const hasAlejandro = players[currentPlayerIndex]?.specialCards.some((c: SpecialCard) => c.type === 'ALEJANDRO_MAGNO');
+        if (hasAlejandro) {
+            if (selectedRegionId === 'grecia' && !allNeighbors.includes('turquia')) allNeighbors.push('turquia');
+            if (selectedRegionId === 'turquia' && !allNeighbors.includes('grecia')) allNeighbors.push('grecia');
+        }
+
+        // Valid sources: Adjacent regions owned by current player AND not already used this turn
+        const currentPlayerId = players[currentPlayerIndex]?.id;
+        const validSources = allNeighbors.filter(id =>
+            owners[id] === currentPlayerId &&
+            !usedAttackSources.has(id)
+        );
+
+        if (validSources.length === 0) {
+            alert("No tienes territorios limítrofes para atacar.");
+            return;
+        }
+
+        setAttackSourceSelection({
+            targetId: selectedRegionId,
+            validSources
+        });
+    };
+
+    const confirmAttackSource = (sourceId: string) => {
+        if (!attackSourceSelection) return;
+        const targetId = attackSourceSelection.targetId;
+
+        // Detect Maritime
+        const isMaritime = isMaritimeConnection(sourceId, targetId);
+
+        const player = players[currentPlayerIndex];
+        const isAndesCrossing = player.crossingAndesActive && sourceId === 'argentina' && targetId === 'chile';
+        const isNormandy = player.normandyLandingActive && sourceId === 'reino_unido' && targetId === 'francia';
+
+        // Alejandro Magno Bonus Check
+        const involvedCountries = ['grecia', 'turquia', 'egipto', 'iran'];
+        const isAlejandroBonus = player.alejandroMagnoActive && involvedCountries.includes(sourceId) && involvedCountries.includes(targetId);
+
+
+        const attackerBonuses = {
+            art: (isMaritime ? 1 : 0) + (isNormandy ? 1 : 0),
+            inf: (isMaritime ? -1 : 0) + (isAndesCrossing ? 1 : 0) + (isNormandy ? (isMaritime ? 2 : 1) : 0) + (isAlejandroBonus ? 1 : 0),
+            isMaritime,
+            isAndesCrossing,
+            isNormandy,
+            isAlejandroBonus
+        };
+
+
+        const defenderId = owners[targetId];
+        console.log('[confirmAttackSource] defenderId for', targetId, 'is', defenderId);
+
+        if (defenderId === undefined || defenderId === null) {
+            console.error('[confirmAttackSource] Defender ID not found!');
+            return;
+        }
+
+        const defender = players.find(p => String(p.id) === String(defenderId));
+        if (!defender) {
+            // Try comparing numbers if strings failed
+            console.error('[confirmAttackSource] Defender player not found for ID:', defenderId);
+            console.log('Available players:', players.map(p => p.id));
+            return;
+        }
+
+        console.log('[confirmAttackSource] Defender found:', defender.name);
+
+        // Generate Decks
+        const deck = shuffleDeck(generateDeck());
+        const attHand: Card[] = [];
+        const defHand: Card[] = [];
+        for (let i = 0; i < 5; i++) attHand.push(deck.pop()!);
+        for (let i = 0; i < 5; i++) defHand.push(deck.pop()!);
+
+        console.log('[confirmAttackSource] Dispatching INIT_BATTLE');
+        // Dispatch Global Action
+        dispatch({
+            type: 'INIT_BATTLE',
+            payload: {
+                isActive: true,
+                attacker: players[currentPlayerIndex],
+                defender: defender,
+                attackerHand: attHand,
+                defenderHand: defHand,
+                attackerBonuses,
+                attackSourceId: sourceId,
+                targetRegionId: targetId,
+                deck, // Store remaining deck,
+
+                // Initialize Sync Fields
+                phase: 'ATTACKER_SELECTION',
+                currentAttackerCard: null,
+                currentDefenderCard: null,
+                clashResult: null,
+                roundCount: 0,
+                attackerWins: 0,
+                defenderWins: 0
+            }
+        });
+
+        setAttackSourceSelection(null);
+    };
+
+    const gameActions = useGameActions();
+
+    const handleBattleEnd = (winner: 'attacker' | 'defender') => {
+        if (!battleState || !selectedRegionId) return;
+
+        // Execute Game Logic (Global State)
+        gameActions.resolveBattle(battleState, winner);
+
+        // Handle Local UI (Conquest Overlay)
+        if (winner === 'attacker') {
+            const region = REGIONS.find(r => r.id === selectedRegionId);
+            if (region) {
+                setConquestData({
+                    player: players[currentPlayerIndex],
+                    regionName: region.title,
+                });
+            }
+        }
+
+        // Add source to used sources for this turn
+        if (battleState) {
+            setUsedAttackSources(prev => new Set(prev).add(battleState.attackSourceId));
+        }
+
+        // Close Battle
+        // Dispatch END_BATTLE
+        dispatch({ type: 'END_BATTLE' });
+    };
+
+    return {
+        battleState,
+        attackSourceSelection,
+        setAttackSourceSelection,
+        usedAttackSources,
+        setUsedAttackSources,
+        handleAttackClick,
+        confirmAttackSource,
+        handleBattleEnd
+    };
+};

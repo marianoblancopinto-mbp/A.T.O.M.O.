@@ -1,0 +1,40 @@
+#root {
+  width: 100%;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  width: 100%;
+  background-color: #000000;
+  color: #00ff00;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+/* Custom Scrollbar for Hacker/War Room Aesthetic */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #001100;
+  border-left: 1px solid #003300;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #005500;
+  border: 1px solid #00ff00;
+  box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #00aa00;
+  box-shadow: inset 0 0 5px rgba(200, 255, 200, 0.5);
+}

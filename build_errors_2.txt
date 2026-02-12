@@ -1,0 +1,102 @@
+﻿
+> teg@0.0.0 build
+> tsc -b && vite build
+
+src/components/BattleOverlay.tsx(49,5): error TS6133: 'attackerResources' is declared but its value is never read.
+src/components/BattleOverlay.tsx(50,5): error TS6133: 'defenderResources' is declared but its value is never read.
+src/components/BattleOverlay.tsx(54,5): error TS6133: 'hasNuclearUnlock' is declared but its value is never read.
+src/components/BattleOverlay.tsx(55,5): error TS6133: 'onOpenConfidential' is declared but its value is never read.
+src/components/ErrorBoundary.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/ErrorBoundary.tsx(1,28): error TS1484: 'ErrorInfo' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled.
+src/components/ErrorBoundary.tsx(1,39): error TS1484: 'ReactNode' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled.
+src/components/shared/modals/espionage/EspionageGenerationModal.tsx(2,24): error TS2307: Cannot find module '../../../../types/gameState' or its corresponding type declarations.
+src/components/shared/modals/espionage/EspionageGenerationModal.tsx(3,10): error TS1484: 'TerritoryCard' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled.
+src/components/shared/modals/espionage/EspionageGenerationModal.tsx(3,25): error TS1484: 'TechnologyType' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled.
+src/components/shared/modals/espionage/EspionageGenerationModal.tsx(3,41): error TS2305: Module '"../../../../types/productionTypes"' has no exported member 'TECHNOLOGY_DATA'.
+src/components/shared/modals/espionage/EspionageNetworkInfoModal.tsx(2,24): error TS2307: Cannot find module '../../../../types/gameState' or its corresponding type declarations.
+src/components/shared/modals/espionage/EspionageTargetSelectionModal.tsx(2,10): error TS1484: 'PlayerData' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled.
+src/components/shared/modals/espionage/EspionageTargetSelectionModal.tsx(2,22): error TS2305: Module '"../../../../types/playerTypes"' has no exported member 'EspionageReport'.
+src/components/shared/modals/missions/WarSecretsModal.tsx(2,34): error TS2307: Cannot find module '../../../../data/missionData' or its corresponding type declarations.
+src/components/shared/modals/missions/WarSecretsModal.tsx(40,43): error TS7006: Parameter 'm' implicitly has an 'any' type.
+src/components/shared/modals/nuclear/NuclearDeploymentModal.tsx(2,24): error TS2307: Cannot find module '../../../../types/gameState' or its corresponding type declarations.
+src/components/shared/modals/nuclear/NuclearDeploymentModal.tsx(3,10): error TS1484: 'PlayerData' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled.
+src/components/shared/modals/nuclear/NuclearDeploymentModal.tsx(3,22): error TS2459: Module '"../../../../types/playerTypes"' declares 'RawMaterialType' locally, but it is not exported.
+src/components/shared/modals/nuclear/NuclearDeploymentModal.tsx(3,39): error TS2305: Module '"../../../../types/playerTypes"' has no exported member 'RAW_MATERIAL_DATA'.
+src/components/shared/modals/nuclear/NuclearDeploymentModal.tsx(4,10): error TS1484: 'TerritoryCard' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled.
+src/components/shared/modals/nuclear/NuclearDesignGenerationModal.tsx(2,24): error TS2307: Cannot find module '../../../../types/gameState' or its corresponding type declarations.
+src/components/shared/modals/nuclear/NuclearDesignGenerationModal.tsx(3,10): error TS1484: 'TerritoryCard' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled.
+src/components/shared/modals/nuclear/NuclearDesignGenerationModal.tsx(3,25): error TS1484: 'TechnologyType' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled.
+src/components/shared/modals/nuclear/NuclearDesignGenerationModal.tsx(3,41): error TS2305: Module '"../../../../types/productionTypes"' has no exported member 'TECHNOLOGY_DATA'.
+src/components/shared/modals/nuclear/NuclearDesignInfoModal.tsx(2,24): error TS2307: Cannot find module '../../../../types/gameState' or its corresponding type declarations.
+src/components/shared/modals/nuclear/SiloFuelSelectionModal.tsx(2,24): error TS2307: Cannot find module '../../../../types/gameState' or its corresponding type declarations.
+src/components/shared/modals/nuclear/SiloFuelSelectionModal.tsx(3,10): error TS1484: 'TerritoryCard' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled.
+src/components/shared/modals/nuclear/SiloFuelSelectionModal.tsx(3,25): error TS1484: 'RawMaterialType' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled.
+src/components/shared/modals/nuclear/SiloFuelSelectionModal.tsx(3,42): error TS2305: Module '"../../../../types/productionTypes"' has no exported member 'RAW_MATERIAL_DATA'.
+src/components/shared/overlays/EndgameOverlay.tsx(2,1): error TS6192: All imports in import declaration are unused.
+src/components/shared/overlays/EndgameOverlay.tsx(2,36): error TS2307: Cannot find module '../../../types/gameState' or its corresponding type declarations.
+src/components/shared/overlays/EndgameOverlay.tsx(4,10): error TS1484: 'PlayerData' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled.
+src/components/TegMap.tsx(2,26): error TS6133: 'Regiment' is declared but its value is never read.
+src/components/TegMap.tsx(2,41): error TS6133: 'Tier' is declared but its value is never read.
+src/components/TegMap.tsx(30,1): error TS6133: 'MissionNotificationOverlay' is declared but its value is never read.
+src/components/TegMap.tsx(32,5): error TS6133: 'REGION_ADJACENCY' is declared but its value is never read.
+src/components/TegMap.tsx(41,5): error TS6196: 'RawMaterialCard' is declared but never used.
+src/components/TegMap.tsx(43,5): error TS6196: 'ProductionInventory' is declared but never used.
+src/components/TegMap.tsx(44,5): error TS6196: 'PlayerSupplies' is declared but never used.
+src/components/TegMap.tsx(53,24): error TS6133: 'RegionData' is declared but its value is never read.
+src/components/TegMap.tsx(367,12): error TS6133: 'showGeothermalModal' is declared but its value is never read.
+src/components/TegMap.tsx(368,12): error TS6133: 'showAndesModal' is declared but its value is never read.
+src/components/TegMap.tsx(369,12): error TS6133: 'showNormandyModal' is declared but its value is never read.
+src/components/TegMap.tsx(384,44): error TS6133: 'CONTINENT_COLORS' is declared but its value is never read.
+src/components/TegMap.tsx(603,9): error TS6133: 'usedAttackSources' is declared but its value is never read.
+src/components/TegMap.tsx(650,12): error TS6133: 'selectedNuclearFuelCardId' is declared but its value is never read.
+src/components/TegMap.tsx(650,39): error TS6133: 'setSelectedNuclearFuelCardId' is declared but its value is never read.
+src/components/TegMap.tsx(651,12): error TS6133: 'selectedLaunchSilo' is declared but its value is never read.
+src/components/TegMap.tsx(651,32): error TS6133: 'setSelectedLaunchSilo' is declared but its value is never read.
+src/components/TegMap.tsx(658,12): error TS6133: 'showDesalinizationModal' is declared but its value is never read.
+src/components/TegMap.tsx(658,37): error TS6133: 'setShowDesalinizationModal' is declared but its value is never read.
+src/components/TegMap.tsx(659,12): error TS6133: 'selectedEnergySupplyId' is declared but its value is never read.
+src/components/TegMap.tsx(660,12): error TS6133: 'showInventoryInMission' is declared but its value is never read.
+src/components/TegMap.tsx(660,36): error TS6133: 'setShowInventoryInMission' is declared but its value is never read.
+src/components/TegMap.tsx(672,12): error TS6133: 'espionageTargetId' is declared but its value is never read.
+src/components/TegMap.tsx(680,12): error TS6133: 'selectedEspionageTechId' is declared but its value is never read.
+src/components/TegMap.tsx(681,12): error TS6133: 'selectedEspionageRawId' is declared but its value is never read.
+src/components/TegMap.tsx(688,12): error TS6133: 'selectedNuclearTechId' is declared but its value is never read.
+src/components/TegMap.tsx(689,12): error TS6133: 'selectedNuclearRawId' is declared but its value is never read.
+src/components/TegMap.tsx(690,12): error TS6133: 'selectedNormandyTechId' is declared but its value is never read.
+src/components/TegMap.tsx(691,12): error TS6133: 'selectedNormandyIronId' is declared but its value is never read.
+src/components/TegMap.tsx(849,11): error TS6133: 'handleAddGeothermalReward' is declared but its value is never read.
+src/components/TegMap.tsx(867,11): error TS6133: 'handleActivateMissionEffect' is declared but its value is never read.
+src/components/TegMap.tsx(925,75): error TS2554: Expected 2 arguments, but got 3.
+src/components/TegMap.tsx(1187,11): error TS6133: 'setDateToStart' is declared but its value is never read.
+src/components/TegMap.tsx(1424,11): error TS6133: 'handleInitiateDeployment' is declared but its value is never read.
+src/components/TegMap.tsx(1667,19): error TS6133: 'nextPlayer' is declared but its value is never read.
+src/components/TegMap.tsx(3658,31): error TS6133: 'player' is declared but its value is never read.
+src/components/TegMap.tsx(3716,88): error TS6133: 'req' is declared but its value is never read.
+src/components/TegMap.tsx(3717,89): error TS6133: 'req' is declared but its value is never read.
+src/components/TegMap.tsx(5295,33): error TS2304: Cannot find name 'usedEspionageHqs'.
+src/components/TegMap.tsx(5296,33): error TS2304: Cannot find name 'usedEspionageHqs'.
+src/components/TegMap.tsx(5691,41): error TS2304: Cannot find name 'setSelectedAndesFoodId'.
+src/components/TegMap.tsx(5730,41): error TS2304: Cannot find name 'setSelectedAndesFoodId'.
+src/components/TegMap.tsx(6080,92): error TS2304: Cannot find name 'setSelectedWarSecretsAgency'.
+src/components/TegMap.tsx(6081,97): error TS2304: Cannot find name 'setSelectedWarSecretsAgency'.
+src/components/TegMap.tsx(6204,68): error TS2304: Cannot find name 'setSelectedWarSecretsAgency'.
+src/components/TegMap.tsx(6207,74): error TS2304: Cannot find name 'selectedWarSecretsAgency'.
+src/components/TegMap.tsx(6208,64): error TS2304: Cannot find name 'selectedWarSecretsAgency'.
+src/components/TegMap.tsx(6215,68): error TS2304: Cannot find name 'setSelectedWarSecretsAgency'.
+src/components/TegMap.tsx(6218,74): error TS2304: Cannot find name 'selectedWarSecretsAgency'.
+src/components/TegMap.tsx(6219,64): error TS2304: Cannot find name 'selectedWarSecretsAgency'.
+src/components/TegMap.tsx(6231,46): error TS2304: Cannot find name 'selectedWarSecretsAgency'.
+src/data/productionData.ts(1,81): error TS6196: 'RawMaterialCard' is declared but never used.
+src/data/productionData.ts(1,98): error TS6196: 'TechnologyCard' is declared but never used.
+src/hooks/useBattleState.ts(256,77): error TS2345: Argument of type '(r: RawMaterialCard) => boolean' is not assignable to parameter of type '(value: TerritoryCard, index: number, array: TerritoryCard[]) => unknown'.
+  Types of parameters 'r' and 'value' are incompatible.
+    Property 'name' is missing in type 'TerritoryCard' but required in type 'RawMaterialCard'.
+src/hooks/useBattleState.ts(262,79): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(predicate: (value: TerritoryCard, index: number, array: TerritoryCard[]) => value is TerritoryCard, thisArg?: any): TerritoryCard[]', gave the following error.
+    Argument of type '(r: RawMaterialCard) => boolean' is not assignable to parameter of type '(value: TerritoryCard, index: number, array: TerritoryCard[]) => value is TerritoryCard'.
+      Types of parameters 'r' and 'value' are incompatible.
+        Property 'name' is missing in type 'TerritoryCard' but required in type 'RawMaterialCard'.
+  Overload 2 of 2, '(predicate: (value: TerritoryCard, index: number, array: TerritoryCard[]) => unknown, thisArg?: any): TerritoryCard[]', gave the following error.
+    Argument of type '(r: RawMaterialCard) => boolean' is not assignable to parameter of type '(value: TerritoryCard, index: number, array: TerritoryCard[]) => unknown'.
+      Types of parameters 'r' and 'value' are incompatible.
+        Property 'name' is missing in type 'TerritoryCard' but required in type 'RawMaterialCard'.
