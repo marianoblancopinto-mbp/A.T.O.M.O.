@@ -871,7 +871,7 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
 
             <div style={{
                 flex: 1,
-                height: isMobile ? 'auto' : '100%',
+                height: isMobile ? '100dvh' : '100%',
                 position: 'relative',
                 display: 'flex',
                 flexDirection: 'column'

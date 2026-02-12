@@ -21,14 +21,13 @@ export const MapRender: React.FC<MapRenderProps> = ({ selectedRegionId, onRegion
         return getRegionCenter(region);
     }, [getRegionCenter]);
 
-    const isMobile = window.innerWidth <= 768;
 
     return (
         <svg
             viewBox="0 0 1700.79 835"
             style={{
                 width: '100%',
-                height: isMobile ? 'auto' : '100%',
+                height: '100%',
                 display: 'block'
             }}
             preserveAspectRatio="xMidYMid meet"
