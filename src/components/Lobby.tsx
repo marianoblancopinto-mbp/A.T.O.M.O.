@@ -200,14 +200,14 @@ export const Lobby: React.FC<LobbyProps> = ({ onGameStart }) => {
                                         animation: 'pulse 2s infinite'
                                     }}
                                 >
-                                    INICIAR SECUENCIA DE LANZAMIENTO
+                                    INICIAR OPERACIÓN
                                 </button>
                             ) : (
                                 <div style={{
                                     padding: '20px', border: '1px dashed #004400', color: '#008800',
                                     animation: 'blink 2s infinite'
                                 }}>
-                                    ESPERANDO CÓDIGOS DE LANZAMIENTO DEL ANFITRIÓN...
+                                    ESPERANDO INICIO DE OPERACIÓN DEL ANFITRIÓN...
                                 </div>
                             )}
                         </div>
