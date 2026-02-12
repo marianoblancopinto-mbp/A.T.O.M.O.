@@ -2,56 +2,49 @@ import React, { useState, useEffect } from 'react';
 import { useGameContext } from '../../../../context/GameContext';
 
 export const NuclearAlertModal: React.FC = () => {
-    const { state } = useGameContext();
-    const { currentPlayerIndex, players } = state;
+    const { state, multiplayer } = useGameContext();
+    const { players } = state;
 
     const [visible, setVisible] = useState(false);
     const [commanderName, setCommanderName] = useState('');
+    const [hasDismissedForCurrentThreats, setHasDismissedForCurrentThreats] = useState<Set<string | number>>(new Set());
 
     useEffect(() => {
-        // Check for enemies with active nuclear deployment when turn changes (or component mounts)
-        // We only care if meaningful players are loaded
         if (!players || players.length === 0) return;
 
-        const otherDeployments = players.filter((p, idx) => idx !== currentPlayerIndex && p.nuclearDeploymentActive);
+        // My ID as a player index (or actual ID if they match)
+        // In this game, player indices are often used as IDs.
+        const myPlayerId = multiplayer.playerId !== null ? multiplayer.playerId : -1;
+
+        // Find all OTHER players who have an active deployment
+        const otherDeployments = players.filter((p) =>
+            p.nuclearDeploymentActive && p.id !== myPlayerId
+        );
 
         if (otherDeployments.length > 0) {
-            setCommanderName(otherDeployments.map(p => p.name).join(", "));
-            setVisible(true);
+            // Filter out deployments we've already dismissed
+            const newThreats = otherDeployments.filter(p => !hasDismissedForCurrentThreats.has(p.id));
+
+            if (newThreats.length > 0) {
+                setCommanderName(newThreats.map(p => p.name).join(", "));
+                setVisible(true);
+            }
         } else {
+            // Reset dismissals if no one is deploying anymore
+            if (hasDismissedForCurrentThreats.size > 0) {
+                setHasDismissedForCurrentThreats(new Set());
+            }
             setVisible(false);
         }
-    }, [currentPlayerIndex, players]); // Re-run when turn changes or players update
-
-    // Logic: If I dismiss it, I don't want it to show again IMMEDIATELY for the same state?
-    // The useEffect will re-run if 'players' changes (e.g. resources update).
-    // We should probably safeguard against re-showing if just dismissed, unless it's a new turn.
-    // But for now, simple implementation matches previous behavior (shows on turn start).
-    // Actually, previous behavior was "set state on turn change".
-    // If we dismiss, visible becomes false.
-    // If 'players' updates (unrelated), visible might become true again?
-    // To prevent annoyance, we might need a ref to track "dismissed for this turn".
-    // Or just simple setVisible(false) is enough if we don't depend on 'players' too aggressively?
-    // 'players' changes often. 'currentPlayerIndex' changes rarely.
-    // Let's depend on 'currentPlayerIndex' primarily for "New Turn Alert".
-
-    // Better approach: Only trigger on currentPlayerIndex change?
-    // But if someone deploys DURING my turn (multiplayer?), I should know?
-    // The original logic was only on turn start. Let's stick to that for now to avoid spam.
-
-    // Update: If we only dep on currentPlayerIndex, we might miss updates if we mount mid-turn?
-    // But mounting usually happens once.
-    // Let's refine the dependency to avoid spam.
-
-    // For now, let's trust the logic: Show if threat exists. Dismiss hides it. 
-    // If we rely on players changing, it might pop up again.
-    // Let's use a local state 'hasDismissedThisTurn' or similar? 
-    // Or just 'visible' is enough, considering users won't usually update 'players' in a way that toggles 'nuclearDeploymentActive' back and forth.
-
-    // Wait, if I attack (update players), it might re-trigger.
-    // Let's restrict re-triggering.
+    }, [players, multiplayer.playerId, hasDismissedForCurrentThreats]);
 
     const handleClose = () => {
+        // Mark all current active deployments as dismissed for this client
+        const currentThreatIds = players
+            .filter(p => p.nuclearDeploymentActive)
+            .map(p => p.id);
+
+        setHasDismissedForCurrentThreats(new Set(currentThreatIds as (string | number)[]));
         setVisible(false);
     };
 
@@ -60,33 +53,42 @@ export const NuclearAlertModal: React.FC = () => {
     return (
         <div style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(51, 0, 0, 0.95)',
-            display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9000,
-            fontFamily: 'monospace'
+            backgroundColor: 'rgba(70, 0, 0, 0.9)',
+            display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10000,
+            fontFamily: 'monospace',
+            backdropFilter: 'blur(5px)'
         }}>
             <div style={{
                 backgroundColor: '#1a0000', border: '5px solid #ff0000',
-                padding: '40px', width: '600px', textAlign: 'center',
+                padding: '40px', width: '90%', maxWidth: '700px', textAlign: 'center',
                 boxShadow: '0 0 100px rgba(255, 0, 0, 0.8)',
-                animation: 'pulse 1s infinite'
+                animation: 'pulse 1.5s infinite'
             }}>
-                <h2 style={{ color: '#ff0000', fontSize: '2.5rem', margin: '0 0 20px 0' }}>⚠️ ALERTA ROJA ⚠️</h2>
-                <div style={{ color: '#fff', fontSize: '1.2rem', marginBottom: '30px' }}>
-                    Sistemas de inteligencia detectan un despliegue nuclear inminente por parte de:
+                <h2 style={{ color: '#ff0000', fontSize: '2.5rem', margin: '0 0 20px 0', textShadow: '0 0 10px #ff0000' }}>⚠️ ALERTA ROJA ⚠️</h2>
+
+                <div style={{ color: '#fff', fontSize: '1.4rem', marginBottom: '30px', lineHeight: '1.4' }}>
+                    <span style={{ color: '#ff4444', fontWeight: 'bold' }}>ALERTA:</span> El comandante <span style={{ color: '#ffcc00', fontWeight: 'bold' }}>{commanderName.toUpperCase()}</span> ha iniciado su proceso de despliegue.
                     <br /><br />
-                    <span style={{ fontSize: '1.8rem', color: '#ffcc00', fontWeight: 'bold' }}>COMANDANTE {commanderName.toUpperCase()}</span>
+                    Tenemos hasta que termine este año para iniciar nuestro propio procedimiento de despliegue o destruir su silo de lanzamiento.
                 </div>
-                <p style={{ color: '#aaa', marginBottom: '30px' }}>
-                    Tienes el tiempo de este turno para interceptar el silo enemigo, conquistar el territorio o activar tu propia disuasión nuclear.
-                    Si el despliegue continúa al final de esta ronda, la derrota es inevitable.
-                </p>
+
+                <div style={{ backgroundColor: 'rgba(255, 0, 0, 0.1)', padding: '15px', borderRadius: '5px', marginBottom: '30px', borderLeft: '4px solid #ff0000' }}>
+                    <p style={{ color: '#aaa', margin: 0, fontSize: '0.9rem', textAlign: 'left' }}>
+                        <strong>Directiva Estratégica:</strong> Si el despliegue continúa al final de la ronda actual, la victoria del Comandante {commanderName} será absoluta e irreversible.
+                    </p>
+                </div>
+
                 <button
                     onClick={handleClose}
                     style={{
-                        backgroundColor: '#ff0000', color: '#fff', border: 'none',
-                        padding: '15px 40px', fontWeight: 'bold', cursor: 'pointer',
-                        fontSize: '1.2rem', letterSpacing: '2px'
+                        backgroundColor: '#ff0000', color: '#fff', border: '2px solid #fff',
+                        padding: '15px 50px', fontWeight: 'bold', cursor: 'pointer',
+                        fontSize: '1.2rem', letterSpacing: '2px', textTransform: 'uppercase',
+                        boxShadow: '0 0 20px rgba(255, 0, 0, 0.5)',
+                        transition: 'all 0.2s'
                     }}
+                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#cc0000'}
+                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#ff0000'}
                 >
                     COMPRENDIDO
                 </button>
