@@ -56,7 +56,8 @@ export const Lobby: React.FC<LobbyProps> = ({ onGameStart }) => {
         setActiveSection(null);
     };
 
-    // --- Lobby / Menu View ---
+    const isMobile = window.innerWidth <= 768;
+
     if ((connectionStatus === 'CONNECTED' || connectionStatus === 'PLAYING') && gameId) {
 
         // Proxy War Country for Lore
@@ -66,9 +67,16 @@ export const Lobby: React.FC<LobbyProps> = ({ onGameStart }) => {
         return (
             <div style={{
                 position: 'relative',
-                display: 'flex', flexDirection: 'row', width: '100vw', height: '100vh',
-                backgroundColor: '#0a0a0a', color: '#00ff00', fontFamily: 'monospace',
-                overflow: 'hidden'
+                display: 'flex',
+                flexDirection: isMobile ? 'column' : 'row',
+                width: '100vw',
+                minHeight: '100vh',
+                height: 'auto',
+                backgroundColor: '#0a0a0a',
+                color: '#00ff00',
+                fontFamily: 'monospace',
+                overflowY: 'auto',
+                overflowX: 'hidden'
             }}>
                 {/* Background Grid/Effect */}
                 <div style={{
@@ -85,19 +93,29 @@ export const Lobby: React.FC<LobbyProps> = ({ onGameStart }) => {
 
                 {/* Left Panel: Status & Players */}
                 <div style={{
-                    flex: 1, borderRight: '2px solid #004400', padding: '40px',
+                    flex: isMobile ? 'none' : 1,
+                    borderRight: isMobile ? 'none' : '2px solid #004400',
+                    borderBottom: isMobile ? '2px solid #004400' : 'none',
+                    padding: isMobile ? '20px' : '40px',
                     display: 'flex', flexDirection: 'column', zIndex: 1,
-                    backgroundColor: 'rgba(0,0,0,0.5)'
+                    backgroundColor: 'rgba(0,0,0,0.5)',
+                    width: isMobile ? '100%' : 'auto'
                 }}>
-                    <h1 style={{ fontSize: '2.5rem', marginBottom: '10px', textShadow: '0 0 10px #00ff00' }}>SALA DE OPERACIONES</h1>
-                    <div style={{ marginBottom: '40px', color: '#666', fontSize: '0.9rem' }}>
+                    <h1 style={{ fontSize: isMobile ? '1.8rem' : '2.5rem', marginBottom: '10px', textShadow: '0 0 10px #00ff00' }}>SALA DE OPERACIONES</h1>
+                    <div style={{ marginBottom: isMobile ? '20px' : '40px', color: '#666', fontSize: '0.9rem' }}>
                         ID DE MISIÓN: <span style={{ color: '#fff', letterSpacing: '2px' }}>{gameId}</span>
                     </div>
 
                     <h3 style={{ borderBottom: '1px solid #004400', paddingBottom: '10px', color: '#00cc00' }}>
                         PERSONAL AUTORIZADO [{lobbyPlayers.length}]
                     </h3>
-                    <ul style={{ listStyle: 'none', padding: 0, flex: 1, overflowY: 'auto' }}>
+                    <ul style={{
+                        listStyle: 'none',
+                        padding: 0,
+                        flex: isMobile ? 'none' : 1,
+                        maxHeight: isMobile ? '300px' : 'none',
+                        overflowY: 'auto'
+                    }}>
                         {lobbyPlayers.map((p: any, idx: number) => (
                             <li key={p.id} style={{
                                 padding: '15px 10px',
@@ -125,8 +143,14 @@ export const Lobby: React.FC<LobbyProps> = ({ onGameStart }) => {
 
                 {/* Right Panel: Menu */}
                 <div style={{
-                    flex: 1, padding: '40px', display: 'flex', flexDirection: 'column',
-                    justifyContent: 'center', alignItems: 'center', zIndex: 1
+                    flex: 1,
+                    padding: isMobile ? '20px' : '40px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    zIndex: 1,
+                    width: isMobile ? '100%' : 'auto'
                 }}>
                     <div style={{ width: '100%', maxWidth: '500px' }}>
                         <h2 style={{
