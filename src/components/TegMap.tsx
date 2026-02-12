@@ -159,6 +159,7 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
     const [showMineralExtractionModal, setShowMineralExtractionModal] = useState<string | null>(null);
     const [showNuclearActivationModal, setShowNuclearActivationModal] = useState<string | null>(null);
     const [showNuclearDeploymentModal, setShowNuclearDeploymentModal] = useState(false);
+    const [selectedLaunchSilo, setSelectedLaunchSilo] = useState<string | null>(null);
 
 
     // Silo Construction State
@@ -659,18 +660,7 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
         // based on the state update.
     };
 
-    const hasNuclearUnlock = (player: PlayerData) => {
-        if (!player) return false;
-        const hasDesign = player.specialCards.some(c => c.name.includes("DISEÑO DE ARMAS"));
-        const hasSilo = player.specialCards.some(c => c.name.includes("SILO"));
-        // Check for extraction (Mineral Secreto)
-        const hasMineral = player.specialCards.some(c => c.type === 'SECRET_MINERAL');
-        return hasDesign && hasSilo && hasMineral;
-    };
 
-    const handleOpenConfidential = () => {
-        setShowConfidentialModal(true);
-    };
 
     // Deactivate deployment if Silo region is conquered
     useEffect(() => {
@@ -1070,76 +1060,9 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                 />
 
 
-                {/* CONFIDENTIAL INFO BUTTON */}
-                {
-                    hasNuclearUnlock(players[currentPlayerIndex]) && !showTurnOverlay && (
-                        <div style={{
-                            position: 'absolute',
-                            top: '60px',
-                            right: '20px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '10px',
-                            zIndex: 1000
-                        }}>
-                            <button
-                                onClick={handleOpenConfidential}
-                                style={{
-                                    padding: '10px 20px',
-                                    backgroundColor: '#002222',
-                                    color: '#00ffff',
-                                    border: '2px solid #00ffff',
-                                    borderRadius: '5px',
-                                    cursor: 'pointer',
-                                    fontFamily: 'monospace',
-                                    fontWeight: 'bold',
-                                    boxShadow: '0 0 15px rgba(0, 255, 255, 0.3)',
-                                    transition: 'all 0.2s'
-                                }}
-                            >
-                                ☢️ INFO CONFIDENCIAL
-                            </button>
+                {/* CONFIDENTIAL INFO BUTTON REMOVED (ACCESSIBLE VIA SIDEBAR) */}
 
-                            {/* NUCLEAR VICTORY BUTTON - APPAREARS WHEN CONDITIONS ARE MET */}
-                            {(() => {
-                                const player = players[currentPlayerIndex];
-                                const siloCard = player.specialCards.find(c => c.name === 'SILO DE LANZAMIENTO');
-                                const mineralCard = player.specialCards.find(c => c.name === 'MINERAL SECRETO');
-
-                                if (!siloCard || !mineralCard) return null;
-
-                                const siloRegionId = siloCard.originCountry;
-                                const mineralRegionId = mineralCard.originCountry;
-                                const hasFuel = player.siloFuelCards?.[siloRegionId] !== undefined;
-                                const hasRoute = checkRoute(mineralRegionId, siloRegionId, currentPlayerIndex);
-
-                                if (hasFuel && hasRoute) {
-                                    return (
-                                        <button
-                                            onClick={() => setShowNuclearDeploymentModal(true)}
-                                            style={{
-                                                padding: '12px 20px',
-                                                backgroundColor: '#330000',
-                                                color: '#ff0000',
-                                                border: '2px solid #ff0000',
-                                                borderRadius: '5px',
-                                                cursor: 'pointer',
-                                                fontFamily: 'monospace',
-                                                fontWeight: 'bold',
-                                                boxShadow: '0 0 20px #ff0000',
-                                                animation: 'pulse-red 2s infinite',
-                                                textTransform: 'uppercase'
-                                            }}
-                                        >
-                                            🚀 INICIAR OPERACIÓN FINAL
-                                        </button>
-                                    );
-                                }
-                                return null;
-                            })()}
-                        </div>
-                    )
-                }
+                {/* Nuclear War Info Modal */}
 
                 {/* CONFIDENTIAL INFO MODAL */}
 
@@ -1197,7 +1120,11 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                 {/* Confidential Information Modal */}
                 <NuclearDeploymentModal
                     show={!spectator && showNuclearDeploymentModal}
-                    onClose={() => setShowNuclearDeploymentModal(false)}
+                    onClose={() => {
+                        setShowNuclearDeploymentModal(false);
+                        setSelectedLaunchSilo(null);
+                    }}
+                    selectedSiloId={selectedLaunchSilo}
                 />
 
                 {/* Confidential Information Modal */}
@@ -1734,57 +1661,89 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                                         )}
                                     </div>
 
-                                    {/* Nuclear Deployment Section */}
+                                    {/* PROTOCOLO DE DESPLIEGUE FINAL SECTION */}
                                     {(() => {
+                                        const siloCards = player.specialCards.filter(c => c.name === 'SILO DE LANZAMIENTO');
+                                        const mineralCard = player.specialCards.find(c => c.name === 'MINERAL SECRETO');
                                         const hasDesign = player.specialCards.some(c => c.name === 'DISEÑO DE ARMAS NUCLEARES INTERCONTINENTALES');
-                                        const hasSilo = player.specialCards.some(c => c.name === 'SILO DE LANZAMIENTO');
-                                        const hasMineral = player.specialCards.some(c => c.name === 'MINERAL SECRETO');
 
-                                        if (!hasDesign || !hasSilo || !hasMineral) return null;
+                                        if (!hasDesign || siloCards.length === 0 || !mineralCard) return null;
 
                                         return (
                                             <div style={{
-                                                marginBottom: '20px',
+                                                marginTop: '30px',
                                                 padding: '20px',
                                                 border: '2px solid #ff0000',
-                                                backgroundColor: '#330000',
+                                                backgroundColor: '#1a0000',
                                                 borderRadius: '5px',
-                                                textAlign: 'center',
-                                                boxShadow: '0 0 30px rgba(255, 0, 0, 0.4)',
-                                                animation: player.nuclearDeploymentActive ? 'none' : 'pulse 1.5s infinite'
+                                                boxShadow: '0 0 15px rgba(255, 0, 0, 0.2)'
                                             }}>
-                                                <h4 style={{ margin: '0 0 15px 0', color: '#ff0000', fontSize: '1.2rem', fontWeight: 'bold' }}>
-                                                    PROYECTO FINAL: DESPLIEGUE ARSENAL NUCLEAR
-                                                </h4>
+                                                <h4 style={{ margin: '0 0 15px 0', color: '#ff0000', textAlign: 'center', textShadow: '0 0 5px #ff0000' }}>☢️ PROTOCOLO DE DESPLIEGUE ATÓMICO</h4>
 
                                                 {player.nuclearDeploymentActive ? (
-                                                    <div style={{ color: '#ffaa00', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                                                    <div style={{ color: '#ffaa00', fontWeight: 'bold', fontSize: '1.1rem', textAlign: 'center', padding: '10px', border: '1px dashed #ffaa00' }}>
                                                         ☢️ PROCESO DE DESPLIEGUE EN CURSO ☢️
                                                         <div style={{ fontSize: '0.8rem', marginTop: '10px', color: '#aaa', fontWeight: 'normal' }}>
                                                             Ganas al final de la ronda si el silo permanece bajo tu control y nadie más activa su arsenal.
                                                         </div>
                                                     </div>
                                                 ) : (
-                                                    <button
-                                                        onClick={() => {
-                                                            setShowNuclearDeploymentModal(true);
-                                                            setShowConfidentialModal(false);
-                                                        }}
-                                                        style={{
-                                                            backgroundColor: '#ff0000',
-                                                            color: '#fff',
-                                                            border: 'none',
-                                                            padding: '12px 25px',
-                                                            cursor: 'pointer',
-                                                            fontWeight: 'bold',
-                                                            fontSize: '1rem',
-                                                            textTransform: 'uppercase',
-                                                            fontFamily: 'monospace',
-                                                            boxShadow: '0 0 15px rgba(255,0,0,0.5)'
-                                                        }}
-                                                    >
-                                                        INICIAR PROCESO DE DESPLIEGUE
-                                                    </button>
+                                                    <>
+                                                        <div style={{ color: '#aaa', fontSize: '0.85rem', marginBottom: '15px' }}>
+                                                            Para iniciar el despliegue final, debe seleccionar un silo operativo con combustible asignado y ruta de suministro desde el mineral secreto:
+                                                        </div>
+
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                            {siloCards.map(silo => {
+                                                                const siloRegion = REGIONS.find(r => r.id === silo.originCountry);
+                                                                const hasFuel = player.siloFuelCards?.[silo.originCountry] !== undefined;
+                                                                const hasRoute = checkRoute(mineralCard.originCountry, silo.originCountry, currentPlayerIndex);
+                                                                const canDeploy = hasFuel && hasRoute;
+
+                                                                return (
+                                                                    <div key={silo.id} style={{
+                                                                        padding: '12px',
+                                                                        backgroundColor: '#000',
+                                                                        border: `1px solid ${canDeploy ? '#00ff00' : '#440000'}`,
+                                                                        borderRadius: '4px',
+                                                                        display: 'flex',
+                                                                        justifyContent: 'space-between',
+                                                                        alignItems: 'center'
+                                                                    }}>
+                                                                        <div>
+                                                                            <div style={{ color: '#fff', fontWeight: 'bold' }}>SILO: {siloRegion?.title || silo.originCountry}</div>
+                                                                            <div style={{ fontSize: '0.7rem', display: 'flex', gap: '10px', marginTop: '4px' }}>
+                                                                                <span style={{ color: hasFuel ? '#00ff00' : '#ff4444' }}>COMBUSTIBLE: {hasFuel ? '✓' : '✗'}</span>
+                                                                                <span style={{ color: hasRoute ? '#00ff00' : '#ff4444' }}>RUTA: {hasRoute ? '✓' : '✗'}</span>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <button
+                                                                            disabled={!canDeploy}
+                                                                            onClick={() => {
+                                                                                setSelectedLaunchSilo(silo.originCountry);
+                                                                                setShowNuclearDeploymentModal(true);
+                                                                                setShowConfidentialModal(false);
+                                                                            }}
+                                                                            style={{
+                                                                                backgroundColor: canDeploy ? '#ff0000' : '#220000',
+                                                                                color: canDeploy ? '#fff' : '#666',
+                                                                                border: 'none',
+                                                                                padding: '8px 15px',
+                                                                                fontWeight: 'bold',
+                                                                                cursor: canDeploy ? 'pointer' : 'not-allowed',
+                                                                                fontSize: '0.75rem',
+                                                                                borderRadius: '3px',
+                                                                                textTransform: 'uppercase'
+                                                                            }}
+                                                                        >
+                                                                            {canDeploy ? '🚀 INICIAR' : 'NO DISPONIBLE'}
+                                                                        </button>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </>
                                                 )}
                                             </div>
                                         );

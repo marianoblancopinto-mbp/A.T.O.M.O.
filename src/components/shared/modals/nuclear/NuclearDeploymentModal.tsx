@@ -9,11 +9,13 @@ import type { RawMaterialType } from '../../../../types/productionTypes';
 interface NuclearDeploymentModalProps {
     show: boolean;
     onClose: () => void;
+    selectedSiloId?: string | null;
 }
 
 export const NuclearDeploymentModal: React.FC<NuclearDeploymentModalProps> = ({
     show,
-    onClose
+    onClose,
+    selectedSiloId
 }) => {
     const { state } = useGameContext();
     const { currentPlayerIndex, players } = state;
@@ -24,7 +26,9 @@ export const NuclearDeploymentModal: React.FC<NuclearDeploymentModalProps> = ({
     const player = players[currentPlayerIndex];
     if (!player) return null;
 
-    const siloCard = player.specialCards.find(c => c.name === 'SILO DE LANZAMIENTO');
+    const siloCard = selectedSiloId
+        ? player.specialCards.find(c => c.name === 'SILO DE LANZAMIENTO' && c.originCountry === selectedSiloId)
+        : player.specialCards.find(c => c.name === 'SILO DE LANZAMIENTO');
     const mineralCard = player.specialCards.find(c => c.name === 'MINERAL SECRETO');
 
     if (!siloCard || !mineralCard) return null;
