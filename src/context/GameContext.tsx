@@ -9,6 +9,7 @@ import React, { createContext, useContext, useReducer, type ReactNode } from 're
 import type { PlayerData, SpecialCard } from '../types/playerTypes';
 import type { ProductionDeck, SupplyItem } from '../types/productionTypes';
 import type { ActiveProviders } from '../data/productionData';
+import type { Treaty } from '../types/treatyTypes';
 
 // ============================================================================
 // Types
@@ -69,6 +70,7 @@ export interface GameState {
 
     // Turn tracking
     usedAttackSources: string[];
+    treaties: Treaty[];
 }
 
 // ============================================================================
@@ -130,8 +132,12 @@ export type GameAction =
             winner?: PlayerData | null;
             endgameChoice?: 'victory' | 'destruction' | null;
             usedAttackSources?: string[];
+            treaties?: Treaty[];
         }
-    };
+    }
+    | { type: 'CREATE_TREATY_OFFER'; payload: Treaty }
+    | { type: 'UPDATE_TREATY'; payload: Treaty }
+    | { type: 'CANCEL_TREATY'; payload: { treatyId: string } };
 
 
 
@@ -157,7 +163,8 @@ const initialState: GameState = {
     proxyWarCountry: 'País Desconocido',
     winner: null,
     endgameChoice: null,
-    usedAttackSources: []
+    usedAttackSources: [],
+    treaties: []
 };
 
 // ============================================================================
@@ -497,7 +504,26 @@ function gameReducer(state: GameState, action: GameAction): GameState {
                 notification: action.payload.notification ?? state.notification,
                 winner: action.payload.winner ?? state.winner,
                 endgameChoice: action.payload.endgameChoice ?? state.endgameChoice,
-                usedAttackSources: action.payload.usedAttackSources ?? []
+                usedAttackSources: action.payload.usedAttackSources ?? [],
+                treaties: action.payload.treaties ?? state.treaties
+            };
+
+        case 'CREATE_TREATY_OFFER':
+            return {
+                ...state,
+                treaties: [...state.treaties, action.payload]
+            };
+
+        case 'UPDATE_TREATY':
+            return {
+                ...state,
+                treaties: state.treaties.map(t => t.id === action.payload.id ? action.payload : t)
+            };
+
+        case 'CANCEL_TREATY':
+            return {
+                ...state,
+                treaties: state.treaties.filter(t => t.id !== action.payload.treatyId)
             };
 
         default:
@@ -656,7 +682,8 @@ export const GameProvider: React.FC<GameProviderProps> = ({
                                 battleState: remoteState.battleState,
                                 notification: remoteState.notification,
                                 winner: remoteState.winner,
-                                endgameChoice: remoteState.endgameChoice
+                                endgameChoice: remoteState.endgameChoice,
+                                treaties: remoteState.treaties
                             }
                         });
                     }
@@ -690,7 +717,10 @@ export const GameProvider: React.FC<GameProviderProps> = ({
         'BATTLE_ATTACKER_SELECT',
         'BATTLE_DEFENDER_SELECT',
         'BATTLE_NEXT_ROUND',
-        'SET_ENDGAME_CHOICE'
+        'SET_ENDGAME_CHOICE',
+        'CREATE_TREATY_OFFER',
+        'UPDATE_TREATY',
+        'CANCEL_TREATY'
     ]);
 
     const dispatchWithSync = (action: GameAction) => {
@@ -768,7 +798,8 @@ export const GameProvider: React.FC<GameProviderProps> = ({
             proxyWarCountry: state.proxyWarCountry,
             winner: state.winner,
             endgameChoice: state.endgameChoice,
-            usedAttackSources: state.usedAttackSources
+            usedAttackSources: state.usedAttackSources,
+            treaties: state.treaties
         };
 
         const stateString = JSON.stringify(syncableState);

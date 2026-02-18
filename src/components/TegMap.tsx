@@ -37,6 +37,7 @@ import type {
     SupplyItem
 } from '../types/productionTypes';
 import { InventoryModal } from './InventoryModal';
+import { TreatiesPanel } from './game/treaties/TreatiesPanel';
 import { useBattleState } from '../hooks/useBattleState';
 import { REGIONS } from '../data/mapRegions';
 import { useGameContext } from '../context/GameContext';
@@ -161,6 +162,9 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
 
     // Silo Construction State
     const [showSiloConstructionModal, setShowSiloConstructionModal] = useState(false);
+
+    // Treaties State
+    const [showTreatiesPanel, setShowTreatiesPanel] = useState(false);
 
 
     const themeSongRef = useRef<HTMLAudioElement | null>(null);
@@ -991,6 +995,7 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                     onOpenRawMaterials={() => setShowRawMaterialsModal(true)}
                     onOpenTechnologies={() => setShowTechnologiesModal(true)}
                     onOpenConfidential={() => setShowConfidentialModal(true)}
+                    onOpenTreaties={() => setShowTreatiesPanel(true)}
                     mobileOpen={showMobileSidebar}
                     onCloseMobile={() => setShowMobileSidebar(false)}
                 />
@@ -1276,6 +1281,10 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                 <NuclearAlertModal />
 
                 {/* Confidential Info Modal */}
+                {showTreatiesPanel && (
+                    <TreatiesPanel onClose={() => setShowTreatiesPanel(false)} />
+                )}
+
                 {showConfidentialModal && (
                     <ConfidentialInfoModal
                         onClose={() => setShowConfidentialModal(false)}

@@ -28,6 +28,7 @@ export const TIER_NAMES: Record<Tier, string> = {
 // but let's assume standard imports work.
 
 import type { PlayerData } from './playerTypes';
+import type { Treaty } from './treatyTypes';
 
 export interface BattleState {
     isActive: boolean;
@@ -76,5 +77,6 @@ export interface GameState {
     phase: 'LOBBY' | 'DEPLOYMENT' | 'ATTACK' | 'FORTIFICATION' | 'REGROUP' | 'END';
     turnIndex: number;
     year: number;
+    treaties: Treaty[];
     // Add other global state properties here as needed
 }

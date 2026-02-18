@@ -127,7 +127,6 @@ export const MapRender: React.FC<MapRenderProps> = ({ selectedRegionId, onRegion
             {REGIONS.map((region) => {
                 const isSelected = selectedRegionId === region.id;
                 const commonProps = {
-                    key: region.id,
                     id: region.id,
                     fill: getFillColor(region.id, region.continent),
                     stroke: isSelected ? '#ffffff' : '#00ff00', // White stroke when selected
@@ -159,11 +158,11 @@ export const MapRender: React.FC<MapRenderProps> = ({ selectedRegionId, onRegion
                 };
 
                 if (region.type === 'path') {
-                    return <path {...commonProps} d={region.data} />;
+                    return <path key={region.id} {...commonProps} d={region.data} />;
                 } else if (region.type === 'polyline') {
-                    return <polyline {...commonProps} points={region.data} />;
+                    return <polyline key={region.id} {...commonProps} points={region.data} />;
                 } else {
-                    return <polygon {...commonProps} points={region.data} />;
+                    return <polygon key={region.id} {...commonProps} points={region.data} />;
                 }
             })}
 

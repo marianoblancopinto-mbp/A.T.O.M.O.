@@ -7,6 +7,7 @@ interface SidebarPanelProps {
     onOpenRawMaterials: () => void;
     onOpenTechnologies: () => void;
     onOpenConfidential: () => void;
+    onOpenTreaties: () => void;
     mobileOpen?: boolean;
     onCloseMobile?: () => void;
 }
@@ -17,6 +18,7 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
     onOpenRawMaterials,
     onOpenTechnologies,
     onOpenConfidential,
+    onOpenTreaties,
     mobileOpen = false,
     onCloseMobile,
 }) => {
@@ -202,6 +204,25 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
                     }}
                 >
                     INFO CONFIDENCIAL
+                </button>
+
+                <button
+                    onClick={() => { onOpenTreaties(); if (isMobile) onCloseMobile?.(); }}
+                    style={{
+                        padding: '12px 15px',
+                        fontSize: '0.9rem',
+                        fontWeight: 'bold',
+                        backgroundColor: '#330033',
+                        color: '#ff00ff',
+                        border: '2px solid #ff00ff',
+                        cursor: 'pointer',
+                        textTransform: 'uppercase',
+                        fontFamily: 'monospace',
+                        transition: 'all 0.2s',
+                        boxShadow: '0 0 10px rgba(255, 0, 255, 0.3)'
+                    }}
+                >
+                    TRATADOS
                 </button>
             </div>
 

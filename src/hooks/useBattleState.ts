@@ -112,14 +112,43 @@ export const useBattleState = ({
             !state.usedAttackSources.includes(id)
         );
 
-        if (validSources.length === 0) {
-            alert("No tienes territorios limítrofes para atacar.");
+        // --- TREATY: NON-AGGRESSION CHECK ---
+        // Filter out sources that are restricted by active treaties
+        const defenderId = owners[selectedRegionId];
+        let finalValidSources = validSources;
+
+        if (defenderId) {
+            const activeTreaties = state.treaties.filter(t => t.status === 'ACTIVE');
+
+            // Find clauses where I promised NOT to attack the defender
+            const restrictedRegions = new Set<string>();
+
+            activeTreaties.forEach(treaty => {
+                treaty.clauses.forEach(clause => {
+                    if (clause.type === 'NON_AGGRESSION' &&
+                        clause.sourcePlayerId === currentPlayerId &&
+                        clause.targetPlayerId === defenderId) {
+
+                        if (clause.data.regionIds) {
+                            clause.data.regionIds.forEach(rid => restrictedRegions.add(rid));
+                        }
+                    }
+                });
+            });
+
+            if (restrictedRegions.size > 0) {
+                finalValidSources = validSources.filter(sourceId => !restrictedRegions.has(sourceId));
+            }
+        }
+
+        if (finalValidSources.length === 0) {
+            alert("No tienes territorios limítrofes disponibles para atacar (o están restringidos por Tratados de No Agresión).");
             return;
         }
 
         setAttackSourceSelection({
             targetId: selectedRegionId,
-            validSources
+            validSources: finalValidSources
         });
     };
 

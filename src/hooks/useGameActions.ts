@@ -11,6 +11,7 @@ import type { GameActions } from '../services/gameActions';
 import type { PlayerData, SpecialCard } from '../types/playerTypes';
 import type { SupplyItem } from '../types/productionTypes';
 import type { BattleState } from '../types/gameTypes';
+import type { Treaty, TreatyClause } from '../types/treatyTypes';
 import { REGIONS } from '../data/mapRegions';
 
 /**
@@ -33,6 +34,7 @@ export const useGameActions = (): GameActions & {
     constructSilo: (targetRegionId: string, resources: { techLightId: string, techHeavyId: string, techElecId: string, ironId: string, alumId: string, semiId: string }, playerIndex?: number) => void;
     initiateNuclearDeployment: (fuelCardId: string, siloRegionId: string, playerIndex?: number) => void;
     generateNuclearDesign: (locationId: string, resources: { techId: string, rawId: string }, playerIndex?: number) => void;
+    acceptTreaty: (treaty: Treaty) => void;
 } => {
     const { state, dispatch } = useGameContext();
     const { owners, players, currentPlayerIndex } = state;
@@ -543,6 +545,115 @@ export const useGameActions = (): GameActions & {
         });
     };
 
+    const acceptTreaty = (treaty: Treaty) => {
+        // 1. Update Treaty Status
+        const activeTreaty: Treaty = {
+            ...treaty,
+            status: 'ACTIVE',
+            history: [...treaty.history, { date: new Date(), action: 'ACCEPTED', actorId: players[currentPlayerIndex]?.id }]
+        };
+        dispatch({ type: 'UPDATE_TREATY', payload: activeTreaty });
+
+        // 2. Execute Immediate Clauses
+        treaty.clauses.forEach(clause => {
+            if (clause.type === 'REGION_CESSION') {
+                if (clause.data.regionId) {
+                    dispatch({
+                        type: 'UPDATE_OWNER',
+                        payload: {
+                            regionId: clause.data.regionId,
+                            ownerIndex: players.findIndex(p => p.id === clause.targetPlayerId)
+                        }
+                    });
+                }
+            } else if (clause.type === 'RAW_MATERIAL_CESSION' || clause.type === 'TECH_LOAN') {
+                // Transfer Card
+                if (clause.data.cardId) {
+                    dispatch({
+                        type: 'UPDATE_PLAYERS_FN',
+                        payload: (currentPlayers) => {
+                            const sourcePlayer = currentPlayers.find(p => p.id === clause.sourcePlayerId);
+                            const targetPlayerIndex = currentPlayers.findIndex(p => p.id === clause.targetPlayerId);
+
+                            if (!sourcePlayer || targetPlayerIndex === -1) return currentPlayers;
+
+                            // Find card in inventory or specialCards
+                            // Assumption: These are inventory cards (raw materials) or tech cards.
+                            // Need to support both.
+
+                            // Naive implementation: Check inventory.rawMaterials and inventory.technologies
+                            // This might need refinement based on exact data structure of 'cardId' and where it lives.
+                            // For now, let's assume rawMaterials move.
+
+                            let cardToTransfer: any = null;
+                            let newSourceInventory = { ...sourcePlayer.inventory };
+
+                            if (clause.type === 'RAW_MATERIAL_CESSION') {
+                                cardToTransfer = sourcePlayer.inventory.rawMaterials.find(c => c.id === clause.data.cardId);
+                                if (cardToTransfer) {
+                                    newSourceInventory.rawMaterials = sourcePlayer.inventory.rawMaterials.filter(c => c.id !== clause.data.cardId);
+                                }
+                            } else {
+                                // TECH_LOAN
+                                cardToTransfer = sourcePlayer.inventory.technologies.find(c => c.id === clause.data.cardId);
+                                if (cardToTransfer) {
+                                    newSourceInventory.technologies = sourcePlayer.inventory.technologies.filter(c => c.id !== clause.data.cardId);
+                                }
+                            }
+
+                            if (!cardToTransfer) return currentPlayers;
+
+                            return currentPlayers.map((p, idx) => {
+                                if (p.id === clause.sourcePlayerId) {
+                                    return { ...p, inventory: newSourceInventory };
+                                }
+                                if (idx === targetPlayerIndex) {
+                                    const newTargetInventory = { ...p.inventory };
+                                    if (clause.type === 'RAW_MATERIAL_CESSION') {
+                                        newTargetInventory.rawMaterials = [...p.inventory.rawMaterials, cardToTransfer];
+                                    } else {
+                                        newTargetInventory.technologies = [...p.inventory.technologies, cardToTransfer];
+                                    }
+                                    return { ...p, inventory: newTargetInventory };
+                                }
+                                return p;
+                            });
+                        }
+                    });
+                }
+            } else if (clause.type === 'TECH_DUPLICATE') {
+                if (clause.data.cardId) { // Origin card ID
+                    dispatch({
+                        type: 'UPDATE_PLAYERS_FN',
+                        payload: (currentPlayers) => {
+                            const sourcePlayer = currentPlayers.find(p => p.id === clause.sourcePlayerId);
+                            if (!sourcePlayer) return currentPlayers;
+
+                            const originalCard = sourcePlayer.inventory.technologies.find(c => c.id === clause.data.cardId);
+                            if (!originalCard) return currentPlayers;
+
+                            // Clone it
+                            const newCard = { ...originalCard, id: `dup-${Date.now()}-${originalCard.id}` };
+
+                            return currentPlayers.map(p => {
+                                if (p.id === clause.targetPlayerId) {
+                                    return {
+                                        ...p,
+                                        inventory: {
+                                            ...p.inventory,
+                                            technologies: [...p.inventory.technologies, newCard]
+                                        }
+                                    };
+                                }
+                                return p;
+                            });
+                        }
+                    });
+                }
+            }
+        });
+    };
+
     const generateNuclearDesign = (locationId: string, resources: { techId: string, rawId: string }, playerIndex?: number) => {
         const effectivePlayerIndex = playerIndex ?? currentPlayerIndex;
 
@@ -607,7 +718,8 @@ export const useGameActions = (): GameActions & {
         extractSecretMineral,
         constructSilo,
         initiateNuclearDeployment,
-        generateNuclearDesign
+        generateNuclearDesign,
+        acceptTreaty
     }), [dispatch, owners, players, currentPlayerIndex]);
 
     return actions;
