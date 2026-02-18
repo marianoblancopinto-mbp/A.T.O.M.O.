@@ -71,6 +71,7 @@ export function generateInitialGameState(
             activeSpecialMissions: [],
             crossingAndesActive: false,
             normandyLandingActive: false,
+            usedNuclearSilos: [],
             secretWarData: []
         };
     });

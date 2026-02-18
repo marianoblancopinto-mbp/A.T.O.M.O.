@@ -11,7 +11,7 @@ import type { GameActions } from '../services/gameActions';
 import type { PlayerData, SpecialCard } from '../types/playerTypes';
 import type { SupplyItem } from '../types/productionTypes';
 import type { BattleState } from '../types/gameTypes';
-import type { Treaty, TreatyClause } from '../types/treatyTypes';
+import type { Treaty } from '../types/treatyTypes';
 import { REGIONS } from '../data/mapRegions';
 
 /**
