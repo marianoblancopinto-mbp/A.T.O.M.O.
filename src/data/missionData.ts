@@ -47,6 +47,19 @@ export const getSpecialMissions = (proxyWarCountryTitle: string): SpecialMission
             visibleFor: ['chile', 'argentina', 'australia', 'sudafrica']
         },
         {
+            id: 'golden_dome',
+            title: 'CÚPULA DORADA',
+            lore: 'La defensa del norte requiere una red impenetrable. Un sistema de defensa aérea coordinado entre las potencias de América del Norte creará una "Cúpula Dorada" capaz de interceptar cualquier amenaza. El control unificado de estos territorios es esencial para el despliegue de los sistemas de radar y baterías antiaéreas.',
+            description: 'Establecer una red de defensa aérea en América del Norte.',
+            highlightedText: 'DEFENSA AÉREA',
+            requirements: {
+                control: ['nueva_york', 'california', 'texas', 'flordia', 'alaska'],
+                technology: ['INDUSTRIA_LIGERA', 'INDUSTRIA_ELECTRONICA'],
+                rawMaterials: ['ALUMINIO', 'CONDUCTORES_SEMICONDUCTORES']
+            },
+            visibleFor: ['nueva_york', 'california', 'texas', 'flordia', 'alaska']
+        },
+        {
             id: 'secretos_guerra',
             title: `LOS SECRETOS DE LA GUERRA EN ${proxyWarCountryTitle.toUpperCase()}`,
             lore: `Casi 50 años después, el mundo no sabe aún porqué Estados Unidos y China tenían tanta necesidad de ir a la guerra en este país. Quizás si restauráramos alguna de sus redes de espionaje y tuviéramos control del país podríamos investigar. Los locales rumorean que puede tener que ver con ciertos depósitos de MATERIAS PRIMAS.`,
@@ -70,7 +83,7 @@ export const getSpecialMissions = (proxyWarCountryTitle: string): SpecialMission
                 technology: ['INDUSTRIA_PESADA'],
                 rawMaterials: ['HIERRO']
             },
-            visibleFor: ['turquia', 'grecia', 'GLOBAL']
+            visibleFor: ['turquia', 'grecia']
         },
         {
             id: 'planta_desalinizacion',
@@ -119,7 +132,7 @@ export const getSpecialMissions = (proxyWarCountryTitle: string): SpecialMission
                 technology: ['INDUSTRIA_PESADA'],
                 rawMaterials: ['HIERRO']
             },
-            visibleFor: ['reino_unido', 'GLOBAL']
+            visibleFor: ['reino_unido']
         },
         {
             id: 'alejandro_magno',
@@ -132,6 +145,54 @@ export const getSpecialMissions = (proxyWarCountryTitle: string): SpecialMission
                 rawMaterials: []
             },
             visibleFor: ['grecia']
+        },
+        {
+            id: 'legado_otomano',
+            title: 'OPERACIÓN LEGADO OTOMANO',
+            description: 'Requiere 1 Suministro de Alimentos, 1 de Manufacturas y 1 de Energía.',
+            lore: 'Recupera la gloria del antiguo imperio. Controlar las rutas entre los tres continentes otorga una ventaja estratégica sin igual. Bonus +1 Infantería atacando entre países involucrados (Turquía, Egipto, Arabia, Grecia).',
+            requirements: {
+                control: ['turquia'],
+                technology: [],
+                rawMaterials: []
+            },
+            visibleFor: ['turquia']
+        },
+        {
+            id: 'gengis_khan',
+            title: 'OPERACIÓN GENGIS KHAN',
+            description: 'Requiere 1 Suministro de Alimentos, 1 de Manufacturas y 1 de Energía.',
+            lore: 'El rugido del lobo estepario vuelve a resonar. Domina las vastas llanuras y estepas para forjar el imperio más grande que el mundo haya visto. Bonus +1 Infantería atacando entre países involucrados (Mongolia, Kazajistán, China, Rusia).',
+            requirements: {
+                control: ['mongolia'],
+                technology: [],
+                rawMaterials: []
+            },
+            visibleFor: ['mongolia']
+        },
+        {
+            id: 'bolivar',
+            title: 'OPERACIÓN BOLÍVAR',
+            description: 'Requiere 1 Suministro de Alimentos, 1 de Manufacturas y 1 de Energía.',
+            lore: 'El sueño del Libertador renace en el Cono Norte. Une a las naciones bajo un solo estandarte para asegurar la libertad de América. Bonus +1 Infantería atacando entre países involucrados (Venezuela, Colombia, Panamá, Perú).',
+            requirements: {
+                control: ['venezuela'],
+                technology: [],
+                rawMaterials: []
+            },
+            visibleFor: ['venezuela']
+        },
+        {
+            id: 'fuego_del_pacifico',
+            title: 'FUEGO DEL PACÍFICO',
+            description: 'Requiere 1 Suministro de Energía, 1 de Manufacturas y 1 de Alimentos.',
+            lore: 'El dominio del aire es la llave del Pacífico. Despliega la flota aérea desde las bases imperiales para asegurar la hegemonía regional. Bonus +1 Fuerza Aérea atacando o defendiendo entre países involucrados (Japón, Corea, Kamchatka, Filipinas).',
+            requirements: {
+                control: ['japon'],
+                technology: [],
+                rawMaterials: []
+            },
+            visibleFor: ['japon']
         }
     ];
 };

@@ -61,74 +61,63 @@ export const AndesMissionModal: React.FC<AndesMissionModalProps> = ({
                 <div style={{ padding: '30px', display: 'flex', gap: '30px' }}>
                     {/* Requirements Panel */}
                     <div style={{ flex: 1 }}>
-                        <div style={{ marginBottom: '20px', fontSize: '1.1em', color: '#fff' }}>
-                            REQUISITOS DE OPERACIÓN:
+                        <div style={{ marginBottom: '20px', fontSize: '1.2em', fontWeight: 'bold', color: '#aaff00', letterSpacing: '1px' }}>
+                            REQUISITOS ESTRATÉGICOS:
                         </div>
 
                         {/* Control Check */}
-                        <div style={{
-                            padding: '10px', marginBottom: '10px',
-                            backgroundColor: hasControl ? '#003300' : '#330000',
-                            border: `1px solid ${hasControl ? '#00ff00' : '#ff0000'}`,
-                            display: 'flex', alignItems: 'center', gap: '10px'
-                        }}>
-                            <span>{hasControl ? '✅' : '❌'}</span>
-                            <span>CONTROL ESTRATÉGICO (ARGENTINA)</span>
+                        <div style={{ marginBottom: '25px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '2em', marginBottom: '5px' }}>{hasControl ? '✅' : '❌'}</div>
+                            <div style={{ fontSize: '0.9em', fontWeight: 'bold', letterSpacing: '1px' }}>CONTROL DE ARGENTINA (BASE)</div>
                         </div>
 
                         {/* Food Selection */}
-                        <div>
-                            <div style={{ color: '#aaa', marginBottom: '5px' }}>SUMINISTRO REQUERIDO:</div>
-                            <div style={{ color: '#aaff00', fontSize: '0.9em', marginBottom: '10px' }}>
-                                Se requiere entregar 1 Suministro de Alimentos para abastecer las tropas.
-                            </div>
-
-                            <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                {foodSupplies.length > 0 ? foodSupplies.map(supply => (
-                                    <div
-                                        key={supply.id}
-                                        onClick={() => setSelectedAndesFoodId(supply.id)}
-                                        style={{
-                                            padding: '10px',
-                                            backgroundColor: selectedAndesFoodId === supply.id ? '#aaff00' : '#112200',
-                                            color: selectedAndesFoodId === supply.id ? '#000' : '#aaff00',
-                                            border: '1px solid #aaff00',
-                                            cursor: 'pointer',
-                                            display: 'flex', justifyContent: 'space-between'
-                                        }}
-                                    >
-                                        <span>ALIMENTOS ({supply.originCountry})</span>
-                                    </div>
-                                )) : (
-                                    <div style={{ color: '#ff4444', fontStyle: 'italic', padding: '10px', border: '1px dashed #442200' }}>
-                                        No tienes suministros de Alimentos disponibles. Produce o comercia para obtenerlos.
+                        <div style={{ marginBottom: '25px' }}>
+                            <div style={{ color: '#aaa', marginBottom: '8px', fontSize: '0.85rem', fontWeight: 'bold' }}>SUMINISTRO DE ALIMENTOS:</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                {foodSupplies.length > 0 ? (
+                                    foodSupplies.map(s => (
+                                        <div
+                                            key={s.id}
+                                            onClick={() => setSelectedAndesFoodId(s.id)}
+                                            style={{
+                                                padding: '10px',
+                                                backgroundColor: selectedAndesFoodId === s.id ? '#aaff00' : '#112200',
+                                                color: selectedAndesFoodId === s.id ? '#000' : '#aaff00',
+                                                border: `1px solid #aaff00`,
+                                                cursor: 'pointer', fontSize: '0.85rem',
+                                                textAlign: 'center', transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            ALIMENTOS ({s.originCountry.toUpperCase()})
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div style={{ color: '#ff4444', fontSize: '0.9rem', textAlign: 'center', padding: '10px', backgroundColor: 'rgba(170,255,0,0.05)', border: '1px dashed #ff4444' }}>
+                                        No disponible.
                                     </div>
                                 )}
                             </div>
-                            <div style={{ marginTop: '10px' }}>
-                                <button
-                                    onClick={onOpenInventory}
-                                    style={{
-                                        padding: '8px',
-                                        backgroundColor: '#112200',
-                                        color: '#aaff00',
-                                        border: '1px solid #aaff00',
-                                        cursor: 'pointer',
-                                        fontSize: '0.8rem',
-                                        width: '100%',
-                                        fontFamily: 'monospace',
-                                        fontWeight: 'bold'
-                                    }}
-                                >
-                                    ABRIR INVENTARIO ESTRATÉGICO
-                                </button>
-                            </div>
                         </div>
+
+                        <button
+                            onClick={onOpenInventory}
+                            style={{
+                                width: '100%', padding: '12px',
+                                backgroundColor: 'transparent', color: '#aaff00', border: '1px solid #aaff00',
+                                cursor: 'pointer', fontSize: '0.9rem', fontWeight: 'bold',
+                                textTransform: 'uppercase', transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(170, 255, 0, 0.1)'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                            Fabricar Suministros
+                        </button>
                     </div>
 
                     {/* Info Panel */}
                     <div style={{ width: '300px', borderLeft: '1px solid #aaff00', paddingLeft: '30px' }}>
-                        <h3 style={{ marginTop: 0, color: '#aaff00' }}>BENEFICIO TÁCTICO</h3>
+                        <h3 style={{ marginTop: 0, color: '#aaff00' }}>CRUCE DE LOS ANDES</h3>
                         <div style={{ backgroundColor: 'rgba(170, 255, 0, 0.1)', padding: '15px', border: '1px dashed #aaff00' }}>
                             <div style={{ fontWeight: 'bold', fontSize: '1.2em', marginBottom: '10px' }}>
                                 FLANQUEO ANDINO
@@ -136,7 +125,7 @@ export const AndesMissionModal: React.FC<AndesMissionModalProps> = ({
                             <p style={{ fontSize: '0.9em', lineHeight: '1.4' }}>
                                 Permite realizar un ataque sorpresa desde Argentina hacia Chile con bonificación de infantería.
                             </p>
-                            <ul style={{ paddingLeft: '20px', fontSize: '0.9em', color: '#ccffaa' }}>
+                            <ul style={{ paddingLeft: '20px', fontSize: '0.85em', color: '#ccffaa' }}>
                                 <li>+1 Infantería (Al atacar Chile)</li>
                                 <li>Requiere activación manual</li>
                                 <li>Duración: 1 Turno por activación</li>
@@ -146,11 +135,7 @@ export const AndesMissionModal: React.FC<AndesMissionModalProps> = ({
                 </div>
 
                 {/* Actions */}
-                <div style={{
-                    padding: '20px',
-                    backgroundColor: 'rgba(0,0,0,0.3)',
-                    display: 'flex', gap: '20px'
-                }}>
+                <div style={{ padding: '20px', backgroundColor: 'rgba(0,0,0,0.3)', display: 'flex', gap: '20px' }}>
                     <button
                         onClick={onClose}
                         style={{

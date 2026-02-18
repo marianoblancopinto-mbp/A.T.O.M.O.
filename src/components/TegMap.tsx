@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BattleOverlay } from './BattleOverlay';
 
-import { calculateRegionBonuses } from '../data/biomeData';
 
 import { TurnOverlay } from './shared/overlays/TurnOverlay';
 import { MapRender } from './game/MapRender';
@@ -28,8 +27,10 @@ import { NuclearWarInfoModal } from './shared/modals/nuclear/NuclearWarInfoModal
 import { YearStartOverlay } from './shared/overlays/YearStartOverlay';
 import { EndgameOverlay } from './shared/overlays/EndgameOverlay';
 import { MissionNotificationOverlay } from './shared/overlays/MissionNotificationOverlay';
+import { MADOverlay } from './shared/overlays/MADOverlay';
 import {
-    isMaritimeConnection
+    isMaritimeConnection,
+    checkSupplyRoute
 } from '../data/mapData';
 import type {
     ProductionDeck,
@@ -38,17 +39,14 @@ import type {
 import { InventoryModal } from './InventoryModal';
 import { useBattleState } from '../hooks/useBattleState';
 import { REGIONS } from '../data/mapRegions';
-import { AGENCY_NAMES } from '../data/constants';
 import { useGameContext } from '../context/GameContext';
 import { type PlayerData } from '../types/playerTypes';
-import { useSupplyRoute } from '../hooks/useSupplyRoute';
 
 
 
 
 export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false }) => {
     const { state, dispatch, multiplayer } = useGameContext();
-    const { checkRoute } = useSupplyRoute();
 
     const {
         gamePhase,
@@ -59,8 +57,7 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
         productionDeck,
         gameDate,
         turnOrder,
-        turnOrderIndex,
-        regionResources
+        turnOrderIndex
     } = state;
 
     // Helper wrappers for backward compatibility during migration
@@ -100,6 +97,7 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
     const [expandedRawMaterials, setExpandedRawMaterials] = useState<Set<string>>(new Set());
     const [showTechnologiesModal, setShowTechnologiesModal] = useState(false);
     const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+    const [inventoryFilter, setInventoryFilter] = useState<string | null>(null);
 
     // Mission Modals State
 
@@ -144,7 +142,6 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
         battleState,
         attackSourceSelection,
         setAttackSourceSelection,
-        setUsedAttackSources,
         handleAttackClick,
         confirmAttackSource
     } = useBattleState({
@@ -165,9 +162,8 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
     // Silo Construction State
     const [showSiloConstructionModal, setShowSiloConstructionModal] = useState(false);
 
-    const [winner, setWinner] = useState<PlayerData | null>(null);
+
     const themeSongRef = useRef<HTMLAudioElement | null>(null);
-    const [endgameChoice, setEndgameChoice] = useState<'victory' | 'destruction' | null>(null);
     const [animationIndex, setAnimationIndex] = useState(-1);
 
     // Desalination Plant Mission State
@@ -185,7 +181,7 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
             ? currentPlayerId === multiplayer.playerId
             : true; // Always show in hotseat
 
-        if (isMyTurn && !showTurnOverlay && !winner && gamePhase === 'playing') {
+        if (isMyTurn && !showTurnOverlay && !state.winner && gamePhase === 'playing') {
             // Only show if we didn't just dismiss it? 
             // We can check if turnOrderIndex changed if we tracked "lastSeenTurn".
             // But simpler: if currentPlayerIndex changed, show it. 
@@ -212,11 +208,11 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                 ? currentPlayerId === multiplayer.playerId
                 : true;
 
-            if (isMyTurn && !winner && gamePhase === 'playing') {
+            if (isMyTurn && !state.winner && gamePhase === 'playing') {
                 setShowTurnOverlay(true);
             }
         }
-    }, [currentPlayerIndex, players, multiplayer.connectionStatus, multiplayer.playerId, gameStarted, winner, gamePhase]);
+    }, [currentPlayerIndex, players, multiplayer.connectionStatus, multiplayer.playerId, gameStarted, state.winner, gamePhase]);
 
 
 
@@ -232,11 +228,10 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
 
 
     // Espionage State
-    const [showEspionageModal, setShowEspionageModal] = useState(false);
+    const [showEspionageModal, setShowEspionageModal] = useState<string | null>(null);
 
 
     const [showEspionageGenSelection, setShowEspionageGenSelection] = useState(false);
-    const [espionageGenHq, setEspionageGenHq] = useState<string | null>(null);
 
     const [showEspionageNetworkInfo, setShowEspionageNetworkInfo] = useState<string | null>(null); // Country ID for espionage network info
 
@@ -244,6 +239,7 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
     const [showNuclearDesignInfo, setShowNuclearDesignInfo] = useState<string | null>(null); // Country ID for nuclear design info
     const [showNuclearGenSelection, setShowNuclearGenSelection] = useState(false);
     const [nuclearGenLocation, setNuclearGenLocation] = useState<string | null>(null);
+    const [missionPlayerIndex, setMissionPlayerIndex] = useState<number | null>(null);
 
 
 
@@ -362,33 +358,142 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
 
 
 
-    // Validate Special Card Ownership
+    // Validate Special Card and Silo Ownership
     useEffect(() => {
         if (!gameStarted || players.length === 0) return;
 
-        let cardsRemoved = false;
+        let stateChanged = false;
         const updatedPlayers = players.map(p => {
-            if (p.specialCards.length === 0) return p;
+            let playerModified = false;
+            let updatedP = { ...p };
 
-            const validCards = p.specialCards.filter(card => {
-                // Must own the origin country to keep the card
-                const isOwner = owners[card.originCountry] === p.id;
-                return isOwner;
-            });
+            // 1. Validate Special Cards
+            if (p.specialCards.length > 0) {
+                const validCards = p.specialCards.filter(card => owners[card.originCountry] === p.id);
+                if (validCards.length !== p.specialCards.length) {
+                    updatedP.specialCards = validCards;
+                    playerModified = true;
+                }
+            }
 
-            if (validCards.length !== p.specialCards.length) {
-                cardsRemoved = true;
-                return { ...p, specialCards: validCards };
+            // 2. Validate Silos
+            if (p.silos.length > 0) {
+                const validSilos = p.silos.filter(siloId => owners[siloId] === p.id);
+                if (validSilos.length !== p.silos.length) {
+                    // NEW: Notify player about lost silo
+                    const lostSiloIds = p.silos.filter(id => !validSilos.includes(id));
+                    lostSiloIds.forEach(sid => {
+                        dispatch({
+                            type: 'SET_NOTIFICATION',
+                            payload: {
+                                type: 'NEUTRALIZED',
+                                title: 'SILO DESTRUIDO',
+                                message: `El silo en ${REGIONS.find(r => r.id === sid)?.title || sid} ha sido capturado y desmantelado. Tendrás que construirlo de verdad de nuevo si quieres recuperar tu capacidad de ataque nuclear.`,
+                                color: '#ff4444',
+                                targetPlayerId: p.id
+                            }
+                        });
+                    });
+
+                    updatedP.silos = validSilos;
+                    playerModified = true;
+
+                    // Also clean up Silo Status
+                    const newSiloStatus = { ...p.siloStatus };
+                    let statusModified = false;
+                    Object.keys(newSiloStatus).forEach(sid => {
+                        if (owners[sid] !== p.id) {
+                            delete (newSiloStatus as any)[sid];
+                            statusModified = true;
+                        }
+                    });
+                    if (statusModified) {
+                        updatedP.siloStatus = newSiloStatus;
+                    }
+
+                    // If they lost all silos, check deployment
+                    if (validSilos.length === 0 && p.nuclearDeploymentActive) {
+                        updatedP.nuclearDeploymentActive = false;
+                    }
+                }
+            }
+
+            if (playerModified) {
+                stateChanged = true;
+                return updatedP;
             }
             return p;
         });
 
-        if (cardsRemoved) {
+        if (stateChanged) {
             setPlayers(updatedPlayers);
-            // Optionally notify user
         }
     }, [owners, gameStarted]);
 
+    // Private Overlays for Supply Route loss
+    const prevRouteStatusRef = useRef<Record<string, Record<string, { fuel: boolean, mineral: boolean }>>>({});
+
+    useEffect(() => {
+        if (!gameStarted || players.length === 0) return;
+
+        players.forEach(p => {
+            const playerId = p.id.toString();
+            if (!prevRouteStatusRef.current[playerId]) {
+                prevRouteStatusRef.current[playerId] = {};
+            }
+            const playerPrevStatus = prevRouteStatusRef.current[playerId];
+
+            p.silos.forEach(siloId => {
+                if (!playerPrevStatus[siloId]) {
+                    playerPrevStatus[siloId] = { fuel: true, mineral: true }; // Init as true to only notify on LOST
+                }
+                const prev = playerPrevStatus[siloId];
+
+                // 1. Fuel Route
+                const fuelCardId = p.siloFuelCards?.[siloId];
+                let fuelRouteOK = true;
+                if (fuelCardId) {
+                    const fuelCard = p.inventory.rawMaterials.find(c => c.id === fuelCardId);
+                    if (fuelCard?.country) {
+                        fuelRouteOK = checkSupplyRoute(fuelCard.country, siloId, p.id, owners);
+                        if (prev.fuel && !fuelRouteOK) {
+                            dispatch({
+                                type: 'SET_NOTIFICATION',
+                                payload: {
+                                    type: 'NEUTRALIZED',
+                                    title: 'RUTA DE COMBUSTIBLE CORTADA',
+                                    message: `Se ha perdido la ruta de suministro entre ${REGIONS.find(r => r.id === fuelCard.country)?.title} y el silo en ${REGIONS.find(r => r.id === siloId)?.title}.`,
+                                    color: '#ff9900',
+                                    targetPlayerId: p.id
+                                }
+                            });
+                        }
+                    }
+                }
+
+                // 2. Mineral Route
+                const mineralCard = p.specialCards.find(c => c.name === 'MINERAL SECRETO');
+                let mineralRouteOK = true;
+                if (mineralCard) {
+                    mineralRouteOK = checkSupplyRoute(mineralCard.originCountry, siloId, p.id, owners);
+                    if (prev.mineral && !mineralRouteOK) {
+                        dispatch({
+                            type: 'SET_NOTIFICATION',
+                            payload: {
+                                type: 'NEUTRALIZED',
+                                title: 'SUMINISTRO DE MINERAL INTERRUMPIDO',
+                                message: `La ruta desde el yacimiento de Mineral Secreto (${REGIONS.find(r => r.id === mineralCard.originCountry)?.title}) hasta el silo en ${REGIONS.find(r => r.id === siloId)?.title} ha sido bloqueada.`,
+                                color: '#ff9900',
+                                targetPlayerId: p.id
+                            }
+                        });
+                    }
+                }
+
+                playerPrevStatus[siloId] = { fuel: fuelRouteOK, mineral: mineralRouteOK };
+            });
+        });
+    }, [owners, players, gameStarted]);
 
 
 
@@ -413,11 +518,6 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
 
 
 
-    const handleOpenEspionageGen = (hqId: string) => {
-        setEspionageGenHq(hqId);
-        setShowEspionageGenSelection(true);
-        setShowConfidentialModal(false); // Close the info modal to show selection
-    };
 
     // Espionage logic moved to useGameActions and EspionageTargetSelectionModal
 
@@ -591,7 +691,6 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                 }
             });
             // Local effects
-            setWinner(nextWinner);
             themeSongRef.current?.play();
             return;
         }
@@ -631,6 +730,7 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                     ...p,
                     siloStatus: newSiloStatus,
                     mineralUsedThisTurn: false,
+                    usedNuclearSilos: [], // Reset launch tracking for the new turn
                     supplies: updatedSupplies,
                     // Mission flags defined in block 1 were for OLD current player.
                     // New current player shouldn't have them reset unless they were already false.
@@ -653,7 +753,6 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
         });
 
         // Local UI resets
-        setUsedAttackSources(new Set());
         setSelectedRegionId(null);
 
         // Note: Global useEffect will handle showing overlays for all players
@@ -673,7 +772,16 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                     const hasSafeSilo = mySiloCards.some(silo => owners[silo.originCountry] === p.id);
 
                     if (!hasSafeSilo) {
-                        alert(`Úñ DESPLIEGUE NEUTRALIZADO Úñ\n\n${p.name} ha perdido sus silos de lanzamiento estratégicos.`);
+                        dispatch({
+                            type: 'SET_NOTIFICATION',
+                            payload: {
+                                type: 'NEUTRALIZED',
+                                title: 'DESPLIEGUE NEUTRALIZADO',
+                                message: 'Has perdido tus silos de lanzamiento estratégicos. El despliegue nuclear ha sido abortado.',
+                                color: '#ff0000',
+                                targetPlayerId: p.id
+                            }
+                        });
                         return { ...p, nuclearDeploymentActive: false };
                     }
                 }
@@ -685,19 +793,26 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
 
 
     const handleEndgameChoice = (choice: 'victory' | 'destruction') => {
-        setEndgameChoice(choice);
+        dispatch({ type: 'SET_ENDGAME_CHOICE', payload: choice });
         setAnimationIndex(0);
     };
 
+    // Synchronize animation start for all players (winner and losers)
     useEffect(() => {
-        if (animationIndex >= 0 && animationIndex < REGIONS.length && endgameChoice && winner) {
+        if (state.endgameChoice && state.winner && animationIndex === -1) {
+            setAnimationIndex(0);
+        }
+    }, [state.endgameChoice, state.winner, animationIndex]);
+
+    useEffect(() => {
+        if (animationIndex >= 0 && animationIndex < REGIONS.length && state.endgameChoice && state.winner) {
             const timer = setTimeout(() => {
                 const region = REGIONS[animationIndex];
-                if (endgameChoice === 'victory') {
-                    setOwners(prev => ({ ...prev, [region.id]: winner.id }));
+                if (state.endgameChoice === 'victory') {
+                    setOwners(prev => ({ ...prev, [region.id]: state.winner!.id }));
                 } else {
                     // destruction - enemy countries turn black
-                    if (owners[region.id] !== winner.id) {
+                    if (owners[region.id] !== state.winner!.id) {
                         setOwners(prev => ({ ...prev, [region.id]: -2 }));
                     }
                 }
@@ -705,7 +820,7 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
             }, 150); // Slightly slower for better effect
             return () => clearTimeout(timer);
         }
-    }, [animationIndex, endgameChoice, winner]);
+    }, [animationIndex, state.endgameChoice, state.winner]);
 
 
 
@@ -858,7 +973,6 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
             {battleState && battleState.isActive && (
                 <BattleOverlay
                     battleState={battleState}
-                    defenseBonuses={calculateRegionBonuses(battleState.targetRegionId)}
                     onOpenInventory={() => {
                         setInventoryPlayerIndex(currentPlayerIndex);
                         setShowInventory(true);
@@ -1006,6 +1120,7 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                         onClose={() => {
                             setShowInventory(false);
                             setInventoryPlayerIndex(null); // Reset when closed
+                            setInventoryFilter(null); // Reset filter
                         }}
                         battleTargetId={
                             battleState?.isActive
@@ -1019,6 +1134,7 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                                                 : selectedRegionId)))
                                     : null)
                         }
+                        filterTargetCountry={inventoryFilter}
                     />
                 )}
 
@@ -1099,23 +1215,32 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                 {/* Nuclear Activation Modal */}
                 <NuclearActivationModal
                     show={!spectator ? showNuclearActivationModal : null}
-                    onClose={() => setShowNuclearActivationModal(null)}
+                    onClose={() => {
+                        setShowNuclearActivationModal(null);
+                        setMissionPlayerIndex(null);
+                    }}
+                    playerIndex={missionPlayerIndex ?? undefined}
                 />
 
 
                 {/* Mineral Extraction Modal */}
                 <MineralExtractionModal
                     show={!spectator ? showMineralExtractionModal : null}
-                    onClose={() => setShowMineralExtractionModal(null)}
+                    onClose={() => {
+                        setShowMineralExtractionModal(null);
+                        setMissionPlayerIndex(null);
+                    }}
+                    playerIndex={missionPlayerIndex ?? undefined}
                 />
-
-
                 {/* Silo Construction Modal */}
                 <SiloConstructionModal
                     show={!spectator && showSiloConstructionModal}
-                    onClose={() => setShowSiloConstructionModal(false)}
+                    onClose={() => {
+                        setShowSiloConstructionModal(false);
+                        setMissionPlayerIndex(null);
+                    }}
+                    playerIndex={missionPlayerIndex ?? undefined}
                 />
-
 
                 {/* Confidential Information Modal */}
                 <NuclearDeploymentModal
@@ -1123,718 +1248,29 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                     onClose={() => {
                         setShowNuclearDeploymentModal(false);
                         setSelectedLaunchSilo(null);
+                        setMissionPlayerIndex(null);
                     }}
                     selectedSiloId={selectedLaunchSilo}
+                    playerIndex={missionPlayerIndex ?? undefined}
                 />
 
-                {/* Confidential Information Modal */}
-                {
-                    !spectator && showConfidentialModal && (() => {
-                        const player = players.find(p => p.id === currentPlayerIndex);
-                        if (!player) return null;
 
-                        return (
-                            <div style={{
-                                position: 'fixed',
-                                top: 0, left: 0, right: 0, bottom: 0,
-                                backgroundColor: 'rgba(0,0,0,0.9)',
-                                display: 'flex',
-                                justifyContent: 'center',
-                                alignItems: 'center',
-                                zIndex: 4000
-                            }}>
-                                <div style={{
-                                    backgroundColor: '#001a1a',
-                                    border: '2px solid #00ffff',
-                                    padding: '30px',
-                                    width: '800px',
-                                    maxWidth: '90%',
-                                    maxHeight: '80vh',
-                                    overflowY: 'auto',
-                                    boxShadow: '0 0 20px rgba(0, 255, 255, 0.2)'
-                                }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #00ffff', paddingBottom: '10px' }}>
-                                        <h2 style={{ color: '#00ffff', margin: 0 }}>INFORMACIÓN CONFIDENCIAL</h2>
-                                        <button
-                                            onClick={() => setShowConfidentialModal(false)}
-                                            style={{ background: 'none', border: 'none', color: '#00ffff', fontSize: '1.5rem', cursor: 'pointer' }}
-                                        >
-                                            X
-                                        </button>
-                                    </div>
-
-                                    <h3 style={{ color: '#aaa', marginBottom: '15px' }}>Proyectos Especiales y Armas Estratégicas</h3>
-
-                                    {/* Secret Mission Display */}
-                                    {player.secretMineralLocation && (
-                                        <div style={{
-                                            marginBottom: '20px',
-                                            padding: '15px',
-                                            border: '1px solid #00ffff',
-                                            backgroundColor: '#002222',
-                                            borderRadius: '5px'
-                                        }}>
-                                            <h4 style={{ margin: '0 0 10px 0', color: '#00ffff' }}>MISIÓN: MINERAL SECRETO</h4>
-                                            <div style={{ color: '#fff' }}>
-                                                Ubicación Objetivo: <span style={{ fontWeight: 'bold', color: '#00ff00' }}>{REGIONS.find(r => r.id === player.secretMineralLocation)?.title || player.secretMineralLocation}</span>
-                                            </div>
-                                            <div style={{ color: '#aaa', fontSize: '0.8rem', marginTop: '5px' }}>
-                                                Requiere control del territorio, Tecnología de Industria Pesada, y Suministro de Hierro y Agua.
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Special Operations Section */}
-                                    {(() => {
-                                        const availableMissions = SPECIAL_MISSIONS.filter(m => {
-                                            // Mission is available if player controls ANY of the visibility regions OR if it's GLOBAL
-                                            // AND has not completed/activated it yet
-                                            const hasAccess = m.visibleFor.includes('GLOBAL') || m.visibleFor.some(id => owners[id] === currentPlayerIndex);
-                                            const alreadyActive = player.activeSpecialMissions.some(am => am.id === m.id);
-                                            return hasAccess && !alreadyActive;
-                                        });
-
-                                        if (availableMissions.length === 0) return null;
-
-                                        return (
-                                            <div style={{
-                                                marginBottom: '20px',
-                                                padding: '15px',
-                                                border: '1px solid #00ff00',
-                                                backgroundColor: '#001100',
-                                                borderRadius: '5px'
-                                            }}>
-                                                <h4 style={{ margin: '0 0 10px 0', color: '#00ff00', textTransform: 'uppercase' }}>OPERACIONES ESPECIALES DISPONIBLES</h4>
-
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                                    {availableMissions.map(mission => {
-                                                        const isAntartic = mission.id === 'ruta_antartica';
-                                                        const requiredControl = mission.requirements.control || [];
-                                                        const hasRequiredControl = requiredControl.every(id => owners[id] === currentPlayerIndex);
-                                                        const canAccess = !isAntartic || hasRequiredControl;
-
-                                                        return (
-                                                            <div key={mission.id} style={{
-                                                                padding: '12px',
-                                                                backgroundColor: '#000',
-                                                                borderRadius: '4px',
-                                                                border: '1px solid #004400',
-                                                                display: 'flex',
-                                                                justifyContent: 'space-between',
-                                                                alignItems: 'center'
-                                                            }}>
-                                                                <div style={{ flex: 1 }}>
-                                                                    <div style={{ color: '#00ff00', fontWeight: 'bold' }}>{mission.title}</div>
-                                                                    <div style={{ color: '#666', fontSize: '0.7rem' }}>{mission.description}</div>
-                                                                    {!canAccess && isAntartic && (
-                                                                        <div style={{ color: '#ff4444', fontSize: '0.65rem', marginTop: '4px', fontStyle: 'italic' }}>
-                                                                            REQUISITO: Controlar bases en Chile, Argentina, Australia y Sudáfrica.
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                                <button
-                                                                    disabled={!canAccess}
-                                                                    onClick={() => {
-                                                                        setShowSpecialMissionModal(mission.id);
-                                                                        setShowConfidentialModal(false); // Close parent modal
-                                                                    }}
-                                                                    style={{
-                                                                        backgroundColor: canAccess ? '#003300' : '#111',
-                                                                        color: canAccess ? '#00ff00' : '#444',
-                                                                        border: `1px solid ${canAccess ? '#00ff00' : '#333'}`,
-                                                                        padding: '8px 15px',
-                                                                        fontWeight: 'bold',
-                                                                        cursor: canAccess ? 'pointer' : 'not-allowed',
-                                                                        fontSize: '0.8rem',
-                                                                        textTransform: 'uppercase',
-                                                                        transition: 'all 0.2s',
-                                                                        boxShadow: canAccess ? '0 0 5px rgba(0, 255, 0, 0.2)' : 'none'
-                                                                    }}
-                                                                    onMouseEnter={(e) => {
-                                                                        if (canAccess) {
-                                                                            e.currentTarget.style.backgroundColor = '#00ff00';
-                                                                            e.currentTarget.style.color = '#000';
-                                                                        }
-                                                                    }}
-                                                                    onMouseLeave={(e) => {
-                                                                        if (canAccess) {
-                                                                            e.currentTarget.style.backgroundColor = '#003300';
-                                                                            e.currentTarget.style.color = '#00ff00';
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    {canAccess ? 'ACCEDER' : 'BLOQUEADO'}
-                                                                </button>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        );
-                                    })()
-                                    }
-
-                                    {/* Espionage Mission Section */}
-                                    {(() => {
-                                        const espionageCountries = ['nueva_york', 'reino_unido', 'china', 'rusia'];
-                                        const heldEspionageCountries = espionageCountries.filter(cid => owners[cid] === currentPlayerIndex);
-
-                                        if (heldEspionageCountries.length === 0) return null;
-
-                                        return (
-                                            <div style={{
-                                                marginBottom: '20px',
-                                                padding: '15px',
-                                                border: '1px solid #00ffff',
-                                                backgroundColor: '#001122',
-                                                borderRadius: '5px'
-                                            }}>
-                                                <h4 style={{ margin: '0 0 10px 0', color: '#00ffff' }}>MISIÓN: ESPIONAJE</h4>
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                                    {heldEspionageCountries.map(cid => {
-                                                        const countryName = REGIONS.find(r => r.id === cid)?.title || cid;
-                                                        const agencyName = AGENCY_NAMES[cid] || 'AGENCIA DESCONOCIDA';
-                                                        const hasEspCard = player.specialCards.some(c => c.type === 'ESPIONAJE' && c.originCountry === cid);
-                                                        const isSpent = player.usedEspionageHqs.includes(cid);
-
-                                                        return (
-                                                            <div key={cid} style={{
-                                                                padding: '12px',
-                                                                backgroundColor: '#000',
-                                                                borderRadius: '4px',
-                                                                border: '1px solid #004444',
-                                                                display: 'flex',
-                                                                flexDirection: 'column',
-                                                                gap: '8px'
-                                                            }}>
-                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                                    <div>
-                                                                        <div style={{ color: '#00ffff', fontWeight: 'bold' }}>{agencyName}</div>
-                                                                        <div style={{ color: '#666', fontSize: '0.7rem' }}>Sede: {countryName}</div>
-                                                                    </div>
-                                                                    {isSpent && (
-                                                                        <span style={{
-                                                                            color: '#ff9900',
-                                                                            fontSize: '0.65rem',
-                                                                            fontWeight: 'bold',
-                                                                            backgroundColor: '#332200',
-                                                                            padding: '3px 8px',
-                                                                            borderRadius: '3px'
-                                                                        }}>
-                                                                            USADA ({player.usedEspionageHqs.length}/4)
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-
-                                                                {hasEspCard ? (
-                                                                    <span style={{ color: '#00ff00', fontSize: '0.8rem', fontWeight: 'bold', textAlign: 'center', padding: '5px', backgroundColor: 'rgba(0,255,0,0.1)', borderRadius: '4px' }}>
-                                                                        INTELIGENCIA ACTIVA EN INVENTARIO
-                                                                    </span>
-                                                                ) : isSpent ? (
-                                                                    <span style={{ color: '#ff4444', fontSize: '0.8rem', fontWeight: 'bold', textAlign: 'center', padding: '5px', backgroundColor: 'rgba(255,0,0,0.1)', border: '1px dashed #ff4444', borderRadius: '4px' }}>
-                                                                        INFORME ESTRATÉGICO YA ENTREGADO (LIMITE MÁXIMO ALCANZADO)
-                                                                    </span>
-                                                                ) : (
-                                                                    <button
-                                                                        onClick={() => handleOpenEspionageGen(cid)}
-                                                                        disabled={player.nuclearDeploymentActive}
-                                                                        style={{
-                                                                            backgroundColor: player.nuclearDeploymentActive ? '#333' : '#00ffff',
-                                                                            color: '#000',
-                                                                            border: 'none',
-                                                                            padding: '10px 20px',
-                                                                            fontWeight: 'bold',
-                                                                            cursor: player.nuclearDeploymentActive ? 'not-allowed' : 'pointer',
-                                                                            width: '100%',
-                                                                            opacity: player.nuclearDeploymentActive ? 0.5 : 1,
-                                                                            transition: 'all 0.2s'
-                                                                        }}
-                                                                    >
-                                                                        GENERAR INTELIGENCIA
-                                                                    </button>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                                <div style={{ color: '#aaa', fontSize: '0.7rem', marginTop: '10px' }}>
-                                                    Requiere: Ind. Electrónica + Semiconductores + Ruta de suministro a la Sede.
-                                                    <br />
-                                                    <span style={{ color: '#ff9900' }}>NOTA: Cada locación puede usarse solo UNA vez por jugador (máx. 4 reportes totales)</span>
-                                                </div>
-                                            </div>
-                                        );
-                                    })()}
-
-                                    {/* Cruce de los Andes Activation */}
-                                    {(() => {
-                                        const andesCards = player.specialCards.filter(c => c.type === 'CRUCE_ANDES');
-                                        if (andesCards.length === 0) return null;
-
-                                        return (
-                                            <div style={{
-                                                marginBottom: '20px',
-                                                padding: '15px',
-                                                border: '1px solid #aaff00',
-                                                backgroundColor: '#051a00',
-                                                borderRadius: '5px'
-                                            }}>
-                                                <h4 style={{ margin: '0 0 10px 0', color: '#aaff00' }}>OPERACIÓN: CRUCE DE LOS ANDES</h4>
-
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                                    {andesCards.map(card => {
-                                                        const isActive = player.crossingAndesActive;
-
-                                                        return (
-                                                            <div key={card.id} style={{
-                                                                padding: '12px',
-                                                                backgroundColor: '#000',
-                                                                borderRadius: '4px',
-                                                                border: '1px solid #446600',
-                                                                display: 'flex',
-                                                                justifyContent: 'space-between',
-                                                                alignItems: 'center'
-                                                            }}>
-                                                                <div>
-                                                                    <div style={{ color: '#aaff00', fontWeight: 'bold' }}>LOGÍSTICA CORDILLERANA</div>
-                                                                    <div style={{ color: '#fff', fontSize: '0.8rem' }}>Permite +1 Infantería al atacar desde Argentina hacia Chile.</div>
-                                                                    {isActive && (
-                                                                        <div style={{ color: '#00ff00', fontWeight: 'bold', fontSize: '0.8rem', marginTop: '5px' }}>
-                                                                            ¡ACTIVADO: BONUS DISPONIBLE!
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                                <button
-                                                                    disabled={isActive || player.nuclearDeploymentActive}
-                                                                    onClick={() => {
-                                                                        if (isActive) return;
-                                                                        setPlayers(prev => prev.map(p => {
-                                                                            if (p.id === currentPlayerIndex) {
-                                                                                return { ...p, crossingAndesActive: true };
-                                                                            }
-                                                                            return p;
-                                                                        }));
-                                                                    }}
-                                                                    style={{
-                                                                        backgroundColor: isActive ? '#224400' : '#aaff00',
-                                                                        color: isActive ? '#aaff00' : '#000',
-                                                                        border: 'none',
-                                                                        padding: '8px 15px',
-                                                                        fontWeight: 'bold',
-                                                                        cursor: isActive ? 'default' : 'pointer',
-                                                                        borderRadius: '3px'
-                                                                    }}
-                                                                >
-                                                                    {isActive ? 'ACTIVO' : 'ACTIVAR'}
-                                                                </button>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        );
-                                    })()}
-
-                                    {/* Normandy Landing Activation */}
-                                    {(() => {
-                                        const normandyCards = player.specialCards.filter(c => c.type === 'NORMANDY_LANDING');
-                                        if (normandyCards.length === 0) return null;
-
-                                        return (
-                                            <div style={{
-                                                marginBottom: '20px',
-                                                padding: '15px',
-                                                border: '1px solid #00aaff',
-                                                backgroundColor: '#001122',
-                                                borderRadius: '5px'
-                                            }}>
-                                                <h4 style={{ margin: '0 0 10px 0', color: '#00aaff' }}>OPERACIÓN: DESEMBARCO DE NORMANDÍA</h4>
-
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                                    {normandyCards.map(card => {
-                                                        const isActive = player.normandyLandingActive;
-
-                                                        return (
-                                                            <div key={card.id} style={{
-                                                                padding: '12px',
-                                                                backgroundColor: '#000',
-                                                                borderRadius: '4px',
-                                                                border: '1px solid #004488',
-                                                                display: 'flex',
-                                                                justifyContent: 'space-between',
-                                                                alignItems: 'center'
-                                                            }}>
-                                                                <div>
-                                                                    <div style={{ color: '#00aaff', fontWeight: 'bold' }}>LOGÍSTICA DE INVASIÓN</div>
-                                                                    <div style={{ color: '#fff', fontSize: '0.8rem' }}>Permite +1 Artillería y +2 Infantería al atacar Francia desde UK.</div>
-                                                                    {isActive && (
-                                                                        <div style={{ color: '#00ff00', fontWeight: 'bold', fontSize: '0.8rem', marginTop: '5px' }}>
-                                                                            ¡ACTIVADO: BONUS DISPONIBLE!
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                                <button
-                                                                    disabled={isActive || player.nuclearDeploymentActive}
-                                                                    onClick={() => {
-                                                                        if (isActive) return;
-                                                                        setPlayers(prev => prev.map(p => {
-                                                                            if (p.id === currentPlayerIndex) {
-                                                                                return { ...p, normandyLandingActive: true };
-                                                                            }
-                                                                            return p;
-                                                                        }));
-                                                                    }}
-                                                                    style={{
-                                                                        backgroundColor: isActive ? '#002244' : '#00aaff',
-                                                                        color: isActive ? '#00aaff' : '#000',
-                                                                        border: 'none',
-                                                                        padding: '8px 15px',
-                                                                        fontWeight: 'bold',
-                                                                        cursor: isActive ? 'default' : 'pointer',
-                                                                        borderRadius: '3px'
-                                                                    }}
-                                                                >
-                                                                    {isActive ? 'ACTIVO' : 'ACTIVAR'}
-                                                                </button>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        );
-                                    })()}
-
-                                    {(() => {
-                                        const currentPlayerId = players[currentPlayerIndex]?.id;
-                                        const nuclearCountries = regionResources?.nuclearWarCapable || [];
-                                        const heldNuclearCountries = nuclearCountries.filter(cid => owners[cid] === currentPlayerId);
-
-                                        if (heldNuclearCountries.length === 0) return null;
-
-                                        return (
-                                            <div style={{
-                                                marginBottom: '20px',
-                                                padding: '15px',
-                                                border: '1px solid #ff9100',
-                                                backgroundColor: '#1a0a00',
-                                                borderRadius: '5px'
-                                            }}>
-                                                <h4 style={{ margin: '0 0 10px 0', color: '#ff9100' }}>MISIÓN: DISEÑO DE ARMAS NUCLEARES</h4>
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                                    {heldNuclearCountries.map(cid => {
-                                                        const countryName = REGIONS.find(r => r.id === cid)?.title || cid;
-                                                        const hasNuclearCard = player.specialCards.some(c => c.type === 'NUCLEAR_DESIGN' && c.originCountry === cid);
-
-                                                        return (
-                                                            <div key={cid} style={{
-                                                                padding: '12px',
-                                                                backgroundColor: '#000',
-                                                                borderRadius: '4px',
-                                                                border: '1px solid #442200',
-                                                                display: 'flex',
-                                                                flexDirection: 'column',
-                                                                gap: '8px'
-                                                            }}>
-                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                                    <div>
-                                                                        <div style={{ color: '#ff9100', fontWeight: 'bold' }}>ARCHIVOS CLASIFICADOS</div>
-                                                                        <div style={{ color: '#666', fontSize: '0.7rem' }}>Ubicación: {countryName}</div>
-                                                                    </div>
-                                                                </div>
-
-                                                                {hasNuclearCard ? (
-                                                                    <span style={{ color: '#00ff00', fontSize: '0.8rem', fontWeight: 'bold', textAlign: 'center', padding: '5px', backgroundColor: 'rgba(0,255,0,0.1)', borderRadius: '4px' }}>
-                                                                        DISEÑO COMPLETADO - EN INVENTARIO
-                                                                    </span>
-                                                                ) : (
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            setNuclearGenLocation(cid);
-                                                                            setShowNuclearGenSelection(true);
-                                                                        }}
-                                                                        disabled={player.nuclearDeploymentActive}
-                                                                        style={{
-                                                                            backgroundColor: player.nuclearDeploymentActive ? '#333' : '#ff9100',
-                                                                            color: '#000',
-                                                                            border: 'none',
-                                                                            padding: '10px 20px',
-                                                                            fontWeight: 'bold',
-                                                                            cursor: player.nuclearDeploymentActive ? 'not-allowed' : 'pointer',
-                                                                            width: '100%',
-                                                                            opacity: player.nuclearDeploymentActive ? 0.5 : 1,
-                                                                            transition: 'all 0.2s'
-                                                                        }}
-                                                                    >
-                                                                        COMENZAR DISEÑO
-                                                                    </button>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                                <div style={{ color: '#aaa', fontSize: '0.7rem', marginTop: '10px' }}>
-                                                    Requiere: Ind. Electrónica + Semiconductores + Ruta de suministro a la ubicación.
-                                                </div>
-                                            </div>
-                                        );
-                                    })()}
-
-                                    {/* Silo Mission Display */}
-                                    <div style={{
-                                        marginBottom: '20px',
-                                        padding: '15px',
-                                        border: '1px solid #ff9100',
-                                        backgroundColor: '#221100',
-                                        borderRadius: '5px'
-                                    }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                            <h4 style={{ margin: '0 0 10px 0', color: '#ff9100', textAlign: 'center' }}>MISIÓN: CONSTRUCCIÓN DE SILOS</h4>
-                                            <button
-                                                onClick={() => setShowSiloConstructionModal(true)}
-                                                style={{
-                                                    backgroundColor: '#ff9100',
-                                                    color: '#000',
-                                                    border: 'none',
-                                                    padding: '5px 20px',
-                                                    cursor: 'pointer',
-                                                    fontWeight: 'bold',
-                                                    marginBottom: '10px'
-                                                }}
-                                            >
-                                                CONSTRUIR
-                                            </button>
-                                        </div>
-                                        <div style={{ color: '#aaa', fontSize: '0.8rem', marginTop: '5px' }}>
-                                            Requiere: Ind. Ligera + Ind. Pesada + Electrónica y Suministro de Hierro + Aluminio + Semiconductores.
-                                        </div>
-                                        {player.silos.length > 0 && (
-                                            <div style={{ marginTop: '15px' }}>
-                                                <div style={{ color: '#ff9100', fontSize: '0.9rem', marginBottom: '10px', fontWeight: 'bold' }}>SILOS OPERATIVOS:</div>
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                                    {player.silos.map(siloId => {
-                                                        const siloStatus = player.siloStatus[siloId];
-                                                        const isActive = siloStatus?.status === 'active';
-                                                        const hasFuel = player.siloFuelCards[siloId] != null;
-                                                        return (
-                                                            <div key={siloId} style={{
-                                                                padding: '10px',
-                                                                backgroundColor: '#000',
-                                                                border: isActive ? '1px solid #00ff00' : '1px solid #666',
-                                                                borderRadius: '4px',
-                                                                display: 'flex',
-                                                                justifyContent: 'space-between',
-                                                                alignItems: 'center'
-                                                            }}>
-                                                                <div>
-                                                                    <div style={{ color: '#fff', fontWeight: 'bold' }}>
-                                                                        {REGIONS.find(r => r.id === siloId)?.title}
-                                                                    </div>
-                                                                    <div style={{ color: isActive ? '#00ff00' : '#aaa', fontSize: '0.75rem' }}>
-                                                                        {isActive ? 'ACTIVO' : (siloStatus?.status === 'construction' ? 'CONSTRUCCIÓN' : 'ENFRIAMIENTO')}
-                                                                        {hasFuel && '☢️ Combustible Asignado'}
-                                                                    </div>
-                                                                </div>
-                                                                {isActive && (
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            setShowSiloFuelSelectionModal(siloId);
-                                                                        }}
-                                                                        style={{
-                                                                            backgroundColor: hasFuel ? '#00ff00' : '#ff9100',
-                                                                            color: '#000',
-                                                                            border: 'none',
-                                                                            padding: '6px 12px',
-                                                                            cursor: 'pointer',
-                                                                            fontWeight: 'bold',
-                                                                            fontSize: '0.75rem',
-                                                                            borderRadius: '3px'
-                                                                        }}
-                                                                    >
-                                                                        {hasFuel ? 'CAMBIAR COMBUSTIBLE' : 'SELECCIONAR COMBUSTIBLE'}
-                                                                    </button>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* PROTOCOLO DE DESPLIEGUE FINAL SECTION */}
-                                    {(() => {
-                                        const siloCards = player.specialCards.filter(c => c.name === 'SILO DE LANZAMIENTO');
-                                        const mineralCard = player.specialCards.find(c => c.name === 'MINERAL SECRETO');
-                                        const hasDesign = player.specialCards.some(c => c.name === 'DISEÑO DE ARMAS NUCLEARES INTERCONTINENTALES');
-
-                                        if (!hasDesign || siloCards.length === 0 || !mineralCard) return null;
-
-                                        return (
-                                            <div style={{
-                                                marginTop: '30px',
-                                                padding: '20px',
-                                                border: '2px solid #ff0000',
-                                                backgroundColor: '#1a0000',
-                                                borderRadius: '5px',
-                                                boxShadow: '0 0 15px rgba(255, 0, 0, 0.2)'
-                                            }}>
-                                                <h4 style={{ margin: '0 0 15px 0', color: '#ff0000', textAlign: 'center', textShadow: '0 0 5px #ff0000' }}>☢️ PROTOCOLO DE DESPLIEGUE ATÓMICO</h4>
-
-                                                {player.nuclearDeploymentActive ? (
-                                                    <div style={{ color: '#ffaa00', fontWeight: 'bold', fontSize: '1.1rem', textAlign: 'center', padding: '10px', border: '1px dashed #ffaa00' }}>
-                                                        ☢️ PROCESO DE DESPLIEGUE EN CURSO ☢️
-                                                        <div style={{ fontSize: '0.8rem', marginTop: '10px', color: '#aaa', fontWeight: 'normal' }}>
-                                                            Ganas al final de la ronda si el silo permanece bajo tu control y nadie más activa su arsenal.
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <>
-                                                        <div style={{ color: '#aaa', fontSize: '0.85rem', marginBottom: '15px' }}>
-                                                            Para iniciar el despliegue final, debe seleccionar un silo operativo con combustible asignado y ruta de suministro desde el mineral secreto:
-                                                        </div>
-
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                                            {siloCards.map(silo => {
-                                                                const siloRegion = REGIONS.find(r => r.id === silo.originCountry);
-                                                                const hasFuel = player.siloFuelCards?.[silo.originCountry] !== undefined;
-                                                                const hasRoute = checkRoute(mineralCard.originCountry, silo.originCountry, currentPlayerIndex);
-                                                                const canDeploy = hasFuel && hasRoute;
-
-                                                                return (
-                                                                    <div key={silo.id} style={{
-                                                                        padding: '12px',
-                                                                        backgroundColor: '#000',
-                                                                        border: `1px solid ${canDeploy ? '#00ff00' : '#440000'}`,
-                                                                        borderRadius: '4px',
-                                                                        display: 'flex',
-                                                                        justifyContent: 'space-between',
-                                                                        alignItems: 'center'
-                                                                    }}>
-                                                                        <div>
-                                                                            <div style={{ color: '#fff', fontWeight: 'bold' }}>SILO: {siloRegion?.title || silo.originCountry}</div>
-                                                                            <div style={{ fontSize: '0.7rem', display: 'flex', gap: '10px', marginTop: '4px' }}>
-                                                                                <span style={{ color: hasFuel ? '#00ff00' : '#ff4444' }}>COMBUSTIBLE: {hasFuel ? '✓' : '✗'}</span>
-                                                                                <span style={{ color: hasRoute ? '#00ff00' : '#ff4444' }}>RUTA: {hasRoute ? '✓' : '✗'}</span>
-                                                                            </div>
-                                                                        </div>
-
-                                                                        <button
-                                                                            disabled={!canDeploy}
-                                                                            onClick={() => {
-                                                                                setSelectedLaunchSilo(silo.originCountry);
-                                                                                setShowNuclearDeploymentModal(true);
-                                                                                setShowConfidentialModal(false);
-                                                                            }}
-                                                                            style={{
-                                                                                backgroundColor: canDeploy ? '#ff0000' : '#220000',
-                                                                                color: canDeploy ? '#fff' : '#666',
-                                                                                border: 'none',
-                                                                                padding: '8px 15px',
-                                                                                fontWeight: 'bold',
-                                                                                cursor: canDeploy ? 'pointer' : 'not-allowed',
-                                                                                fontSize: '0.75rem',
-                                                                                borderRadius: '3px',
-                                                                                textTransform: 'uppercase'
-                                                                            }}
-                                                                        >
-                                                                            {canDeploy ? '🚀 INICIAR' : 'NO DISPONIBLE'}
-                                                                        </button>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </>
-                                                )}
-                                            </div>
-                                        );
-                                    })()}
-
-                                    {player.specialCards.length === 0 ? (
-                                        <div style={{ color: '#666', padding: '20px', textAlign: 'center', border: '1px dashed #444' }}>
-                                            Sin información confidencial disponible.
-                                        </div>
-                                    ) : (
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '15px' }}>
-                                            {player.specialCards.map(card => (
-                                                <div key={card.id} style={{
-                                                    backgroundColor: '#000',
-                                                    border: '1px solid #00ffff',
-                                                    padding: '15px',
-                                                    borderRadius: '5px',
-                                                    position: 'relative',
-                                                    overflow: 'hidden'
-                                                }}>
-                                                    <div style={{
-                                                        position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', backgroundColor: '#00ff00'
-                                                    }} />
-                                                    <h4 style={{ color: '#00ff00', marginTop: 0 }}>{card.name}</h4>
-                                                    <div style={{ fontSize: '0.8rem', color: '#ccc', marginBottom: '10px' }}>
-                                                        Base: {REGIONS.find(r => r.id === card.originCountry)?.title}
-                                                    </div>
-                                                    <p style={{ fontSize: '0.8rem', color: '#aaa' }}>
-                                                        {card.description}
-                                                    </p>
-
-                                                    {/* MISSION BUTTONS */}
-                                                    {card.type === 'SECONDARY_MISSION' && (
-                                                        <button
-                                                            onClick={() => {
-                                                                setShowSpecialMissionModal(card.id);
-                                                            }}
-                                                            style={{
-                                                                width: '100%',
-                                                                backgroundColor: '#003300',
-                                                                color: '#00ff00',
-                                                                border: '1px solid #00ff00',
-                                                                padding: '8px',
-                                                                fontWeight: 'bold',
-                                                                cursor: 'pointer',
-                                                                marginTop: '10px'
-                                                            }}
-                                                        >
-                                                            ORGANIZAR MISIÓN
-                                                        </button>
-                                                    )}
-
-                                                    {card.type === 'ESPIONAJE' && (
-                                                        <button
-                                                            onClick={() => {
-                                                                setShowEspionageModal(true);
-                                                            }}
-                                                            style={{
-                                                                width: '100%',
-                                                                backgroundColor: '#00ffff',
-                                                                color: '#000',
-                                                                border: 'none',
-                                                                padding: '8px',
-                                                                fontWeight: 'bold',
-                                                                cursor: 'pointer',
-                                                                marginTop: '10px'
-                                                            }}
-                                                        >
-                                                            EJECUTAR ESPIONAJE
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        );
-                    })()
-                }
 
 
 
 
                 <EndgameOverlay
-                    winner={winner}
-                    endgameChoice={endgameChoice}
+                    winner={state.winner}
+                    endgameChoice={state.endgameChoice}
                     onEndgameChoice={handleEndgameChoice}
                     onNewOperation={() => window.location.reload()}
                     animationIndex={animationIndex}
                     REGIONS_LENGTH={REGIONS.length}
+                    isLocalPlayerWinner={
+                        (multiplayer.connectionStatus === 'PLAYING' && multiplayer.playerId)
+                            ? state.winner?.id === multiplayer.playerId
+                            : true // Hotseat: both are same physical player
+                    }
                 />
 
                 <NuclearAlertModal />
@@ -1843,18 +1279,33 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                 {showConfidentialModal && (
                     <ConfidentialInfoModal
                         onClose={() => setShowConfidentialModal(false)}
-                        onOpenNuclearDesign={() => {
+                        onOpenNuclearDesign={(playerIndex) => {
                             setShowConfidentialModal(false);
                             setNuclearGenLocation('SELECTION_NEEDED');
+                            setMissionPlayerIndex(playerIndex);
                             setShowNuclearGenSelection(true);
                         }}
-                        onOpenMineralExtraction={(targetId?: string) => {
+                        onOpenMineralExtraction={(targetId, playerIndex) => {
                             setShowConfidentialModal(false);
+                            setMissionPlayerIndex(playerIndex);
                             setShowMineralExtractionModal(targetId || 'SELECTION_NEEDED');
                         }}
-                        onOpenSiloConstruction={() => {
+                        onOpenSiloConstruction={(playerIndex) => {
                             setShowConfidentialModal(false);
+                            setMissionPlayerIndex(playerIndex);
                             setShowSiloConstructionModal(true);
+                        }}
+                        onInitiateLaunch={(siloId, playerIndex) => {
+                            setShowConfidentialModal(false);
+                            setMissionPlayerIndex(playerIndex);
+                            setSelectedLaunchSilo(siloId);
+                            setShowNuclearDeploymentModal(true);
+                        }}
+                        onOpenInventoryWithFilter={(countryId, playerIndex) => {
+                            setShowConfidentialModal(false);
+                            setInventoryPlayerIndex(playerIndex);
+                            setInventoryFilter(countryId);
+                            setShowInventory(true);
                         }}
                     />
                 )}
@@ -1863,8 +1314,9 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                 {
                     !spectator && showEspionageModal && (
                         <EspionageTargetSelectionModal
-                            show={showEspionageModal}
-                            onClose={() => setShowEspionageModal(false)}
+                            show={!!showEspionageModal}
+                            cardId={showEspionageModal}
+                            onClose={() => setShowEspionageModal(null)}
                         />
                     )
                 }
@@ -1885,7 +1337,6 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                 {/* Special Mission Info Modal */}
                 {
                     showSpecialMissionInfo && (() => {
-                        const availableMissions = SPECIAL_MISSIONS.filter(m => m.visibleFor.includes(showSpecialMissionInfo) || m.visibleFor.includes('GLOBAL'));
                         const regionName = REGIONS.find(r => r.id === showSpecialMissionInfo)?.title;
                         const player = players[currentPlayerIndex];
                         const currentPlayerId = player?.id;
@@ -1924,19 +1375,16 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                                     </div>
 
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                        {availableMissions.map(mission => {
+                                        {(() => {
+                                            const mission = SPECIAL_MISSIONS.find(m => m.id === showSpecialMissionInfo);
+                                            if (!mission) return null;
+
                                             const isActive = player.activeSpecialMissions.some(m => m.id === mission.id);
                                             const activeMissionData = player.activeSpecialMissions.find(m => m.id === mission.id);
 
                                             // Special check for War Secrets: It can be active multiple times (once per agency)
-                                            // So we don't block it solely on "isActive" unless strictly both are done.
-                                            // But standard UI shows "OPERACIÓN EN CURSO". We might want to allow clicking even if active?
-                                            // Let's modify the condition below: 
                                             const isWarSecrets = mission.id === 'secretos_guerra';
-                                            const warSecretsDoneCount = player.secretWarData.length; // Approximate check
-                                            // Actually, `isActive` is just looking at `activeSpecialMissions`.
-                                            // If we want to allow re-entry, we should NOT show the "OPERACIÓN EN CURSO" block if eligible for 2nd run.
-
+                                            const warSecretsDoneCount = player.secretWarData.length;
                                             const showActiveBlock = isActive && (!isWarSecrets || warSecretsDoneCount >= 2);
 
                                             return (
@@ -1947,7 +1395,7 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                                                 }}>
                                                     <h3 style={{ margin: '0 0 10px 0', color: '#fff' }}>{mission.title}</h3>
                                                     <p style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '15px' }}>
-                                                        {mission.description}
+                                                        {mission.lore || mission.description}
                                                     </p>
 
                                                     {showActiveBlock ? (
@@ -1980,15 +1428,9 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                                                                                 return;
                                                                             }
 
-
-
-                                                                            // Filter available agencies
-
-
                                                                             setShowSpecialMissionModal(mission.id);
+                                                                            setShowSpecialMissionInfo(null);
                                                                         } else {
-
-
                                                                             setShowSpecialMissionInfo(null);
                                                                             setShowSpecialMissionModal(mission.id);
                                                                         }
@@ -2004,7 +1446,7 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                                                                         fontSize: '1rem'
                                                                     }}
                                                                 >
-                                                                    INICIAR OPERACIÓN
+                                                                    ACTIVAR
                                                                 </button>
                                                             )}
                                                             {mission.id === 'ruta_antartica' && (
@@ -2031,7 +1473,7 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                                                                     }}
                                                                 >
                                                                     {mission.requirements.control.every(id => owners[id] === currentPlayerId)
-                                                                        ? 'ESTABLECER RUTA'
+                                                                        ? 'ACTIVAR'
                                                                         : 'REQUIERE CONTROL AUSTRAL'}
                                                                 </button>
                                                             )}
@@ -2039,7 +1481,7 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                                                     )}
                                                 </div>
                                             );
-                                        })}
+                                        })()}
                                     </div>
 
                                     <button
@@ -2066,6 +1508,7 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                 }
                 <SiloFuelSelectionModal
                     show={!!showSiloFuelSelectionModal}
+                    playerIndex={currentPlayerIndex}
                     onClose={() => setShowSiloFuelSelectionModal(null)}
                     siloRegionId={showSiloFuelSelectionModal || ''}
                 />
@@ -2074,8 +1517,12 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                 {
                     showNuclearGenSelection && (
                         <NuclearDesignGenerationModal
-                            onClose={() => setShowNuclearGenSelection(false)}
+                            onClose={() => {
+                                setShowNuclearGenSelection(false);
+                                setMissionPlayerIndex(null);
+                            }}
                             locationId={nuclearGenLocation}
+                            playerIndex={missionPlayerIndex ?? undefined}
                         />
                     )
                 }
@@ -2083,17 +1530,25 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                 <EspionageGenerationModal
                     show={showEspionageGenSelection}
                     onClose={() => setShowEspionageGenSelection(false)}
-                    hqId={espionageGenHq}
+                    hqId={null}
                 />
                 {/* Mission Notification */}
                 <MissionNotificationOverlay />
-                <YearStartOverlay
-                    year={showYearStartLocal}
-                    onStart={() => {
-                        setShowYearStart(null);
-                        setShowTurnOverlay(true);
-                    }}
-                />
+                {state.notification?.type === 'NEUTRALIZED' ? (
+                    <MADOverlay
+                        involvedPlayers={players.filter(p => p.siloStatus && Object.values(p.siloStatus).some(s => s.status === 'cooldown'))}
+                        currentPlayerId={multiplayer.playerId || players[currentPlayerIndex]?.id}
+                        onClose={() => dispatch({ type: 'SET_NOTIFICATION', payload: null })}
+                    />
+                ) : (
+                    <YearStartOverlay
+                        year={showYearStartLocal}
+                        onStart={() => {
+                            setShowYearStart(null);
+                            setShowTurnOverlay(true);
+                        }}
+                    />
+                )}
                 <audio ref={themeSongRef} key="theme-song" src="/intro_soundtrack.wav" loop />
             </div >
         </div >

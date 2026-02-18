@@ -75,9 +75,9 @@ export const EspionageNetworkInfoModal: React.FC<EspionageNetworkInfoModalProps>
                         REQUISITOS PARA REACTIVACIÓN:
                     </div>
                     <div style={{ color: '#fff', fontSize: '0.85rem', lineHeight: '1.8' }}>
-                        \u2B22 Control del territorio<br />
-                        \u2B22 Electrónica Avanzada (Industria Electrónica)<br />
-                        \u2B22 Semiconductores (con ruta de suministro a la sede)
+                        • Control del territorio<br />
+                        • Electrónica Avanzada (Industria Electrónica)<br />
+                        • Semiconductores (con ruta de suministro a la sede)
                     </div>
                 </div>
 
@@ -89,7 +89,7 @@ export const EspionageNetworkInfoModal: React.FC<EspionageNetworkInfoModalProps>
                     marginBottom: '20px'
                 }}>
                     <div style={{ color: '#ff9900', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                        Úñ IMPORTANTE
+                        ⚠️ IMPORTANTE
                     </div>
                     <div style={{ color: '#ffcc66', fontSize: '0.75rem', marginTop: '5px' }}>
                         Cada locación puede usarse solo UNA vez por jugador durante toda la partida (máximo 4 reportes totales).

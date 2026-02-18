@@ -52,6 +52,8 @@ export const MISSION_PANEL_STYLES = {
             border: '2px solid #00ffff',
             padding: '30px',
             width: '500px',
+            maxHeight: '90vh',
+            overflowY: 'auto' as const,
             textAlign: 'center' as const,
             boxShadow: '0 0 30px rgba(0, 255, 255, 0.3)'
         },
@@ -68,7 +70,9 @@ export const MISSION_PANEL_STYLES = {
             backgroundColor: '#000',
             border: `1px solid ${THEME.colors.text.secondary}`,
             padding: '20px',
-            maxWidth: '600px',
+            width: '600px',
+            maxHeight: '90vh',
+            overflowY: 'auto' as const,
         },
         header: {
             color: THEME.colors.text.primary,

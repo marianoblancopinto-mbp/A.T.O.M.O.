@@ -6,12 +6,12 @@ import { usePlayerResources } from '../../../../hooks/usePlayerResources';
 import { REGIONS } from '../../../../data/mapRegions';
 import type { SpecialCard } from '../../../../types/playerTypes';
 
-interface AntarcticaMissionModalProps {
+interface GoldenDomeMissionModalProps {
     onClose: () => void;
     onSuccess: (playerName: string) => void;
 }
 
-export const AntarcticaMissionModal: React.FC<AntarcticaMissionModalProps> = ({
+export const GoldenDomeMissionModal: React.FC<GoldenDomeMissionModalProps> = ({
     onClose,
     onSuccess
 }) => {
@@ -20,33 +20,34 @@ export const AntarcticaMissionModal: React.FC<AntarcticaMissionModalProps> = ({
     const { checkRoute } = useSupplyRoute();
     const { technologies, rawMaterials } = usePlayerResources(currentPlayerIndex);
 
-    const [selectedAntarcticaBase, setSelectedAntarcticaBase] = useState<string | null>(null);
-    const [selectedAntarcticaCards, setSelectedAntarcticaCards] = useState<{
-        heavyIndId: string | null;
+    const [selectedBase, setSelectedBase] = useState<string | null>(null);
+    const [selectedCards, setSelectedCards] = useState<{
+        lightIndId: string | null;
         elecIndId: string | null;
-        ironId: string | null;
+        alumId: string | null;
         semiId: string | null;
-    }>({ heavyIndId: null, elecIndId: null, ironId: null, semiId: null });
+    }>({ lightIndId: null, elecIndId: null, alumId: null, semiId: null });
 
     const player = players[currentPlayerIndex];
     if (!player) return null;
 
-    const hasControl = ['chile', 'argentina', 'australia', 'sudafrica'].every(id => owners[id] === player.id);
+    const requiredRegions = ['nueva_york', 'california', 'texas', 'flordia', 'alaska'];
+    const hasControl = requiredRegions.every(id => owners[id] === player.id);
 
-    // Technologies - No route validation
-    const heavyIndCards = technologies.filter(c => c.type === 'INDUSTRIA_PESADA' && !c.usedThisTurn);
+    // Technologies
+    const lightIndCards = technologies.filter(c => c.type === 'INDUSTRIA_LIGERA' && !c.usedThisTurn);
     const elecIndCards = technologies.filter(c => c.type === 'INDUSTRIA_ELECTRONICA' && !c.usedThisTurn);
 
-    // Raw Materials - Filter only by type (Route validation happens in UI)
-    const ironCards = rawMaterials.filter(c => c.type === 'HIERRO' && !c.usedThisTurn);
+    // Raw Materials
+    const alumCards = rawMaterials.filter(c => c.type === 'ALUMINIO' && !c.usedThisTurn);
     const semiCards = rawMaterials.filter(c => c.type === 'CONDUCTORES_SEMICONDUCTORES' && !c.usedThisTurn);
 
     const canComplete = hasControl &&
-        selectedAntarcticaBase &&
-        selectedAntarcticaCards.heavyIndId &&
-        selectedAntarcticaCards.elecIndId &&
-        selectedAntarcticaCards.ironId &&
-        selectedAntarcticaCards.semiId;
+        selectedBase &&
+        selectedCards.lightIndId &&
+        selectedCards.elecIndId &&
+        selectedCards.alumId &&
+        selectedCards.semiId;
 
     const handleComplete = () => {
         if (!canComplete) return;
@@ -54,33 +55,33 @@ export const AntarcticaMissionModal: React.FC<AntarcticaMissionModalProps> = ({
         // Consume Cards
         dispatch({
             type: 'MARK_CARD_AS_USED',
-            payload: { cardId: selectedAntarcticaCards.heavyIndId!, category: 'technology' }
+            payload: { cardId: selectedCards.lightIndId!, category: 'technology' }
         });
         dispatch({
             type: 'MARK_CARD_AS_USED',
-            payload: { cardId: selectedAntarcticaCards.elecIndId!, category: 'technology' }
+            payload: { cardId: selectedCards.elecIndId!, category: 'technology' }
         });
         dispatch({
             type: 'MARK_CARD_AS_USED',
-            payload: { cardId: selectedAntarcticaCards.ironId!, category: 'rawMaterial' }
+            payload: { cardId: selectedCards.alumId!, category: 'rawMaterial' }
         });
         dispatch({
             type: 'MARK_CARD_AS_USED',
-            payload: { cardId: selectedAntarcticaCards.semiId!, category: 'rawMaterial' }
+            payload: { cardId: selectedCards.semiId!, category: 'rawMaterial' }
         });
 
         // Add Special Card
         const newCard: SpecialCard = {
-            id: `special-antarctica-${Date.now()}`,
+            id: `special-goldendome-${Date.now()}`,
             type: 'SECONDARY_MISSION',
-            name: 'RUTA ANTÁRTICA',
-            originCountry: selectedAntarcticaBase!, // Base
-            description: 'Ruta comercial antártica establecida. Genera bonificaciones pasivas.',
+            name: 'CÚPULA DORADA',
+            originCountry: selectedBase!,
+            description: 'Sistema de defensa aérea hemisférica activo.',
             createdAt: Date.now()
         };
 
         const updatedSpecialCards = [...player.specialCards, newCard];
-        const updatedActiveMissions = [...player.activeSpecialMissions, { id: 'ruta_antartica', baseRegionId: selectedAntarcticaBase!, startTime: Date.now() }];
+        const updatedActiveMissions = [...player.activeSpecialMissions, { id: 'golden_dome', baseRegionId: selectedBase!, startTime: Date.now() }];
 
         dispatch({
             type: 'UPDATE_PLAYER',
@@ -98,29 +99,29 @@ export const AntarcticaMissionModal: React.FC<AntarcticaMissionModalProps> = ({
     };
 
     return (
-        <MissionModalBase title="RUTA ANTÁRTICA" type="activation" onClose={onClose}>
-            <div style={{ textAlign: 'center', color: '#aaa', fontStyle: 'italic', marginBottom: '20px' }}>
-                "Establecer una ruta comercial segura a través del Océano Antártico para garantizar el flujo de suministros estratégicos."
+        <MissionModalBase title="CÚPULA DORADA" type="activation" onClose={onClose}>
+            <div style={{ textAlign: 'center', color: '#ffd700', fontStyle: 'italic', marginBottom: '20px' }}>
+                "Establecer una red de defensa aérea impenetrable sobre el continente."
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 {/* 1. SELECCIÓN DE BASE */}
-                <div style={{ backgroundColor: '#000', padding: '20px', border: '1px solid #00ffff40', borderRadius: '4px' }}>
-                    <div style={{ color: '#00ffff', fontSize: '1rem', fontWeight: 'bold', marginBottom: '15px', borderBottom: '1px solid #00ffff40', paddingBottom: '5px' }}>
-                        1. SELECCIONE BASE DE OPERACIONES
+                <div style={{ backgroundColor: '#1a1a00', padding: '20px', border: '1px solid #ffd700', borderRadius: '4px' }}>
+                    <div style={{ color: '#ffd700', fontSize: '1rem', fontWeight: 'bold', marginBottom: '15px', borderBottom: '1px solid #ffd70040', paddingBottom: '5px' }}>
+                        1. SELECCIONE BASE DE COMANDO
                     </div>
                     <select
-                        value={selectedAntarcticaBase || ''}
+                        value={selectedBase || ''}
                         onChange={(e) => {
-                            setSelectedAntarcticaBase(e.target.value);
-                            setSelectedAntarcticaCards(prev => ({ ...prev, ironId: null, semiId: null }));
+                            setSelectedBase(e.target.value);
+                            setSelectedCards(prev => ({ ...prev, alumId: null, semiId: null }));
                         }}
                         style={{
                             width: '100%',
                             padding: '12px',
-                            backgroundColor: '#001a1a',
-                            color: '#00ffff',
-                            border: '1px solid #00ffff',
+                            backgroundColor: '#000',
+                            color: '#ffd700',
+                            border: '1px solid #ffd700',
                             borderRadius: '4px',
                             fontSize: '1rem',
                             outline: 'none',
@@ -128,65 +129,60 @@ export const AntarcticaMissionModal: React.FC<AntarcticaMissionModalProps> = ({
                         }}
                     >
                         <option value="">-- Seleccionar Base Controlada --</option>
-                        {['chile', 'argentina', 'australia', 'sudafrica'].map(id => (
+                        {requiredRegions.map(id => (
                             <option key={id} value={id} disabled={owners[id] !== player.id}>
                                 {REGIONS.find(r => r.id === id)?.title} {owners[id] !== player.id ? '(SIN CONTROL)' : ''}
                             </option>
                         ))}
                     </select>
-                    <p style={{ fontSize: '0.8rem', color: '#888', marginTop: '10px', fontStyle: 'italic' }}>
-                        La base elegida debe tener una ruta de suministro activa hacia las materias primas.
-                    </p>
                 </div>
 
-                {/* 2. COMPONENTES Y RECURSOS */}
+                {/* 2. RECURSOS */}
                 <div style={{
-                    opacity: selectedAntarcticaBase ? 1 : 0.5,
-                    pointerEvents: selectedAntarcticaBase ? 'auto' : 'none',
+                    opacity: selectedBase ? 1 : 0.5,
+                    pointerEvents: selectedBase ? 'auto' : 'none',
                     transition: 'all 0.3s ease'
                 }}>
-                    <div style={{ color: '#00ffff', fontSize: '1rem', fontWeight: 'bold', marginBottom: '15px', borderBottom: '1px solid #00ffff40', paddingBottom: '5px' }}>
-                        2. ASIGNACIÓN DE RECURSOS ESTRATÉGICOS
+                    <div style={{ color: '#ffd700', fontSize: '1rem', fontWeight: 'bold', marginBottom: '15px', borderBottom: '1px solid #ffd70040', paddingBottom: '5px' }}>
+                        2. ASIGNACIÓN DE RECURSOS
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px' }}>
                         {/* Tecnologías */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                            {/* Heavy Ind */}
-                            <div style={{ backgroundColor: '#000', padding: '15px', border: '1px solid #004444', borderRadius: '4px' }}>
+                            <div style={{ backgroundColor: '#000', padding: '15px', border: '1px solid #665500', borderRadius: '4px' }}>
                                 <div style={{ color: '#aaa', fontSize: '0.8rem', marginBottom: '8px' }}>TECNOLOGÍA</div>
-                                <div style={{ color: '#00ff00', fontWeight: 'bold', marginBottom: '10px', fontSize: '0.9rem' }}>INDUSTRIA PESADA</div>
+                                <div style={{ color: '#ffd700', fontWeight: 'bold', marginBottom: '10px', fontSize: '0.9rem' }}>INDUSTRIA LIGERA</div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', maxHeight: '120px', overflowY: 'auto' }}>
-                                    {heavyIndCards.map(c => (
+                                    {lightIndCards.map(c => (
                                         <button key={c.id}
-                                            onClick={() => setSelectedAntarcticaCards(p => ({ ...p, heavyIndId: c.id }))}
+                                            onClick={() => setSelectedCards(p => ({ ...p, lightIndId: c.id }))}
                                             style={{
                                                 padding: '8px',
-                                                backgroundColor: selectedAntarcticaCards.heavyIndId === c.id ? '#00ff00' : '#001a00',
-                                                color: selectedAntarcticaCards.heavyIndId === c.id ? '#000' : '#00ff00',
-                                                border: `1px solid ${selectedAntarcticaCards.heavyIndId === c.id ? '#00ff00' : '#004400'}`,
+                                                backgroundColor: selectedCards.lightIndId === c.id ? '#ffd700' : '#1a1a00',
+                                                color: selectedCards.lightIndId === c.id ? '#000' : '#ffd700',
+                                                border: `1px solid ${selectedCards.lightIndId === c.id ? '#ffd700' : '#665500'}`,
                                                 cursor: 'pointer', fontSize: '0.8rem', textAlign: 'left', borderRadius: '2px'
                                             }}>
                                             LOCAL: {REGIONS.find(r => r.id === c.country)?.title || c.country}
                                         </button>
                                     ))}
-                                    {heavyIndCards.length === 0 && <div style={{ color: '#666', fontSize: '0.8rem', fontStyle: 'italic' }}>Sin tarjetas disponibles</div>}
+                                    {lightIndCards.length === 0 && <div style={{ color: '#666', fontSize: '0.8rem', fontStyle: 'italic' }}>Sin tarjetas disponibles</div>}
                                 </div>
                             </div>
 
-                            {/* Elec Ind */}
-                            <div style={{ backgroundColor: '#000', padding: '15px', border: '1px solid #004444', borderRadius: '4px' }}>
+                            <div style={{ backgroundColor: '#000', padding: '15px', border: '1px solid #665500', borderRadius: '4px' }}>
                                 <div style={{ color: '#aaa', fontSize: '0.8rem', marginBottom: '8px' }}>TECNOLOGÍA</div>
-                                <div style={{ color: '#00ff00', fontWeight: 'bold', marginBottom: '10px', fontSize: '0.9rem' }}>ELECTRÓNICA</div>
+                                <div style={{ color: '#ffd700', fontWeight: 'bold', marginBottom: '10px', fontSize: '0.9rem' }}>ELECTRÓNICA</div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', maxHeight: '120px', overflowY: 'auto' }}>
                                     {elecIndCards.map(c => (
                                         <button key={c.id}
-                                            onClick={() => setSelectedAntarcticaCards(p => ({ ...p, elecIndId: c.id }))}
+                                            onClick={() => setSelectedCards(p => ({ ...p, elecIndId: c.id }))}
                                             style={{
                                                 padding: '8px',
-                                                backgroundColor: selectedAntarcticaCards.elecIndId === c.id ? '#00ff00' : '#001a00',
-                                                color: selectedAntarcticaCards.elecIndId === c.id ? '#000' : '#00ff00',
-                                                border: `1px solid ${selectedAntarcticaCards.elecIndId === c.id ? '#00ff00' : '#004400'}`,
+                                                backgroundColor: selectedCards.elecIndId === c.id ? '#ffd700' : '#1a1a00',
+                                                color: selectedCards.elecIndId === c.id ? '#000' : '#ffd700',
+                                                border: `1px solid ${selectedCards.elecIndId === c.id ? '#ffd700' : '#665500'}`,
                                                 cursor: 'pointer', fontSize: '0.8rem', textAlign: 'left', borderRadius: '2px'
                                             }}>
                                             LOCAL: {REGIONS.find(r => r.id === c.country)?.title || c.country}
@@ -199,22 +195,21 @@ export const AntarcticaMissionModal: React.FC<AntarcticaMissionModalProps> = ({
 
                         {/* Materias Primas */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                            {/* Iron */}
-                            <div style={{ backgroundColor: '#000', padding: '15px', border: '1px solid #004444', borderRadius: '4px' }}>
+                            <div style={{ backgroundColor: '#000', padding: '15px', border: '1px solid #665500', borderRadius: '4px' }}>
                                 <div style={{ color: '#aaa', fontSize: '0.8rem', marginBottom: '8px' }}>MATERIA PRIMA (Ruta Req.)</div>
-                                <div style={{ color: '#00ffff', fontWeight: 'bold', marginBottom: '10px', fontSize: '0.9rem' }}>HIERRO</div>
+                                <div style={{ color: '#ffd700', fontWeight: 'bold', marginBottom: '10px', fontSize: '0.9rem' }}>ALUMINIO</div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', maxHeight: '120px', overflowY: 'auto' }}>
-                                    {ironCards.map(c => {
-                                        const hasRoute = selectedAntarcticaBase ? checkRoute(c.country, selectedAntarcticaBase, player.id) : false;
+                                    {alumCards.map(c => {
+                                        const hasRoute = selectedBase ? checkRoute(c.country, selectedBase, player.id) : false;
                                         return (
                                             <button key={c.id}
                                                 disabled={!hasRoute}
-                                                onClick={() => setSelectedAntarcticaCards(p => ({ ...p, ironId: c.id }))}
+                                                onClick={() => setSelectedCards(p => ({ ...p, alumId: c.id }))}
                                                 style={{
                                                     padding: '8px',
-                                                    backgroundColor: selectedAntarcticaCards.ironId === c.id ? '#00ffff' : (hasRoute ? '#001a1a' : '#1a0000'),
-                                                    color: selectedAntarcticaCards.ironId === c.id ? '#000' : (hasRoute ? '#00ffff' : '#440000'),
-                                                    border: `1px solid ${selectedAntarcticaCards.ironId === c.id ? '#00ffff' : (hasRoute ? '#004444' : '#440000')}`,
+                                                    backgroundColor: selectedCards.alumId === c.id ? '#ffd700' : (hasRoute ? '#1a1a00' : '#220000'),
+                                                    color: selectedCards.alumId === c.id ? '#000' : (hasRoute ? '#ffd700' : '#660000'),
+                                                    border: `1px solid ${selectedCards.alumId === c.id ? '#ffd700' : (hasRoute ? '#665500' : '#440000')}`,
                                                     cursor: hasRoute ? 'pointer' : 'not-allowed',
                                                     fontSize: '0.8rem', textAlign: 'left', borderRadius: '2px',
                                                     display: 'flex', justifyContent: 'space-between', alignItems: 'center'
@@ -224,26 +219,25 @@ export const AntarcticaMissionModal: React.FC<AntarcticaMissionModalProps> = ({
                                             </button>
                                         );
                                     })}
-                                    {ironCards.length === 0 && <div style={{ color: '#666', fontSize: '0.8rem', fontStyle: 'italic' }}>Sin tarjetas disponibles</div>}
+                                    {alumCards.length === 0 && <div style={{ color: '#666', fontSize: '0.8rem', fontStyle: 'italic' }}>Sin tarjetas disponibles</div>}
                                 </div>
                             </div>
 
-                            {/* Semi */}
-                            <div style={{ backgroundColor: '#000', padding: '15px', border: '1px solid #004444', borderRadius: '4px' }}>
+                            <div style={{ backgroundColor: '#000', padding: '15px', border: '1px solid #665500', borderRadius: '4px' }}>
                                 <div style={{ color: '#aaa', fontSize: '0.8rem', marginBottom: '8px' }}>MATERIA PRIMA (Ruta Req.)</div>
-                                <div style={{ color: '#00ffff', fontWeight: 'bold', marginBottom: '10px', fontSize: '0.9rem' }}>SEMICONDUCTORES</div>
+                                <div style={{ color: '#ffd700', fontWeight: 'bold', marginBottom: '10px', fontSize: '0.9rem' }}>SEMICONDUCTORES</div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', maxHeight: '120px', overflowY: 'auto' }}>
                                     {semiCards.map(c => {
-                                        const hasRoute = selectedAntarcticaBase ? checkRoute(c.country, selectedAntarcticaBase, player.id) : false;
+                                        const hasRoute = selectedBase ? checkRoute(c.country, selectedBase, player.id) : false;
                                         return (
                                             <button key={c.id}
                                                 disabled={!hasRoute}
-                                                onClick={() => setSelectedAntarcticaCards(p => ({ ...p, semiId: c.id }))}
+                                                onClick={() => setSelectedCards(p => ({ ...p, semiId: c.id }))}
                                                 style={{
                                                     padding: '8px',
-                                                    backgroundColor: selectedAntarcticaCards.semiId === c.id ? '#00ffff' : (hasRoute ? '#001a1a' : '#1a0000'),
-                                                    color: selectedAntarcticaCards.semiId === c.id ? '#000' : (hasRoute ? '#00ffff' : '#440000'),
-                                                    border: `1px solid ${selectedAntarcticaCards.semiId === c.id ? '#00ffff' : (hasRoute ? '#004444' : '#440000')}`,
+                                                    backgroundColor: selectedCards.semiId === c.id ? '#ffd700' : (hasRoute ? '#1a1a00' : '#220000'),
+                                                    color: selectedCards.semiId === c.id ? '#000' : (hasRoute ? '#ffd700' : '#660000'),
+                                                    border: `1px solid ${selectedCards.semiId === c.id ? '#ffd700' : (hasRoute ? '#665500' : '#440000')}`,
                                                     cursor: hasRoute ? 'pointer' : 'not-allowed',
                                                     fontSize: '0.8rem', textAlign: 'left', borderRadius: '2px',
                                                     display: 'flex', justifyContent: 'space-between', alignItems: 'center'
@@ -269,22 +263,22 @@ export const AntarcticaMissionModal: React.FC<AntarcticaMissionModalProps> = ({
                         color: '#666', border: '1px solid #333', cursor: 'pointer',
                         fontWeight: 'bold', fontSize: '0.9rem', borderRadius: '4px'
                     }}>
-                    RECHAZAR OPERACIÓN
+                    CANCELAR
                 </button>
                 <button
                     disabled={!canComplete}
                     onClick={handleComplete}
                     style={{
                         flex: 1, padding: '15px',
-                        backgroundColor: !canComplete ? '#002222' : '#00ffff',
-                        color: !canComplete ? '#004444' : '#000',
+                        backgroundColor: !canComplete ? '#332b00' : '#ffd700',
+                        color: !canComplete ? '#665500' : '#000',
                         border: 'none', fontWeight: 'bold', fontSize: '1rem',
                         cursor: !canComplete ? 'not-allowed' : 'pointer',
                         borderRadius: '4px',
-                        boxShadow: !canComplete ? 'none' : '0 0 20px rgba(0, 255, 255, 0.4)',
+                        boxShadow: !canComplete ? 'none' : '0 0 20px rgba(255, 215, 0, 0.4)',
                         textTransform: 'uppercase', letterSpacing: '2px'
                     }}>
-                    ESTABLECER RUTA
+                    ACTIVAR CÚPULA
                 </button>
             </div>
         </MissionModalBase>

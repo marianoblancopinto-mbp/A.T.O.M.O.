@@ -89,227 +89,251 @@ export const GenericSpecialMissionModal: React.FC<GenericSpecialMissionModalProp
 
     return (
         <div style={{
-            position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-            backgroundColor: 'rgba(0, 0, 0, 0.9)',
-            display: 'flex', justifyContent: 'center', alignItems: 'center',
-            zIndex: 4000
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.85)',
+            display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 5000,
+            backdropFilter: 'blur(5px)'
         }}>
             <div style={{
+                width: '850px',
                 backgroundColor: '#001a00',
                 border: '2px solid #00ff00',
-                padding: '30px',
-                maxWidth: '800px',
-                width: '95%',
-                maxHeight: '90vh',
-                overflowY: 'auto',
-                fontFamily: 'monospace',
-                color: '#00ff00',
                 boxShadow: '0 0 50px rgba(0, 255, 0, 0.3)',
-                position: 'relative'
+                color: '#ccffcc',
+                fontFamily: 'monospace',
+                display: 'flex', flexDirection: 'column'
             }}>
-                <button
-                    onClick={onClose}
-                    style={{
-                        position: 'absolute', top: '15px', right: '20px',
-                        background: 'transparent', border: 'none', color: '#005500',
-                        fontSize: '2rem', cursor: 'pointer', fontWeight: 'bold'
-                    }}
-                >X</button>
-
-                <h2 style={{
-                    borderBottom: '1px solid #00ff00', paddingBottom: '10px',
-                    marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '2px'
-                }}>
-                    {mission.title}
-                </h2>
-
+                {/* Header */}
                 <div style={{
-                    marginBottom: '20px', fontSize: '0.9rem', color: '#aaffaa',
-                    fontStyle: 'italic', borderLeft: '3px solid #005500', paddingLeft: '15px'
+                    padding: '20px',
+                    borderBottom: '1px solid #00ff00',
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    backgroundColor: 'rgba(0, 255, 0, 0.1)'
                 }}>
-                    {mission.lore}
-                </div>
-
-                {/* Base Selection Step */}
-                <div style={{ marginBottom: '25px', padding: '15px', backgroundColor: '#000', border: '1px solid #004400' }}>
-                    <h4 style={{ margin: '0 0 10px 0', color: '#00ff00' }}>1. BASE DE OPERACIONES</h4>
-                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                        {eligibleBases.length === 0 ? (
-                            <div style={{ color: '#ff4444' }}>No controlas ninguna región válida para esta misión.</div>
-                        ) : eligibleBases.map(baseId => (
-                            <button
-                                key={baseId}
-                                onClick={() => setSelectedBaseId(baseId)}
-                                style={{
-                                    padding: '10px 20px',
-                                    backgroundColor: selectedBaseId === baseId ? '#00ff00' : '#002200',
-                                    color: selectedBaseId === baseId ? '#000' : '#00ff00',
-                                    border: '1px solid #00ff00',
-                                    cursor: 'pointer',
-                                    fontWeight: 'bold'
-                                }}
-                            >
-                                {REGIONS.find(r => r.id === baseId)?.title}
-                            </button>
-                        ))}
+                    <h2 style={{ margin: 0, fontSize: '1.8em', textTransform: 'uppercase', letterSpacing: '2px' }}>
+                        {mission.title}
+                    </h2>
+                    <div style={{ fontSize: '0.9em', color: '#00ff00' }}>
+                        OPERACIÓN ESPECIAL
                     </div>
-                    {!selectedBaseId && eligibleBases.length > 0 && (
-                        <div style={{ marginTop: '5px', fontSize: '0.8rem', color: '#aaa' }}>* Selecciona desde dónde coordinar la operación.</div>
-                    )}
                 </div>
 
-                <div style={{ display: 'flex', gap: '20px', opacity: selectedBaseId ? 1 : 0.5, pointerEvents: selectedBaseId ? 'auto' : 'none' }}>
-                    {/* Technology Slots */}
+                <div style={{ padding: '30px', display: 'flex', gap: '30px' }}>
+                    {/* Requirements Panel */}
                     <div style={{ flex: 1 }}>
-                        <h4 style={{ color: '#00aa00', borderBottom: '1px solid #004400', paddingBottom: '5px' }}>2. TECNOLOGÍA</h4>
-                        {mission.requirements.technology.map((reqType, idx) => {
-                            const selectedId = selectedTechIds[idx];
-                            const selectedData = selectedId ? inventoryCards.technologies.find(t => t.id === selectedId) : null;
+                        <div style={{ marginBottom: '20px', fontSize: '1.2em', fontWeight: 'bold', color: '#00ff00', letterSpacing: '1px' }}>
+                            REQUISITOS ESTRATÉGICOS:
+                        </div>
 
-                            return (
-                                <div key={idx} style={{ marginBottom: '15px' }}>
-                                    <div style={{ fontSize: '0.8rem', color: '#888', marginBottom: '5px' }}>REQUERIDO: {TECHNOLOGY_DATA[reqType].name}</div>
+                        {/* Base Selection Step */}
+                        <div style={{ marginBottom: '25px' }}>
+                            <div style={{ color: '#aaa', marginBottom: '8px', fontSize: '0.85rem', fontWeight: 'bold' }}>1. BASE DE OPERACIONES:</div>
+                            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                {eligibleBases.length === 0 ? (
+                                    <div style={{ color: '#ff4444', fontSize: '0.9rem', textAlign: 'center', padding: '10px', backgroundColor: 'rgba(255,0,0,0.05)', border: '1px dashed #ff4444', width: '100%' }}>
+                                        No controlas ninguna región válida.
+                                    </div>
+                                ) : eligibleBases.map(baseId => (
+                                    <button
+                                        key={baseId}
+                                        onClick={() => setSelectedBaseId(baseId)}
+                                        style={{
+                                            flex: 1, minWidth: '120px', padding: '10px',
+                                            backgroundColor: selectedBaseId === baseId ? '#00ff00' : '#002200',
+                                            color: selectedBaseId === baseId ? '#000' : '#00ff00',
+                                            border: '1px solid #00ff00',
+                                            cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem',
+                                            transition: 'all 0.2s'
+                                        }}
+                                    >
+                                        {REGIONS.find(r => r.id === baseId)?.title.toUpperCase()}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
 
-                                    {selectedData ? (
-                                        <div
-                                            onClick={() => {
-                                                const newIds = [...selectedTechIds];
-                                                delete newIds[idx];
-                                                setSelectedTechIds(newIds);
-                                            }}
-                                            style={{
-                                                padding: '10px', backgroundColor: '#003300', border: '1px solid #00ff00',
-                                                color: '#fff', cursor: 'pointer', display: 'flex', justifyContent: 'space-between'
-                                            }}
-                                        >
-                                            <span>{TECHNOLOGY_DATA[selectedData.type as TechnologyType].name}</span>
-                                            <span style={{ color: '#00ff00' }}>[X]</span>
-                                        </div>
-                                    ) : (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                            {inventoryCards.technologies.filter(t => t.type === reqType && !t.usedThisTurn && !selectedTechIds.includes(t.id)).length === 0 ? (
-                                                <div style={{ color: '#555', fontStyle: 'italic', fontSize: '0.8rem' }}>No disponible en inventario</div>
-                                            ) : (inventoryCards.technologies
-                                                .filter(t => t.type === reqType && !t.usedThisTurn && !selectedTechIds.includes(t.id))
-                                                .map(card => (
-                                                    <button
-                                                        key={card.id}
+                        <div style={{ opacity: selectedBaseId ? 1 : 0.4, transition: 'opacity 0.3s' }}>
+                            {/* Technology Slots */}
+                            <div style={{ marginBottom: '20px' }}>
+                                <div style={{ color: '#aaa', marginBottom: '8px', fontSize: '0.85rem', fontWeight: 'bold' }}>2. RECURSOS TECNOLÓGICOS:</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                    {mission.requirements.technology.map((reqType, idx) => {
+                                        const selectedId = selectedTechIds[idx];
+                                        const selectedData = selectedId ? inventoryCards.technologies.find(t => t.id === selectedId) : null;
+                                        const available = inventoryCards.technologies.filter(t => t.type === reqType && !t.usedThisTurn && !selectedTechIds.includes(t.id));
+
+                                        return (
+                                            <div key={idx}>
+                                                <div style={{ fontSize: '0.75rem', color: '#66aa66', marginBottom: '4px' }}>REQUERIDO: {TECHNOLOGY_DATA[reqType].name.toUpperCase()}</div>
+                                                {selectedData ? (
+                                                    <div
                                                         onClick={() => {
                                                             const newIds = [...selectedTechIds];
-                                                            newIds[idx] = card.id;
+                                                            newIds.splice(idx, 1);
                                                             setSelectedTechIds(newIds);
                                                         }}
                                                         style={{
-                                                            padding: '8px', backgroundColor: '#0a0a0a', border: '1px dashed #444',
-                                                            color: '#aaa', cursor: 'pointer', textAlign: 'left'
+                                                            padding: '10px', backgroundColor: '#00ff00', color: '#000',
+                                                            border: '1px solid #00ff00', cursor: 'pointer', textAlign: 'center',
+                                                            fontWeight: 'bold', fontSize: '0.85rem'
                                                         }}
                                                     >
-                                                        {REGIONS.find(r => r.id === card.country)?.title} - Usar carta
-                                                    </button>
-                                                ))
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-
-                    {/* Raw Material Slots */}
-                    <div style={{ flex: 1 }}>
-                        <h4 style={{ color: '#00aa00', borderBottom: '1px solid #004400', paddingBottom: '5px' }}>3. MATERIA PRIMA</h4>
-                        {mission.requirements.rawMaterials.map((reqType, idx) => {
-                            const selectedId = selectedRawIds[idx];
-                            const selectedData = selectedId ? inventoryCards.rawMaterials.find(r => r.id === selectedId) : null;
-
-                            return (
-                                <div key={idx} style={{ marginBottom: '15px' }}>
-                                    <div style={{ fontSize: '0.8rem', color: '#888', marginBottom: '5px' }}>REQUERIDO: {RAW_MATERIAL_DATA[reqType].name}</div>
-
-                                    {selectedData ? (
-                                        <div
-                                            onClick={() => {
-                                                const newIds = [...selectedRawIds];
-                                                delete newIds[idx];
-                                                setSelectedRawIds(newIds);
-                                            }}
-                                            style={{
-                                                padding: '10px', backgroundColor: '#003300', border: '1px solid #00ff00',
-                                                color: '#fff', cursor: 'pointer', display: 'flex', justifyContent: 'space-between'
-                                            }}
-                                        >
-                                            <span>{RAW_MATERIAL_DATA[selectedData.type as RawMaterialType].name}</span>
-                                            <span style={{ color: '#00ff00' }}>[X]</span>
-                                        </div>
-                                    ) : (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                            {inventoryCards.rawMaterials.filter(m => m.type === reqType && !m.usedThisTurn && !selectedRawIds.includes(m.id)).length === 0 ? (
-                                                <div style={{ color: '#555', fontStyle: 'italic', fontSize: '0.8rem' }}>No disponible en inventario</div>
-                                            ) : (
-                                                inventoryCards.rawMaterials
-                                                    .filter(m => m.type === reqType && !m.usedThisTurn && !selectedRawIds.includes(m.id))
-                                                    .map(card => {
-                                                        const hasRoute = selectedBaseId ? checkRoute(card.country!, selectedBaseId, currentPlayerIndex) : false;
-                                                        return (
-
+                                                        {TECHNOLOGY_DATA[selectedData.type as TechnologyType].name.toUpperCase()} (SELECCIONADO)
+                                                    </div>
+                                                ) : (
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                                        {available.length > 0 ? available.map(card => (
                                                             <button
                                                                 key={card.id}
-                                                                disabled={!hasRoute}
                                                                 onClick={() => {
-                                                                    if (!hasRoute) return;
-                                                                    const newIds = [...selectedRawIds];
+                                                                    const newIds = [...selectedTechIds];
                                                                     newIds[idx] = card.id;
-                                                                    setSelectedRawIds(newIds);
+                                                                    setSelectedTechIds(newIds);
                                                                 }}
                                                                 style={{
-                                                                    padding: '8px',
-                                                                    backgroundColor: hasRoute ? '#0a0a0a' : '#220000',
-                                                                    border: hasRoute ? '1px dashed #444' : '1px solid #550000',
-                                                                    color: hasRoute ? '#aaa' : '#660000',
-                                                                    cursor: hasRoute ? 'pointer' : 'not-allowed',
-                                                                    textAlign: 'left',
-                                                                    display: 'flex', justifyContent: 'space-between'
+                                                                    padding: '8px', backgroundColor: '#002200', border: '1px dashed #00ff00',
+                                                                    color: '#00ff00', cursor: 'pointer', fontSize: '0.8rem', textAlign: 'center'
                                                                 }}
                                                             >
-                                                                <span>Desde: {REGIONS.find(r => r.id === card.country)?.title}</span>
-                                                                {!hasRoute && <span style={{ fontSize: '0.6rem' }}>SIN RUTA</span>}
+                                                                USAR: {REGIONS.find(r => r.id === card.country)?.title.toUpperCase()}
                                                             </button>
-                                                        );
-                                                    })
-                                            )}
-                                        </div>
-                                    )}
+                                                        )) : (
+                                                            <div style={{ color: '#666', fontSize: '0.8rem', fontStyle: 'italic', textAlign: 'center', padding: '5px' }}>No disponible en inventario.</div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
-                            );
-                        })}
+                            </div>
+
+                            {/* Raw Material Slots */}
+                            <div>
+                                <div style={{ color: '#aaa', marginBottom: '8px', fontSize: '0.85rem', fontWeight: 'bold' }}>3. MATERIAS PRIMAS:</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                    {mission.requirements.rawMaterials.map((reqType, idx) => {
+                                        const selectedId = selectedRawIds[idx];
+                                        const selectedData = selectedId ? inventoryCards.rawMaterials.find(r => r.id === selectedId) : null;
+                                        const available = inventoryCards.rawMaterials.filter(m => m.type === reqType && !m.usedThisTurn && !selectedRawIds.includes(m.id));
+
+                                        return (
+                                            <div key={idx}>
+                                                <div style={{ fontSize: '0.75rem', color: '#66aa66', marginBottom: '4px' }}>REQUERIDO: {RAW_MATERIAL_DATA[reqType].name.toUpperCase()}</div>
+                                                {selectedData ? (
+                                                    <div
+                                                        onClick={() => {
+                                                            const newIds = [...selectedRawIds];
+                                                            newIds.splice(idx, 1);
+                                                            setSelectedRawIds(newIds);
+                                                        }}
+                                                        style={{
+                                                            padding: '10px', backgroundColor: '#00ff00', color: '#000',
+                                                            border: '1px solid #00ff00', cursor: 'pointer', textAlign: 'center',
+                                                            fontWeight: 'bold', fontSize: '0.85rem'
+                                                        }}
+                                                    >
+                                                        {RAW_MATERIAL_DATA[selectedData.type as RawMaterialType].name.toUpperCase()} (SELECCIONADO)
+                                                    </div>
+                                                ) : (
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                                        {available.length > 0 ? available.map(card => {
+                                                            const hasRoute = selectedBaseId ? checkRoute(card.country!, selectedBaseId, currentPlayerIndex) : false;
+                                                            return (
+                                                                <button
+                                                                    key={card.id}
+                                                                    disabled={!hasRoute}
+                                                                    onClick={() => {
+                                                                        if (!hasRoute) return;
+                                                                        const newIds = [...selectedRawIds];
+                                                                        newIds[idx] = card.id;
+                                                                        setSelectedRawIds(newIds);
+                                                                    }}
+                                                                    style={{
+                                                                        padding: '8px',
+                                                                        backgroundColor: hasRoute ? '#002200' : 'rgba(255,0,0,0.05)',
+                                                                        border: hasRoute ? '1px dashed #00ff00' : '1px solid #440000',
+                                                                        color: hasRoute ? '#00ff00' : '#440000',
+                                                                        cursor: hasRoute ? 'pointer' : 'not-allowed',
+                                                                        fontSize: '0.8rem', textAlign: 'center'
+                                                                    }}
+                                                                >
+                                                                    {REGIONS.find(r => r.id === card.country)?.title.toUpperCase()} {hasRoute ? '' : '(SIN RUTA)'}
+                                                                </button>
+                                                            );
+                                                        }) : (
+                                                            <div style={{ color: '#666', fontSize: '0.8rem', fontStyle: 'italic', textAlign: 'center', padding: '5px' }}>No disponible.</div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Info Panel */}
+                    <div style={{ width: '300px', borderLeft: '1px solid #00ff00', paddingLeft: '30px' }}>
+                        <h3 style={{ marginTop: 0, color: '#00ff00' }}>INFORME DE MISIÓN</h3>
+                        <div style={{ backgroundColor: 'rgba(0, 255, 0, 0.1)', padding: '15px', border: '1px dashed #00ff00' }}>
+                            <div style={{ fontWeight: 'bold', fontSize: '1.2em', marginBottom: '10px', textTransform: 'uppercase' }}>
+                                OBJETIVO TÁCTICO
+                            </div>
+                            <p style={{ fontSize: '0.9em', lineHeight: '1.4', color: '#aaffaa' }}>
+                                {mission.lore}
+                            </p>
+                            <div style={{ marginTop: '20px' }}>
+                                <div style={{ fontWeight: 'bold', color: '#00ff00', fontSize: '0.85rem', marginBottom: '5px' }}>RESULTADO ESTIMADO:</div>
+                                <p style={{ fontSize: '0.85em', color: '#88cc88', margin: 0 }}>
+                                    {mission.description}
+                                </p>
+                            </div>
+                        </div>
+
+                        {isAntartic && (
+                            <div style={{ marginTop: '20px', padding: '10px', backgroundColor: hasFullControl ? 'rgba(0,255,0,0.1)' : 'rgba(255,0,0,0.1)', border: `1px solid ${hasFullControl ? '#00ff00' : '#ff4444'}` }}>
+                                <div style={{ fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '5px' }}>CONTROL TERRITORIAL:</div>
+                                <div style={{ fontSize: '0.75rem', color: hasFullControl ? '#00ff00' : '#ff4444' }}>
+                                    {hasFullControl ? '✓ Control total de Hemisferio Sur' : '✗ Requiere control: Chile, Argentina, Australia y Sudáfrica.'}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                <button
-                    onClick={handleActivate}
-                    disabled={!canActivate}
-                    style={{
-                        width: '100%',
-                        marginTop: '30px',
-                        padding: '15px',
-                        fontSize: '1.2rem',
-                        fontWeight: 'bold',
-                        backgroundColor: canActivate ? '#00ff00' : '#002200',
-                        color: canActivate ? '#000' : '#004400',
-                        border: canActivate ? '2px solid #00ff00' : '2px solid #004400',
-                        cursor: canActivate ? 'pointer' : 'not-allowed',
-                        textTransform: 'uppercase',
-                        boxShadow: canActivate ? '0 0 20px rgba(0, 255, 0, 0.5)' : 'none',
-                        transition: 'all 0.3s'
-                    }}
-                >
-                    {canActivate ? 'INICIAR OPERACIÓN ESPECIAL' : (isAntartic && !hasFullControl ? 'REQUISITOS DE TERRITORIO PENDIENTES' : 'PENDIENTE DE RECURSOS')}
-                </button>
-                {!hasFullControl && isAntartic && (
-                    <div style={{ color: '#ff4444', fontSize: '0.8rem', textAlign: 'center', marginTop: '10px' }}>
-                        Requiere control total de: Chile, Argentina, Australia y Sudáfrica.
-                    </div>
-                )}
+                {/* Actions */}
+                <div style={{ padding: '20px', backgroundColor: 'rgba(0,0,0,0.3)', display: 'flex', gap: '20px' }}>
+                    <button
+                        onClick={onClose}
+                        style={{
+                            padding: '15px 30px',
+                            backgroundColor: 'transparent',
+                            color: '#00ff00',
+                            border: '1px solid #004400',
+                            cursor: 'pointer',
+                            fontFamily: 'monospace'
+                        }}
+                    >
+                        CANCELAR
+                    </button>
+                    <button
+                        disabled={!canActivate}
+                        onClick={handleActivate}
+                        style={{
+                            flex: 1, padding: '15px',
+                            backgroundColor: !canActivate ? '#002200' : '#00ff00',
+                            color: !canActivate ? '#004400' : '#000',
+                            border: 'none', fontWeight: 'bold', fontSize: '1rem',
+                            cursor: !canActivate ? 'not-allowed' : 'pointer',
+                            boxShadow: !canActivate ? 'none' : '0 0 20px rgba(0, 255, 0, 0.4)',
+                            textTransform: 'uppercase'
+                        }}
+                    >
+                        {canActivate ? 'INICIAR OPERACIÓN' : 'RECURSOS PENDIENTES'}
+                    </button>
+                </div>
             </div>
         </div>
     );

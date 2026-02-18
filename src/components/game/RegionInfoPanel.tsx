@@ -14,7 +14,7 @@ interface RegionInfoPanelProps {
     onShowNuclearDesignInfo: (regionId: string) => void;
     onShowMineralExtraction: (regionId: string) => void;
     onShowEspionageNetworkInfo: (regionId: string) => void;
-    onShowSpecialMissionInfo: (regionId: string) => void;
+    onShowSpecialMissionInfo: (missionId: string) => void;
 }
 
 export const RegionInfoPanel: React.FC<RegionInfoPanelProps> = ({
@@ -27,9 +27,13 @@ export const RegionInfoPanel: React.FC<RegionInfoPanelProps> = ({
     onShowEspionageNetworkInfo,
     onShowSpecialMissionInfo,
 }) => {
-    const { state } = useGameContext();
+    const { state, multiplayer } = useGameContext();
     const { players, currentPlayerIndex, owners, regionResources } = state;
     const currentPlayer = players[currentPlayerIndex];
+
+    const isMyTurn = (multiplayer.connectionStatus === 'PLAYING' && multiplayer.playerId)
+        ? players[currentPlayerIndex]?.id === multiplayer.playerId
+        : true;
 
 
     const isMobile = window.innerWidth <= 768;
@@ -202,9 +206,11 @@ export const RegionInfoPanel: React.FC<RegionInfoPanelProps> = ({
                         {(() => {
                             const isNuclear = regionResources?.nuclearWarCapable.includes(selectedRegionId);
                             const hasExtracted = currentPlayer?.specialCards.some(c => c.type === 'SECRET_MINERAL');
-                            const isSecret = currentPlayer?.secretMineralLocation === selectedRegionId && owners[selectedRegionId] === currentPlayerIndex && !hasExtracted;
+                            const isSecret = currentPlayer?.secretMineralLocation === selectedRegionId && owners[selectedRegionId] === currentPlayer?.id && !hasExtracted;
                             const espionageCountries = ['nueva_york', 'reino_unido', 'china', 'rusia'];
                             const isEspionageHq = espionageCountries.includes(selectedRegionId);
+
+                            const belongsToMe = owners[selectedRegionId] === currentPlayer?.id;
 
                             const specialBtnStyle = (bg: string, color: string, border: string): React.CSSProperties => ({
                                 width: '100%',
@@ -226,47 +232,48 @@ export const RegionInfoPanel: React.FC<RegionInfoPanelProps> = ({
 
                             return (
                                 <>
-                                    {isNuclear && (
-                                        <button
-                                            onClick={() => onShowNuclearDesignInfo(selectedRegionId)}
-                                            style={specialBtnStyle('#1a0a00', '#ff9100', '#ff9100')}
-                                        >
-                                            <span style={{ fontSize: '1.2rem' }}>☢️</span>
-                                            DISEÑO DE ARMAS NUCLEARES INTERCONTINENTALES
-                                        </button>
-                                    )}
-                                    {isSecret && (
-                                        <button
-                                            onClick={() => onShowMineralExtraction(selectedRegionId)}
-                                            style={specialBtnStyle('#001a1a', '#00ffff', '#00ffff')}
-                                        >
-                                            EXTRAER MINERAL SECRETO
-                                        </button>
-                                    )}
-                                    {isEspionageHq && (
-                                        <button
-                                            onClick={() => onShowEspionageNetworkInfo(selectedRegionId)}
-                                            style={specialBtnStyle('#001122', '#00ffff', '#00ffff')}
-                                        >
-                                            🕵️ RED DE ESPIONAJE
-                                        </button>
-                                    )}
-                                    {(() => {
-                                        const mission = specialMissions.find(m => m.visibleFor.includes(selectedRegionId));
-                                        if (mission) {
-                                            return (
+                                    {isMyTurn && (
+                                        <>
+                                            {isNuclear && (
                                                 <button
-                                                    onClick={() => onShowSpecialMissionInfo(selectedRegionId)}
-                                                    style={specialBtnStyle('#002200', '#00ff00', '#00ff00')}
+                                                    onClick={() => onShowNuclearDesignInfo(selectedRegionId)}
+                                                    style={specialBtnStyle('#1a0a00', '#ff9100', '#ff9100')}
                                                 >
-                                                    OPERACIONES ESPECIALES
+                                                    <span style={{ fontSize: '1.2rem' }}>☢️</span>
+                                                    DISEÑO DE ARMAS NUCLEARES INTERCONTINENTALES
                                                 </button>
-                                            );
-                                        }
-                                        return null;
-                                    })()}
+                                            )}
+                                            {isSecret && (
+                                                <button
+                                                    onClick={() => onShowMineralExtraction(selectedRegionId)}
+                                                    style={specialBtnStyle('#001a1a', '#00ffff', '#00ffff')}
+                                                >
+                                                    EXTRAER MINERAL SECRETO
+                                                </button>
+                                            )}
+                                            {isEspionageHq && (
+                                                <button
+                                                    onClick={() => onShowEspionageNetworkInfo(selectedRegionId)}
+                                                    style={specialBtnStyle('#001122', '#00ffff', '#00ffff')}
+                                                >
+                                                    🕵️ RED DE ESPIONAJE
+                                                </button>
+                                            )}
+                                            {belongsToMe && specialMissions
+                                                .filter(m => m.visibleFor.includes(selectedRegionId) || m.visibleFor.includes('GLOBAL'))
+                                                .map(mission => (
+                                                    <button
+                                                        key={mission.id}
+                                                        onClick={() => onShowSpecialMissionInfo(mission.id)}
+                                                        style={specialBtnStyle('#002200', '#00ff00', '#00ff00')}
+                                                    >
+                                                        {mission.title}
+                                                    </button>
+                                                ))}
+                                        </>
+                                    )}
 
-                                    {!isNuclear && !isSecret && !isEspionageHq && !specialMissions.some(m => m.visibleFor.includes(selectedRegionId)) && (
+                                    {!isNuclear && !isSecret && !isEspionageHq && (!belongsToMe || !specialMissions.some(m => m.visibleFor.includes(selectedRegionId) || m.visibleFor.includes('GLOBAL'))) && (
                                         <div style={{ color: '#555' }}>Sin habilidades especiales</div>
                                     )}
                                 </>
@@ -276,28 +283,30 @@ export const RegionInfoPanel: React.FC<RegionInfoPanelProps> = ({
                 </div>
 
                 {/* Actions Column */}
-                <div style={{ flex: isMobile ? 'none' : 1, border: '1px solid #003300', padding: '10px', backgroundColor: 'rgba(0,10,0,0.5)' }}>
-                    <h4 style={{ margin: '0 0 10px 0', color: '#aa0000', textTransform: 'uppercase', fontSize: '0.8rem' }}>Acciones</h4>
-                    <button
-                        onClick={onAttack}
-                        style={{
-                            width: '100%',
-                            padding: '10px',
-                            fontSize: isMobile ? '1rem' : '1.2rem',
-                            fontWeight: 'bold',
-                            backgroundColor: '#330000',
-                            color: '#ff0000',
-                            border: '2px solid #ff0000',
-                            cursor: 'pointer',
-                            textTransform: 'uppercase',
-                            fontFamily: 'monospace',
-                            boxShadow: '0 0 10px rgba(255, 0, 0, 0.2)',
-                            animation: 'pulse 2s infinite'
-                        }}
-                    >
-                        ATACAR
-                    </button>
-                </div>
+                {isMyTurn && (
+                    <div style={{ flex: isMobile ? 'none' : 1, border: '1px solid #003300', padding: '10px', backgroundColor: 'rgba(0,10,0,0.5)' }}>
+                        <h4 style={{ margin: '0 0 10px 0', color: '#aa0000', textTransform: 'uppercase', fontSize: '0.8rem' }}>Acciones</h4>
+                        <button
+                            onClick={onAttack}
+                            style={{
+                                width: '100%',
+                                padding: '10px',
+                                fontSize: isMobile ? '1rem' : '1.2rem',
+                                fontWeight: 'bold',
+                                backgroundColor: '#330000',
+                                color: '#ff0000',
+                                border: '2px solid #ff0000',
+                                cursor: 'pointer',
+                                textTransform: 'uppercase',
+                                fontFamily: 'monospace',
+                                boxShadow: '0 0 10px rgba(255, 0, 0, 0.2)',
+                                animation: 'pulse 2s infinite'
+                            }}
+                        >
+                            ATACAR
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );

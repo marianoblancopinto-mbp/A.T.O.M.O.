@@ -2,7 +2,7 @@ import type { PlayerSupplies, ProductionInventory, RawMaterialType } from './pro
 
 export interface SpecialCard {
     id: string;
-    type: 'NUCLEAR_WEAPON' | 'SECRET_MINERAL' | 'ESPIONAJE' | 'NUCLEAR_DESIGN' | 'SECONDARY_MISSION' | 'PUENTE_BOSFORO' | 'PLANTA_DESALINIZADORA' | 'PLANTA_GEOTERMICA' | 'CRUCE_ANDES' | 'NORMANDY_LANDING' | 'ALEJANDRO_MAGNO' | 'SECRETOS_GUERRA';
+    type: 'NUCLEAR_WEAPON' | 'SECRET_MINERAL' | 'ESPIONAJE' | 'NUCLEAR_DESIGN' | 'SECONDARY_MISSION' | 'PUENTE_BOSFORO' | 'PLANTA_DESALINIZADORA' | 'PLANTA_GEOTERMICA' | 'CRUCE_ANDES' | 'NORMANDY_LANDING' | 'ALEJANDRO_MAGNO' | 'LEGADO_OTOMANO' | 'GENGIS_KHAN' | 'BOLIVAR' | 'PACIFIC_FIRE' | 'SECRETOS_GUERRA';
     name: string;
     originCountry: string;
     description: string;
@@ -30,7 +30,12 @@ export interface PlayerData {
     crossingAndesActive?: boolean;
     normandyLandingActive?: boolean;
     alejandroMagnoActive?: boolean;
+    legadoOtomanoActive?: boolean;
+    gengisKhanActive?: boolean;
+    bolivarActive?: boolean;
+    pacificFireActive?: boolean;
     usedEspionageHqs: string[]; // Track which espionage HQs this player has used (max 4 total)
+    usedNuclearSilos: string[]; // Track which silos have launched this turn
     activeSpecialMissions: { id: string; baseRegionId: string, startTime?: number }[]; // Active special missions
     secretWarData: {
         countryId: string;

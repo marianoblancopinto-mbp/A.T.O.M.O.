@@ -10,20 +10,24 @@ interface NuclearDeploymentModalProps {
     show: boolean;
     onClose: () => void;
     selectedSiloId?: string | null;
+    playerIndex?: number;
 }
 
 export const NuclearDeploymentModal: React.FC<NuclearDeploymentModalProps> = ({
     show,
     onClose,
-    selectedSiloId
+    selectedSiloId,
+    playerIndex
 }) => {
-    const { state } = useGameContext();
-    const { currentPlayerIndex, players } = state;
+    const { state, dispatch } = useGameContext();
+    const { currentPlayerIndex: stateCurrentPlayerIndex, players } = state;
     const { checkRoute } = useSupplyRoute();
+    const gameActions = useGameActions();
 
     if (!show) return null;
 
-    const player = players[currentPlayerIndex];
+    const effectivePlayerIndex = playerIndex ?? stateCurrentPlayerIndex;
+    const player = players[effectivePlayerIndex];
     if (!player) return null;
 
     const siloCard = selectedSiloId
@@ -58,20 +62,93 @@ export const NuclearDeploymentModal: React.FC<NuclearDeploymentModalProps> = ({
     const assignedFuelCard = assignedFuelCardId ? getInventoryCard(assignedFuelCardId) : null;
 
     // Requirement A: Route Mineral -> Silo
-    const routeMineralToSilo = checkRoute(mineralRegionId, siloRegionId, currentPlayerIndex);
+    const routeMineralToSilo = checkRoute(mineralRegionId, siloRegionId, effectivePlayerIndex);
 
-    // Requirement B: Fuel card assigned and not used
+    // Requirement B: Route Fuel Provider -> Silo
+    const fuelRegionId = (assignedFuelCard as any)?.country;
+    const routeFuelToSilo = fuelRegionId ? checkRoute(fuelRegionId, siloRegionId, effectivePlayerIndex) : false;
+
+    // Requirement C: Fuel card assigned and not used
     const hasFuelCard = assignedFuelCard && !assignedFuelCard.usedThisTurn;
 
-    const canInitiate = routeMineralToSilo && hasFuelCard;
-
-    const gameActions = useGameActions();
+    const canInitiate = routeMineralToSilo && routeFuelToSilo && hasFuelCard;
 
     const handleInitiate = () => {
-        if (!canInitiate || !assignedFuelCardId) return;
+        // Detailed Validation for Private Toasts
+        if (!assignedFuelCardId) {
+            dispatch({
+                type: 'SET_NOTIFICATION',
+                payload: {
+                    type: 'NUCLEAR_ALERT',
+                    title: 'FALLO EN SECUENCIA DE LANZAMIENTO',
+                    message: 'No se ha asignado combustible nuclear al silo.',
+                    color: '#ff0000',
+                    targetPlayerId: player.id
+                }
+            });
+            return;
+        }
 
-        gameActions.initiateNuclearDeployment(assignedFuelCardId);
+        if (!routeMineralToSilo) {
+            dispatch({
+                type: 'SET_NOTIFICATION',
+                payload: {
+                    type: 'NUCLEAR_ALERT',
+                    title: 'FALLO EN SECUENCIA DE LANZAMIENTO',
+                    message: `Ruta de Mineral Secreto interrumpida hacia el Silo en ${REGIONS.find(r => r.id === siloRegionId)?.title}.`,
+                    color: '#ff0000',
+                    targetPlayerId: player.id
+                }
+            });
+            return;
+        }
 
+        if (!routeFuelToSilo) {
+            dispatch({
+                type: 'SET_NOTIFICATION',
+                payload: {
+                    type: 'NUCLEAR_ALERT',
+                    title: 'FALLO EN SECUENCIA DE LANZAMIENTO',
+                    message: `Ruta de Combustible interrumpida desde ${REGIONS.find(r => r.id === fuelRegionId)?.title} hacia el Silo.`,
+                    color: '#ff0000',
+                    targetPlayerId: player.id
+                }
+            });
+            return;
+        }
+
+        if (assignedFuelCard && assignedFuelCard.usedThisTurn) {
+            dispatch({
+                type: 'SET_NOTIFICATION',
+                payload: {
+                    type: 'NUCLEAR_ALERT',
+                    title: 'SISTEMA BLOQUEADO',
+                    message: 'El combustible nuclear ya ha sido consumido este turno.',
+                    color: '#ff9900',
+                    targetPlayerId: player.id
+                }
+            });
+            return;
+        }
+
+        const isSiloAlreadyUsed = player.usedNuclearSilos?.includes(siloRegionId);
+        if (isSiloAlreadyUsed) {
+            dispatch({
+                type: 'SET_NOTIFICATION',
+                payload: {
+                    type: 'NUCLEAR_ALERT',
+                    title: 'SILO AGOTADO',
+                    message: `Este silo ya ha realizado un lanzamiento en el turno actual. Solo se permite un ataque por país por turno.`,
+                    color: '#ff4400',
+                    targetPlayerId: player.id
+                }
+            });
+            return;
+        }
+
+        if (!canInitiate) return;
+
+        gameActions.initiateNuclearDeployment(assignedFuelCardId, siloRegionId, effectivePlayerIndex);
         onClose();
     };
 
@@ -93,30 +170,26 @@ export const NuclearDeploymentModal: React.FC<NuclearDeploymentModalProps> = ({
                 <h2 style={{ color: '#ff0000', textAlign: 'center', margin: '0 0 20px 0', fontSize: '1.5rem' }}>☢️ PROTOCOLO DE DESPLIEGUE FINAL ☢️</h2>
 
                 <div style={{ backgroundColor: '#000', padding: '15px', border: '1px solid #444', marginBottom: '20px', borderRadius: '4px' }}>
-                    <div style={{ color: '#aaa', fontSize: '0.8rem', marginBottom: '5px' }}>VALIDACIÓN DE REQUISITOS:</div>
+                    <div style={{ color: '#aaa', fontSize: '0.8rem', marginBottom: '10px' }}>VALIDACIÓN DE SISTEMAS:</div>
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: routeMineralToSilo ? '#00ff00' : '#ff4444', marginBottom: '10px' }}>
-                        <span>[RUTA] MINERAL SECRETO &gt; SILO</span>
+                        <span>[SUMINISTRO] MINERAL &gt; SILO</span>
                         <span>{routeMineralToSilo ? 'ESTABLECIDA' : 'INTERRUMPIDA'}</span>
                     </div>
-                    {!routeMineralToSilo && (
-                        <div style={{ color: '#ff4444', fontSize: '0.7rem', marginBottom: '10px' }}>
-                            * No hay conexión de territorios propios entre {REGIONS.find(r => r.id === mineralRegionId)?.title} y {REGIONS.find(r => r.id === siloRegionId)?.title}
-                        </div>
-                    )}
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: routeFuelToSilo ? '#00ff00' : '#ff4444', marginBottom: '10px' }}>
+                        <span>[SUMINISTRO] COMBUSTIBLE &gt; SILO</span>
+                        <span>{routeFuelToSilo ? 'ESTABLECIDA' : 'INTERRUMPIDA'}</span>
+                    </div>
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: hasFuelCard ? '#00ff00' : '#ff4444', marginTop: '15px' }}>
-                        <span>[COMBUSTIBLE] NUCLEAR ASIGNADO</span>
-                        <span>{hasFuelCard ? 'DISPONIBLE' : 'NO ASIGNADO'}</span>
+                        <span>[COMBUSTIBLE] STATUS</span>
+                        <span>{hasFuelCard ? 'DISPONIBLE' : (assignedFuelCard?.usedThisTurn ? 'AGOTADO' : 'NO ASIGNADO')}</span>
                     </div>
-                    {!hasFuelCard && (
-                        <div style={{ color: '#ff4444', fontSize: '0.7rem', marginTop: '5px' }}>
-                            * Usa el botón "SELECCIONAR COMBUSTIBLE" en el silo para asignar combustible nuclear.
-                        </div>
-                    )}
-                    {hasFuelCard && assignedFuelCard && (
-                        <div style={{ color: '#00ff00', fontSize: '0.75rem', marginTop: '5px', padding: '8px', backgroundColor: '#001100', borderRadius: '4px' }}>
-                            Combustible asignado: {RAW_MATERIAL_DATA[assignedFuelCard.type as RawMaterialType]?.name || assignedFuelCard.type}
+
+                    {assignedFuelCard && (
+                        <div style={{ color: hasFuelCard ? '#00ff00' : '#ff9900', fontSize: '0.75rem', marginTop: '10px', padding: '8px', backgroundColor: '#001100', borderRadius: '4px', border: '1px solid #003300' }}>
+                            Combustible: {RAW_MATERIAL_DATA[assignedFuelCard.type as RawMaterialType]?.name || assignedFuelCard.type} ({REGIONS.find(r => r.id === fuelRegionId)?.title})
                         </div>
                     )}
                 </div>
@@ -138,14 +211,14 @@ export const NuclearDeploymentModal: React.FC<NuclearDeploymentModalProps> = ({
                     </button>
                     <button
                         onClick={handleInitiate}
-                        disabled={!canInitiate}
                         style={{
-                            backgroundColor: canInitiate ? '#ff0000' : '#550000',
-                            color: canInitiate ? '#fff' : '#666',
+                            backgroundColor: canInitiate ? '#ff0000' : '#330000',
+                            color: canInitiate ? '#fff' : '#888',
                             border: 'none',
                             padding: '10px 20px',
-                            cursor: canInitiate ? 'pointer' : 'not-allowed',
-                            boxShadow: canInitiate ? '0 0 20px rgba(255, 0, 0, 0.4)' : 'none'
+                            cursor: 'pointer', // Keep pointer to allow clicking and seeing error toast
+                            boxShadow: canInitiate ? '0 0 20px rgba(255, 0, 0, 0.4)' : 'none',
+                            fontWeight: 'bold'
                         }}
                     >
                         INICIAR DESPLIEGUE

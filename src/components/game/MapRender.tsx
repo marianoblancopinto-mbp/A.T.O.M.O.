@@ -170,11 +170,18 @@ export const MapRender: React.FC<MapRenderProps> = ({ selectedRegionId, onRegion
             {/* Render Labels */}
             {REGIONS.map((region) => {
                 const center = getRegionCenter(region);
+                let x = center.x;
+                let y = center.y;
+
+                // Manual Tweak for better placement
+                if (region.id === 'sudafrica') y += 35;
+                if (region.id === 'arabia') y += 25;
+
                 return (
                     <text
                         key={`label - ${region.id} `}
-                        x={center.x}
-                        y={center.y}
+                        x={x}
+                        y={y}
                         textAnchor="middle"
                         dominantBaseline="middle"
                         style={{

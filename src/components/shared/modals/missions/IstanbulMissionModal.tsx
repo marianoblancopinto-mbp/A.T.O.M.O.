@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
-import { MissionModalBase } from '../MissionModalBase';
 import { useGameContext } from '../../../../context/GameContext';
 import { useSupplyRoute } from '../../../../hooks/useSupplyRoute';
 import { usePlayerResources } from '../../../../hooks/usePlayerResources';
-import { REGIONS } from '../../../../data/mapRegions';
 import type { SpecialCard } from '../../../../types/playerTypes';
 
 interface IstanbulMissionModalProps {
     onClose: () => void;
-    onSuccess: (playerName: string) => void;
+    onSuccess: (playerName: string, cityName: string) => void;
 }
 
 export const IstanbulMissionModal: React.FC<IstanbulMissionModalProps> = ({
@@ -24,6 +22,8 @@ export const IstanbulMissionModal: React.FC<IstanbulMissionModalProps> = ({
         techId: string | null;
         rawId: string | null;
     }>({ techId: null, rawId: null });
+
+    const [selectedCityName, setSelectedCityName] = useState<'ESTAMBUL' | 'CONSTANTINOPLA'>('ESTAMBUL');
 
     const player = players[currentPlayerIndex];
     if (!player) return null;
@@ -56,9 +56,9 @@ export const IstanbulMissionModal: React.FC<IstanbulMissionModalProps> = ({
         const newCard: SpecialCard = {
             id: `special-istanbul-${Date.now()}`,
             type: 'PUENTE_BOSFORO',
-            name: 'PUENTE DEL BÓSFORO',
+            name: `PUENTE DE ${selectedCityName}`,
             originCountry: 'turquia',
-            description: 'Conexión terrestre permanente entre Grecia y Turquía. Permite ataque/movimiento directo.',
+            description: `Conexión terrestre permanente entre Grecia y Turquía. La ciudad ha sido refundada como ${selectedCityName}.`,
             createdAt: Date.now()
         };
 
@@ -76,129 +76,191 @@ export const IstanbulMissionModal: React.FC<IstanbulMissionModalProps> = ({
             }
         });
 
-        onSuccess(player.name);
+        onSuccess(player.name, selectedCityName);
         onClose();
     };
 
     return (
-        <MissionModalBase title="REFUNDACIÓN DE ESTAMBUL" type="activation" onClose={onClose}>
-            <div style={{ textAlign: 'center', color: '#aaa', fontStyle: 'italic', marginBottom: '20px' }}>
-                "Reunificar el antiguo Egeo bajo una nueva capital. Requiere estructuras masivas para cruzar el Bósforo."
-            </div>
-
-            <div style={{ display: 'flex', gap: '20px' }}>
-                {/* Requirements Status */}
-                <div style={{ flex: 1, backgroundColor: '#000', padding: '15px', border: '1px solid #442200' }}>
-                    <div style={{ color: '#ff9100', fontSize: '1rem', fontWeight: 'bold', marginBottom: '15px', borderBottom: '1px solid #ff9100', paddingBottom: '5px' }}>
-                        REQUISITOS
+        <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.85)',
+            display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 5000,
+            backdropFilter: 'blur(5px)'
+        }}>
+            <div style={{
+                width: '800px',
+                backgroundColor: '#1a0d00',
+                border: '2px solid #ff8800',
+                boxShadow: '0 0 50px rgba(255, 136, 0, 0.3)',
+                color: '#ffeebb',
+                fontFamily: 'monospace',
+                display: 'flex', flexDirection: 'column'
+            }}>
+                {/* Header */}
+                <div style={{
+                    padding: '20px',
+                    borderBottom: '1px solid #ff8800',
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    backgroundColor: 'rgba(255, 136, 0, 0.1)'
+                }}>
+                    <h2 style={{ margin: 0, fontSize: '1.8em', textTransform: 'uppercase', letterSpacing: '2px' }}>
+                        REFUNDACIÓN DE ESTAMBUL
+                    </h2>
+                    <div style={{ fontSize: '0.9em', color: '#ff8800' }}>
+                        MEGAPROYECTO URBANO
                     </div>
-                    <div style={{ marginBottom: '10px' }}>
-                        <div style={{ color: hasTurkey ? '#00ff00' : '#ff4444' }}>
-                            {hasTurkey ? '✅' : '❌'} Control Turquía
-                        </div>
-                        <div style={{ color: hasGreece ? '#00ff00' : '#ff4444' }}>
-                            {hasGreece ? '✅' : '❌'} Control Grecia
-                        </div>
-                    </div>
-                    <div style={{ color: '#aaa', fontSize: '0.9rem', marginTop: '15px' }}>
-                        RECURSOS NECESARIOS:
-                    </div>
-                    <ul style={{ color: '#ccc', fontSize: '0.85rem', paddingLeft: '20px' }}>
-                        <li>1x Industria Pesada: Seleccionar</li>
-                        <li>1x Hierro: Ruta Válida a Turquía o Grecia</li>
-                    </ul>
                 </div>
 
-                {/* Selection Panel */}
-                <div style={{ flex: 1.5, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-
-                    {/* Tech Selection */}
-                    <div>
-                        <div style={{ color: '#aaa', marginBottom: '5px', fontSize: '0.9rem' }}>1. TECNOLOGÍA: IND. PESADA</div>
-                        <div style={{ maxHeight: '120px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                            {heavyIndustryCards.length > 0 ? heavyIndustryCards.map(c => (
-                                <div key={c.id}
-                                    onClick={() => setSelectedBridgeCards(prev => ({ ...prev, techId: c.id }))}
-                                    style={{
-                                        padding: '8px',
-                                        backgroundColor: selectedBridgeCards.techId === c.id ? '#ff9100' : '#221100',
-                                        color: selectedBridgeCards.techId === c.id ? '#000' : '#ccc',
-                                        border: `1px solid ${selectedBridgeCards.techId === c.id ? '#ff9100' : '#663300'}`,
-                                        cursor: 'pointer',
-                                        fontSize: '0.8rem',
-                                        display: 'flex', justifyContent: 'space-between'
-                                    }}
-                                >
-                                    <span>{c.type.replace(/_/g, ' ')} {c.country ? `(${REGIONS.find(r => r.id === c.country)?.title || c.country})` : ''}</span>
-                                </div>
-                            )) : <div style={{ color: '#555', fontSize: '0.8rem' }}>No disponible</div>}
+                <div style={{ padding: '30px', display: 'flex', gap: '30px' }}>
+                    {/* Requirements Panel */}
+                    <div style={{ flex: 1 }}>
+                        <div style={{ marginBottom: '20px', fontSize: '1.2em', fontWeight: 'bold', color: '#ff8800', letterSpacing: '1px' }}>
+                            REQUISITOS ESTRATÉGICOS:
                         </div>
-                    </div>
 
-                    {/* Raw Material Selection */}
-                    <div>
-                        <div style={{ color: '#aaa', marginBottom: '5px', fontSize: '0.9rem' }}>2. MATERIA PRIMA: HIERRO</div>
-                        <div style={{ maxHeight: '120px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                            {ironCards.length > 0 ? ironCards.map(c => {
-                                const isSelected = selectedBridgeCards.rawId === c.id;
+                        {/* Control Check */}
+                        <div style={{ marginBottom: '25px', display: 'flex', justifyContent: 'space-around', textAlign: 'center' }}>
+                            <div>
+                                <div style={{ fontSize: '2em', marginBottom: '5px' }}>{hasTurkey ? '✅' : '❌'}</div>
+                                <div style={{ fontSize: '0.9em', fontWeight: 'bold', letterSpacing: '1px' }}>TURQUÍA</div>
+                            </div>
+                            <div>
+                                <div style={{ fontSize: '2em', marginBottom: '5px' }}>{hasGreece ? '✅' : '❌'}</div>
+                                <div style={{ fontSize: '0.9em', fontWeight: 'bold', letterSpacing: '1px' }}>GRECIA</div>
+                            </div>
+                        </div>
 
-                                // Route Valid to Turkey OR Greece
-                                const routeToTurkey = owners['turquia'] === player.id ? checkRoute(c.country, 'turquia', player.id) : false;
-                                const routeToGreece = owners['grecia'] === player.id ? checkRoute(c.country, 'grecia', player.id) : false;
-                                const hasRoute = routeToTurkey || routeToGreece;
-
-                                return (
-                                    <div key={c.id}
-                                        onClick={() => hasRoute && setSelectedBridgeCards(prev => ({ ...prev, rawId: c.id }))}
+                        {/* Tech Selection */}
+                        <div style={{ marginBottom: '15px' }}>
+                            <div style={{ color: '#aaa', marginBottom: '8px', fontSize: '0.85rem', fontWeight: 'bold' }}>TECNOLOGÍA (IND. PESADA):</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                {heavyIndustryCards.length > 0 ? heavyIndustryCards.map(c => (
+                                    <div
+                                        key={c.id}
+                                        onClick={() => setSelectedBridgeCards(prev => ({ ...prev, techId: c.id }))}
                                         style={{
-                                            padding: '8px',
-                                            backgroundColor: isSelected ? '#ff9100' : (hasRoute ? '#221100' : '#220000'),
-                                            color: isSelected ? '#000' : (hasRoute ? '#ccc' : '#666'),
-                                            border: `1px solid ${isSelected ? '#ff9100' : (hasRoute ? '#663300' : '#440000')}`,
-                                            cursor: hasRoute ? 'pointer' : 'not-allowed',
-                                            fontSize: '0.8rem',
-                                            fontFamily: 'monospace',
-                                            display: 'flex', justifyContent: 'space-between',
-                                            marginBottom: '5px'
+                                            padding: '10px',
+                                            backgroundColor: selectedBridgeCards.techId === c.id ? '#ff8800' : '#221100',
+                                            color: selectedBridgeCards.techId === c.id ? '#000' : '#ff8800',
+                                            border: `1px solid #ff8800`,
+                                            cursor: 'pointer', fontSize: '0.85rem',
+                                            textAlign: 'center', transition: 'all 0.2s'
                                         }}
                                     >
-                                        <span>{c.type.replace(/_/g, ' ')} {c.country ? `(${REGIONS.find(r => r.id === c.country)?.title || c.country})` : ''}</span>
-                                        {!hasRoute && <span style={{ color: '#ff4444', fontSize: '0.7em' }}>SIN RUTA</span>}
+                                        INDUSTRIA PESADA ({c.country?.toUpperCase()})
                                     </div>
-                                );
-                            }) : <div style={{ color: '#555', fontSize: '0.8rem' }}>No disponible</div>}
+                                )) : (
+                                    <div style={{ color: '#ff4444', fontSize: '0.9rem', textAlign: 'center', padding: '10px', backgroundColor: 'rgba(255,136,0,0.05)', border: '1px dashed #ff4444' }}>
+                                        No disponible.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Iron Selection */}
+                        <div style={{ marginBottom: '20px' }}>
+                            <div style={{ color: '#aaa', marginBottom: '8px', fontSize: '0.85rem', fontWeight: 'bold' }}>MATERIA PRIMA (HIERRO):</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                {ironCards.length > 0 ? ironCards.map(c => {
+                                    const routeToTurkey = owners['turquia'] === player.id ? checkRoute(c.country, 'turquia', player.id) : false;
+                                    const routeToGreece = owners['grecia'] === player.id ? checkRoute(c.country, 'grecia', player.id) : false;
+                                    const hasRoute = routeToTurkey || routeToGreece;
+
+                                    return (
+                                        <div
+                                            key={c.id}
+                                            onClick={() => hasRoute && setSelectedBridgeCards(prev => ({ ...prev, rawId: c.id }))}
+                                            style={{
+                                                padding: '10px',
+                                                backgroundColor: selectedBridgeCards.rawId === c.id ? '#ff8800' : (hasRoute ? '#221100' : 'rgba(255,0,0,0.1)'),
+                                                color: selectedBridgeCards.rawId === c.id ? '#000' : (hasRoute ? '#ff8800' : '#666'),
+                                                border: `1px solid ${hasRoute ? '#ff8800' : '#440000'}`,
+                                                cursor: hasRoute ? 'pointer' : 'not-allowed',
+                                                fontSize: '0.85rem', textAlign: 'center', transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            HIERRO ({c.country?.toUpperCase()}) {!hasRoute && '(SIN RUTA)'}
+                                        </div>
+                                    );
+                                }) : (
+                                    <div style={{ color: '#ff4444', fontSize: '0.9rem', textAlign: 'center', padding: '10px', backgroundColor: 'rgba(255,136,0,0.05)', border: '1px dashed #ff4444' }}>
+                                        No disponible.
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
 
+                    {/* Info Panel */}
+                    <div style={{ width: '300px', borderLeft: '1px solid #ff8800', paddingLeft: '30px' }}>
+                        <h3 style={{ marginTop: 0, color: '#ff8800' }}>NOMBRE DE LA CIUDAD</h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+                            {['ESTAMBUL', 'CONSTANTINOPLA'].map(name => (
+                                <button
+                                    key={name}
+                                    onClick={() => setSelectedCityName(name as any)}
+                                    style={{
+                                        padding: '12px',
+                                        backgroundColor: selectedCityName === name ? '#ff8800' : '#110a00',
+                                        color: selectedCityName === name ? '#000' : '#ff8800',
+                                        border: '1px solid #ff8800',
+                                        cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem',
+                                        fontFamily: 'monospace', textTransform: 'uppercase'
+                                    }}
+                                >
+                                    {name}
+                                </button>
+                            ))}
+                        </div>
+
+                        <h3 style={{ marginTop: '20px', color: '#ff8800' }}>BENEFICIO</h3>
+                        <div style={{ backgroundColor: 'rgba(255, 136, 0, 0.1)', padding: '15px', border: '1px dashed #ff8800' }}>
+                            <div style={{ fontWeight: 'bold', fontSize: '1.2em', marginBottom: '10px' }}>
+                                PUENTE DEL BÓSFORO
+                            </div>
+                            <p style={{ fontSize: '0.9em', lineHeight: '1.4' }}>
+                                Conexión terrestre permanente entre Grecia y Turquía.
+                            </p>
+                            <ul style={{ paddingLeft: '20px', fontSize: '0.85em', color: '#ffcc88' }}>
+                                <li>Elimina penalización mar</li>
+                                <li>Conexión directa: GRE/TUR</li>
+                                <li>Efecto Permanente</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Actions */}
+                <div style={{ padding: '20px', backgroundColor: 'rgba(0,0,0,0.3)', display: 'flex', gap: '20px' }}>
+                    <button
+                        onClick={onClose}
+                        style={{
+                            padding: '15px 30px',
+                            backgroundColor: 'transparent',
+                            color: '#ff8800',
+                            border: '1px solid #663300',
+                            cursor: 'pointer',
+                            fontFamily: 'monospace'
+                        }}
+                    >
+                        CANCELAR
+                    </button>
+                    <button
+                        disabled={!canComplete}
+                        onClick={handleComplete}
+                        style={{
+                            flex: 1, padding: '15px',
+                            backgroundColor: !canComplete ? '#221100' : '#ff8800',
+                            color: !canComplete ? '#442200' : '#000',
+                            border: 'none', fontWeight: 'bold', fontSize: '1rem',
+                            cursor: !canComplete ? 'not-allowed' : 'pointer',
+                            boxShadow: !canComplete ? 'none' : '0 0 20px rgba(255, 136, 0, 0.4)'
+                        }}
+                    >
+                        REFUNDAR CIUDAD
+                    </button>
                 </div>
             </div>
-
-            <div style={{ display: 'flex', gap: '20px', marginTop: '20px' }}>
-                <button
-                    onClick={onClose}
-                    style={{
-                        flex: 1, padding: '15px', backgroundColor: 'transparent',
-                        color: '#ccc', border: '1px solid #666', cursor: 'pointer'
-                    }}>
-                    CANCELAR
-                </button>
-                <button
-                    disabled={!canComplete}
-                    onClick={handleComplete}
-                    style={{
-                        flex: 1, padding: '15px',
-                        backgroundColor: !canComplete ? '#221100' : '#ff9100',
-                        color: !canComplete ? '#442200' : '#000',
-                        border: 'none',
-                        fontWeight: 'bold',
-                        fontSize: '1rem',
-                        cursor: !canComplete ? 'not-allowed' : 'pointer',
-                        boxShadow: !canComplete ? 'none' : '0 0 20px rgba(255, 145, 0, 0.4)'
-                    }}
-                >
-                    ESTABLECER CONEXIÓN
-                </button>
-            </div>
-        </MissionModalBase>
+        </div>
     );
 };

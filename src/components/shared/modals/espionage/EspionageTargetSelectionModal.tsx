@@ -5,11 +5,13 @@ import { useGameActions } from '../../../../hooks/useGameActions';
 
 interface EspionageTargetSelectionModalProps {
     show: boolean;
+    cardId: string | null;
     onClose: () => void;
 }
 
 export const EspionageTargetSelectionModal: React.FC<EspionageTargetSelectionModalProps> = ({
     show,
+    cardId,
     onClose
 }) => {
     const { state } = useGameContext();
@@ -20,7 +22,8 @@ export const EspionageTargetSelectionModal: React.FC<EspionageTargetSelectionMod
     const [result, setResult] = useState<EspionageReport | null>(null);
 
     const handleExecute = (targetId: number, type: 'silos' | 'mineral') => {
-        const report = gameActions.executeEspionage(targetId, type);
+        if (!cardId) return;
+        const report = gameActions.executeEspionage(targetId, type, cardId);
         setResult(report);
     };
 

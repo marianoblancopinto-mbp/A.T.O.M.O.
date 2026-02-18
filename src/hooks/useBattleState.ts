@@ -3,6 +3,7 @@ import type { Card, Regiment, Tier } from '../types/gameTypes';
 import type { PlayerData, SpecialCard } from '../types/playerTypes';
 import { REGIONS } from '../data/mapRegions';
 import { MARITIME_ROUTES, REGION_ADJACENCY, isMaritimeConnection } from '../data/mapData';
+import { calculateRegionBonuses } from '../data/biomeData';
 import { useGameContext } from '../context/GameContext';
 import { useGameActions } from './useGameActions';
 // BattleState is now global in types/gameTypes.ts
@@ -29,7 +30,6 @@ export const useBattleState = ({
         targetId: string;
         validSources: string[];
     } | null>(null);
-    const [usedAttackSources, setUsedAttackSources] = useState<Set<string>>(new Set());
 
     const generateDeck = (): Card[] => {
         const deck: Card[] = [];
@@ -97,9 +97,10 @@ export const useBattleState = ({
         if (selectedRegionId === 'chile' && !allNeighbors.includes('australia')) allNeighbors.push('australia');
         if (selectedRegionId === 'australia' && !allNeighbors.includes('chile')) allNeighbors.push('chile');
 
-        // Alejandro Magno Connection: Greece <-> Turkey
-        const hasAlejandro = players[currentPlayerIndex]?.specialCards.some((c: SpecialCard) => c.type === 'ALEJANDRO_MAGNO');
-        if (hasAlejandro) {
+        // Alejandro Magno & Legado Otomano Connections: Greece <-> Turkey
+        const hasAlejandro = currentPlayer?.specialCards.some((c: SpecialCard) => c.type === 'ALEJANDRO_MAGNO');
+        const hasOtomano = currentPlayer?.specialCards.some((c: SpecialCard) => c.type === 'LEGADO_OTOMANO');
+        if (hasAlejandro || hasOtomano) {
             if (selectedRegionId === 'grecia' && !allNeighbors.includes('turquia')) allNeighbors.push('turquia');
             if (selectedRegionId === 'turquia' && !allNeighbors.includes('grecia')) allNeighbors.push('grecia');
         }
@@ -108,7 +109,7 @@ export const useBattleState = ({
         const currentPlayerId = players[currentPlayerIndex]?.id;
         const validSources = allNeighbors.filter(id =>
             owners[id] === currentPlayerId &&
-            !usedAttackSources.has(id)
+            !state.usedAttackSources.includes(id)
         );
 
         if (validSources.length === 0) {
@@ -135,18 +136,54 @@ export const useBattleState = ({
 
         // Alejandro Magno Bonus Check
         const involvedCountries = ['grecia', 'turquia', 'egipto', 'iran'];
-        const isAlejandroBonus = player.alejandroMagnoActive && involvedCountries.includes(sourceId) && involvedCountries.includes(targetId);
+        const isAlejandroBonus = player.specialCards.some(c => c.type === 'ALEJANDRO_MAGNO') &&
+            involvedCountries.includes(sourceId) &&
+            involvedCountries.includes(targetId);
+
+        const involvedOtomano = ['turquia', 'egipto', 'arabia', 'grecia'];
+        const isOtomanoBonus = player.specialCards.some(c => c.type === 'LEGADO_OTOMANO') &&
+            involvedOtomano.includes(sourceId) &&
+            involvedOtomano.includes(targetId);
+
+        const involvedGengis = ['mongolia', 'kazajistan', 'china', 'rusia'];
+        const isGengisBonus = player.specialCards.some(c => c.type === 'GENGIS_KHAN') &&
+            involvedGengis.includes(sourceId) &&
+            involvedGengis.includes(targetId);
+
+        const involvedBolivar = ['venezuela', 'colombia', 'panama', 'peru'];
+        const isBolivarBonus = player.specialCards.some(c => c.type === 'BOLIVAR') &&
+            involvedBolivar.includes(sourceId) &&
+            involvedBolivar.includes(targetId);
+
+        const involvedPacific = ['japon', 'korea', 'kamchakta', 'filipinas'];
+        const isPacificFireBonus = player.specialCards.some(c => c.type === 'PACIFIC_FIRE') &&
+            involvedPacific.includes(sourceId) &&
+            involvedPacific.includes(targetId);
+
+        const involvedGoldenDome = ['nueva_york', 'california', 'texas', 'flordia', 'alaska'];
+        const isGoldenDomeBonus = involvedGoldenDome.includes(targetId) &&
+            players.find(p => p.id === owners[targetId])?.activeSpecialMissions.some(m => m.id === 'golden_dome');
 
 
         const attackerBonuses = {
             art: (isMaritime ? 1 : 0) + (isNormandy ? 1 : 0),
-            inf: (isMaritime ? -1 : 0) + (isAndesCrossing ? 1 : 0) + (isNormandy ? (isMaritime ? 2 : 1) : 0) + (isAlejandroBonus ? 1 : 0),
+            inf: (isMaritime ? -1 : 0) + (isAndesCrossing ? 1 : 0) + (isNormandy ? (isMaritime ? 2 : 1) : 0) + (isAlejandroBonus ? 1 : 0) + (isOtomanoBonus ? 1 : 0) + (isGengisBonus ? 1 : 0) + (isBolivarBonus ? 1 : 0),
             isMaritime,
             isAndesCrossing,
             isNormandy,
-            isAlejandroBonus
+            isAlejandroBonus,
+            isOtomanoBonus,
+            isGengisBonus,
+            isBolivarBonus,
+            isPacificFireBonus
         };
 
+        const regionBonuses = calculateRegionBonuses(targetId);
+        const defenderBonuses = {
+            ...regionBonuses,
+            air: regionBonuses.air + (isGoldenDomeBonus ? 1 : 0),
+            isGoldenDomeBonus
+        };
 
         const defenderId = owners[targetId];
         console.log('[confirmAttackSource] defenderId for', targetId, 'is', defenderId);
@@ -184,6 +221,7 @@ export const useBattleState = ({
                 attackerHand: attHand,
                 defenderHand: defHand,
                 attackerBonuses,
+                defenderBonuses,
                 attackSourceId: sourceId,
                 targetRegionId: targetId,
                 deck, // Store remaining deck,
@@ -218,13 +256,22 @@ export const useBattleState = ({
                     player: players[currentPlayerIndex],
                     regionName: region.title,
                 });
+
+                // Dispatch Global Conquest Toast
+                dispatch({
+                    type: 'SET_NOTIFICATION',
+                    payload: {
+                        type: 'CONQUEST',
+                        title: 'TERRITORIO CONQUISTADO',
+                        message: `El Comandante ${players[currentPlayerIndex].name} ha tomado el control de ${region.title}.`,
+                        color: players[currentPlayerIndex].color,
+                        playerName: players[currentPlayerIndex].name
+                    }
+                });
             }
         }
 
-        // Add source to used sources for this turn
-        if (battleState) {
-            setUsedAttackSources(prev => new Set(prev).add(battleState.attackSourceId));
-        }
+        // No need to update local usedAttackSources here as it's handled in INIT_BATTLE globally
 
         // Close Battle
         // Dispatch END_BATTLE
@@ -235,8 +282,7 @@ export const useBattleState = ({
         battleState,
         attackSourceSelection,
         setAttackSourceSelection,
-        usedAttackSources,
-        setUsedAttackSources,
+        usedAttackSources: state.usedAttackSources,
         handleAttackClick,
         confirmAttackSource,
         handleBattleEnd

@@ -112,79 +112,79 @@ export const NormandyMissionModal: React.FC<NormandyMissionModalProps> = ({
                 <div style={{ padding: '30px', display: 'flex', gap: '30px' }}>
                     {/* Requirements Panel */}
                     <div style={{ flex: 1 }}>
-                        <div style={{ marginBottom: '20px', fontSize: '1.1em', color: '#fff' }}>
+                        <div style={{ marginBottom: '20px', fontSize: '1.2em', fontWeight: 'bold', color: '#00aaff', letterSpacing: '1px' }}>
                             REQUISITOS ESTRATÉGICOS:
                         </div>
 
                         {/* UK Control */}
-                        <div style={{
-                            padding: '10px', marginBottom: '10px',
-                            backgroundColor: hasUK ? '#003300' : '#330000',
-                            border: `1px solid ${hasUK ? '#00ff00' : '#ff0000'}`,
-                            display: 'flex', alignItems: 'center', gap: '10px'
-                        }}>
-                            <span>{hasUK ? '✅' : '❌'}</span>
-                            <span>CONTROL DE REINO UNIDO (BASE)</span>
+                        <div style={{ marginBottom: '25px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '2em', marginBottom: '5px' }}>{hasUK ? '✅' : '❌'}</div>
+                            <div style={{ fontSize: '0.9em', fontWeight: 'bold', letterSpacing: '1px' }}>CONTROL DE REINO UNIDO (BASE)</div>
                         </div>
 
                         {/* Occupation Check */}
                         <div style={{
-                            padding: '10px', marginBottom: '10px',
-                            backgroundColor: sameEnemyOwner ? '#003300' : '#331100',
+                            padding: '10px', marginBottom: '15px',
+                            backgroundColor: sameEnemyOwner ? 'rgba(0, 255, 0, 0.1)' : 'rgba(255, 170, 0, 0.1)',
                             border: `1px solid ${sameEnemyOwner ? '#00ff00' : '#ffaa00'}`,
-                            display: 'flex', alignItems: 'center', gap: '10px'
+                            display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem'
                         }}>
                             <span>{sameEnemyOwner ? '✅' : '⚠️'}</span>
-                            <span style={{ fontSize: '0.85rem' }}>FRANCIA Y ALEMANIA OCUPADAS POR MISMO ENEMIGO</span>
+                            <span>FRANCIA Y ALEMANIA OCUPADAS POR MISMO ENEMIGO</span>
                         </div>
 
                         {/* Tech Selection */}
                         <div style={{ marginBottom: '15px' }}>
-                            <div style={{ color: '#aaa', marginBottom: '5px', fontSize: '0.8rem' }}>TECNOLOGÍA (INDUST. PESADA):</div>
+                            <div style={{ color: '#aaa', marginBottom: '8px', fontSize: '0.85rem', fontWeight: 'bold' }}>TECNOLOGÍA (IND. PESADA):</div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                {heavyTechs.map(c => (
+                                {heavyTechs.length > 0 ? heavyTechs.map(c => (
                                     <div
                                         key={c.id}
                                         onClick={() => setSelectedNormandyTechId(c.id)}
                                         style={{
-                                            padding: '8px',
+                                            padding: '10px',
                                             backgroundColor: selectedNormandyTechId === c.id ? '#00aaff' : '#001122',
                                             color: selectedNormandyTechId === c.id ? '#000' : '#00aaff',
-                                            border: '1px solid #00aaff',
-                                            cursor: 'pointer', fontSize: '0.8rem'
+                                            border: `1px solid #00aaff`,
+                                            cursor: 'pointer', fontSize: '0.85rem',
+                                            textAlign: 'center', transition: 'all 0.2s'
                                         }}
                                     >
-                                        INDUSTRIA PESADA ({c.country})
+                                        INDUSTRIA PESADA ({c.country?.toUpperCase()})
                                     </div>
-                                ))}
-                                {heavyTechs.length === 0 && <div style={{ color: '#ff4444', fontSize: '0.8rem' }}>No disponible.</div>}
+                                )) : (
+                                    <div style={{ color: '#ff4444', fontSize: '0.9rem', textAlign: 'center', padding: '10px', backgroundColor: 'rgba(0,170,255,0.05)', border: '1px dashed #ff4444' }}>
+                                        No disponible.
+                                    </div>
+                                )}
                             </div>
                         </div>
 
                         {/* Iron Selection */}
-                        <div>
-                            <div style={{ color: '#aaa', marginBottom: '5px', fontSize: '0.8rem' }}>MATERIA PRIMA (HIERRO):</div>
-                            <div style={{ maxHeight: '120px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                {ironMaterials.map(c => (
+                        <div style={{ marginBottom: '20px' }}>
+                            <div style={{ color: '#aaa', marginBottom: '8px', fontSize: '0.85rem', fontWeight: 'bold' }}>MATERIA PRIMA (HIERRO):</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                {ironMaterials.length > 0 ? ironMaterials.map(c => (
                                     <div
                                         key={c.id}
                                         onClick={() => setSelectedNormandyIronId(c.id)}
                                         style={{
-                                            padding: '8px',
+                                            padding: '10px',
                                             backgroundColor: selectedNormandyIronId === c.id ? '#00aaff' : '#001122',
                                             color: selectedNormandyIronId === c.id ? '#000' : '#00aaff',
-                                            border: '1px solid #00aaff',
-                                            cursor: 'pointer', fontSize: '0.8rem',
-                                            display: 'flex', justifyContent: 'space-between'
+                                            border: `1px solid #00aaff`,
+                                            cursor: 'pointer', fontSize: '0.85rem',
+                                            textAlign: 'center', transition: 'all 0.2s'
                                         }}
                                     >
-                                        <span>HIERRO ({c.country})</span>
-                                        <span style={{ fontSize: '0.7rem' }}>RUTA OK</span>
+                                        HIERRO ({c.country?.toUpperCase()})
                                     </div>
-                                ))}
-                                {ironMaterials.length === 0 && <div style={{ color: '#ff4444', fontSize: '0.8rem' }}>No hay Hierro con ruta a UK.</div>}
+                                )) : (
+                                    <div style={{ color: '#ff4444', fontSize: '0.9rem', textAlign: 'center', padding: '10px', backgroundColor: 'rgba(0,170,255,0.05)', border: '1px dashed #ff4444' }}>
+                                        No disponible con ruta a UK.
+                                    </div>
+                                )}
                             </div>
-                            {/* Inventory Button - Removed onOpenInventory prop, could link to global inventory modal if available in context or UI */}
                         </div>
                     </div>
 
@@ -212,7 +212,14 @@ export const NormandyMissionModal: React.FC<NormandyMissionModalProps> = ({
                 <div style={{ padding: '20px', backgroundColor: 'rgba(0,0,0,0.3)', display: 'flex', gap: '20px' }}>
                     <button
                         onClick={onClose}
-                        style={{ flex: 1, padding: '15px', backgroundColor: 'transparent', color: '#00aaff', border: '1px solid #336688', cursor: 'pointer' }}
+                        style={{
+                            padding: '15px 30px',
+                            backgroundColor: 'transparent',
+                            color: '#00aaff',
+                            border: '1px solid #336688',
+                            cursor: 'pointer',
+                            fontFamily: 'monospace'
+                        }}
                     >
                         CANCELAR
                     </button>
@@ -224,7 +231,8 @@ export const NormandyMissionModal: React.FC<NormandyMissionModalProps> = ({
                             backgroundColor: !canComplete ? '#002233' : '#00aaff',
                             color: !canComplete ? '#004466' : '#000',
                             border: 'none', fontWeight: 'bold', fontSize: '1rem',
-                            cursor: !canComplete ? 'not-allowed' : 'pointer'
+                            cursor: !canComplete ? 'not-allowed' : 'pointer',
+                            boxShadow: !canComplete ? 'none' : '0 0 20px rgba(0, 170, 255, 0.4)'
                         }}
                     >
                         LANZAR INVASIÓN

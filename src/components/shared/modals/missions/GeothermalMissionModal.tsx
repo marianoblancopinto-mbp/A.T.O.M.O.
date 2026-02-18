@@ -129,119 +129,110 @@ export const GeothermalMissionModal: React.FC<GeothermalMissionModalProps> = ({
                 <div style={{ padding: '30px', display: 'flex', gap: '30px' }}>
                     {/* Requirements Panel */}
                     <div style={{ flex: 1 }}>
-                        <div style={{ marginBottom: '20px', fontSize: '1.1em', color: '#fff' }}>
-                            REQUISITOS DE CONSTRUCCIÓN:
+                        <div style={{ marginBottom: '20px', fontSize: '1.2em', fontWeight: 'bold', color: '#ff4400', letterSpacing: '1px' }}>
+                            REQUISITOS ESTRATÉGICOS:
                         </div>
 
                         {/* Control Check */}
-                        <div style={{
-                            padding: '10px', marginBottom: '10px',
-                            backgroundColor: hasControl ? '#331100' : '#220000',
-                            border: `1px solid ${hasControl ? '#ff4400' : '#ff0000'}`,
-                            display: 'flex', alignItems: 'center', gap: '10px'
-                        }}>
-                            <span>{hasControl ? '✅' : '❌'}</span>
-                            <span>CONTROL DE {countryName.toUpperCase()} (TERRITORIO BASE)</span>
+                        <div style={{ marginBottom: '25px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '2em', marginBottom: '5px' }}>{hasControl ? '✅' : '❌'}</div>
+                            <div style={{ fontSize: '0.9em', fontWeight: 'bold', letterSpacing: '1px' }}>CONTROL DE {countryName.toUpperCase()}</div>
                         </div>
 
                         {/* Tech Selection */}
-                        <div style={{ marginBottom: '15px' }}>
-                            <div style={{ color: '#aaa', marginBottom: '5px', fontSize: '0.8rem' }}>TECNOLOGÍA (INDUST. PESADA):</div>
+                        <div style={{ marginBottom: '20px' }}>
+                            <div style={{ color: '#aaa', marginBottom: '8px', fontSize: '0.85rem', fontWeight: 'bold' }}>TECNOLOGÍA (IND. PESADA):</div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                {heavyTechs.map(card => (
-                                    <div
-                                        key={card.id}
-                                        onClick={() => setSelectedGeothermalTechId(card.id)}
-                                        style={{
-                                            padding: '8px',
-                                            backgroundColor: selectedGeothermalTechId === card.id ? '#ff4400' : '#331100',
-                                            color: selectedGeothermalTechId === card.id ? '#000' : '#ffccaa',
-                                            border: '1px solid #ff4400',
-                                            cursor: 'pointer',
-                                            fontSize: '0.8rem'
-                                        }}
-                                    >
-                                        INDUSTRIA PESADA ({card.country})
-                                    </div>
-                                ))}
-                                {heavyTechs.length === 0 && <div style={{ color: '#ff4444', fontSize: '0.8rem' }}>No disponible.</div>}
-                            </div>
-                        </div>
-
-                        {/* Raw Material Selection */}
-                        <div>
-                            <div style={{ color: '#aaa', marginBottom: '5px', fontSize: '0.8rem' }}>MATERIA PRIMA (HIERRO):</div>
-                            <div style={{ maxHeight: '120px', overflowY: 'auto' }}>
-                                {ironMaterials.length > 0 ? ironMaterials.map(card => (
-                                    <div
-                                        key={card.id}
-                                        onClick={() => setSelectedGeothermalIronId(card.id)}
-                                        style={{
-                                            padding: '10px',
-                                            backgroundColor: selectedGeothermalIronId === card.id ? '#ff4400' : '#331100',
-                                            color: selectedGeothermalIronId === card.id ? '#000' : '#ffccaa',
-                                            border: '1px solid #ff4400',
-                                            cursor: 'pointer',
-                                            display: 'flex', justifyContent: 'space-between',
-                                            marginBottom: '5px'
-                                        }}
-                                    >
-                                        <span>HIERRO ({card.country})</span>
-                                        <span style={{ fontSize: '0.8em' }}>RUTA OK</span>
-                                    </div>
-                                )) : (
-                                    <div style={{ color: '#ff4444', fontStyle: 'italic' }}>
-                                        No hay Hierro disponible con ruta válida a {countryName}.
+                                {heavyTechs.length > 0 ? (
+                                    heavyTechs.map(card => (
+                                        <div
+                                            key={card.id}
+                                            onClick={() => setSelectedGeothermalTechId(card.id)}
+                                            style={{
+                                                padding: '10px',
+                                                backgroundColor: selectedGeothermalTechId === card.id ? '#ff4400' : '#331100',
+                                                color: selectedGeothermalTechId === card.id ? '#000' : '#ff4400',
+                                                border: `1px solid #ff4400`,
+                                                cursor: 'pointer', fontSize: '0.85rem',
+                                                textAlign: 'center', transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            INDUSTRIA PESADA ({card.country.toUpperCase()})
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div style={{ color: '#ff4444', fontSize: '0.9rem', textAlign: 'center', padding: '10px', backgroundColor: 'rgba(255,68,0,0.05)', border: '1px dashed #ff4444' }}>
+                                        No disponible.
                                     </div>
                                 )}
                             </div>
-                            <div style={{ marginTop: '10px' }}>
-                                <button
-                                    onClick={onOpenInventory}
-                                    style={{
-                                        padding: '5px 10px',
-                                        backgroundColor: '#331100',
-                                        color: '#ff4400',
-                                        border: '1px solid #ff4400',
-                                        cursor: 'pointer',
-                                        fontSize: '0.8rem',
-                                        width: '100%'
-                                    }}
-                                >
-                                    ABRIR INVENTARIO GLOBAL
-                                </button>
+                        </div>
+
+                        {/* Iron Selection */}
+                        <div style={{ marginBottom: '25px' }}>
+                            <div style={{ color: '#aaa', marginBottom: '8px', fontSize: '0.85rem', fontWeight: 'bold' }}>MATERIA PRIMA (HIERRO):</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                {ironMaterials.length > 0 ? (
+                                    ironMaterials.map(card => (
+                                        <div
+                                            key={card.id}
+                                            onClick={() => setSelectedGeothermalIronId(card.id)}
+                                            style={{
+                                                padding: '10px',
+                                                backgroundColor: selectedGeothermalIronId === card.id ? '#ff4400' : '#331100',
+                                                color: selectedGeothermalIronId === card.id ? '#000' : '#ff4400',
+                                                border: `1px solid #ff4400`,
+                                                cursor: 'pointer', fontSize: '0.85rem',
+                                                textAlign: 'center', transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            HIERRO ({card.country.toUpperCase()})
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div style={{ color: '#ff4444', fontSize: '0.9rem', textAlign: 'center', padding: '10px', backgroundColor: 'rgba(255,68,0,0.05)', border: '1px dashed #ff4444' }}>
+                                        No disponible con ruta válida.
+                                    </div>
+                                )}
                             </div>
                         </div>
+
+                        <button
+                            onClick={onOpenInventory}
+                            style={{
+                                width: '100%', padding: '12px',
+                                backgroundColor: 'transparent', color: '#ff4400', border: '1px solid #ff4400',
+                                cursor: 'pointer', fontSize: '0.9rem', fontWeight: 'bold',
+                                textTransform: 'uppercase', transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 68, 0, 0.1)'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                            Fabricar Suministros
+                        </button>
                     </div>
 
                     {/* Info Panel */}
                     <div style={{ width: '300px', borderLeft: '1px solid #ff4400', paddingLeft: '30px' }}>
-                        <h3 style={{ marginTop: 0, color: '#ff8844' }}>RESULTADO</h3>
+                        <h3 style={{ marginTop: 0, color: '#ff4400' }}>ENERGÍA GEOTÉRMICA</h3>
                         <div style={{ backgroundColor: 'rgba(255, 68, 0, 0.1)', padding: '15px', border: '1px dashed #ff4400' }}>
                             <div style={{ fontWeight: 'bold', fontSize: '1.2em', marginBottom: '10px' }}>
-                                SUMINISTRO ENERGÉTICO
+                                EXTRACCIÓN DE CALOR
                             </div>
                             <p style={{ fontSize: '0.9em', lineHeight: '1.4' }}>
-                                Se generará una unidad de energía aprovechando el calor volcánico de {countryName}.
+                                Aprovecha el calor volcánico para generar energía infinita.
                             </p>
-
-                            <div style={{ marginTop: '20px', fontSize: '0.8em', color: '#aa5500' }}>
-                                COSTO DE OPERACIÓN:
-                                <ul style={{ paddingLeft: '20px' }}>
-                                    <li>1x Industria Pesada (Consumible)</li>
-                                    <li>1x Hierro (Consumible)</li>
-                                </ul>
-                            </div>
+                            <ul style={{ paddingLeft: '20px', fontSize: '0.85em', color: '#ffccaa' }}>
+                                <li>Genera 1 Energía por turno</li>
+                                <li>Ubicación: {countryName}</li>
+                                <li>Requiere: Indust. Pesada + Hierro</li>
+                            </ul>
                         </div>
                     </div>
                 </div>
 
                 {/* Actions */}
-                <div style={{
-                    padding: '20px',
-                    backgroundColor: 'rgba(0,0,0,0.3)',
-                    display: 'flex', gap: '20px'
-                }}>
+                <div style={{ padding: '20px', backgroundColor: 'rgba(0,0,0,0.3)', display: 'flex', gap: '20px' }}>
                     <button
                         onClick={onClose}
                         style={{

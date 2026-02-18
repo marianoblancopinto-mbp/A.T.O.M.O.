@@ -31,10 +31,10 @@ export const PROVIDER_COUNTRIES: ExtendedProviderLists = {
 
     technologies: {
         GANADERIA_INTENSIVA: ['brasil', 'argentina', 'california', 'polonia', 'china', 'india', 'alemania'],
-        AGROINDUSTRIA_MASIVA: ['china', 'india', 'california', 'rusia', 'brasil', 'argentina', 'rumania', 'grecia', 'vietnam', 'tailandia', 'francia', 'canada', 'yugoslavia', 'mexico'],
+        AGROINDUSTRIA_MASIVA: ['china', 'india', 'california', 'rusia', 'brasil', 'argentina', 'rumania', 'grecia', 'vietnam', 'tailandia', 'francia', 'canada', 'yugoslavia', 'mexico', 'italia'],
         DISTRIBUCION_AGUA: ['francia', 'california', 'alemania', 'rusia', 'japon', 'china', 'tailandia', 'argentina', 'espana', 'reino_unido'],
-        INDUSTRIA_LIGERA: ['alemania', 'japon', 'polonia', 'nueva_york', 'turquia', 'argentina', 'brasil', 'china', 'korea', 'texas', 'canada', 'mejico', 'noruega', 'yugoslavia', 'filipinas'],
-        INDUSTRIA_PESADA: ['california', 'china', 'japon', 'india', 'turquia', 'alemania', 'iran', 'rusia', 'yugoslavia', 'texas'],
+        INDUSTRIA_LIGERA: ['alemania', 'japon', 'polonia', 'nueva_york', 'turquia', 'argentina', 'brasil', 'china', 'korea', 'texas', 'canada', 'mejico', 'noruega', 'yugoslavia', 'filipinas', 'italia'],
+        INDUSTRIA_PESADA: ['california', 'china', 'japon', 'india', 'turquia', 'alemania', 'iran', 'rusia', 'yugoslavia', 'texas', 'italia'],
         INDUSTRIA_ELECTRONICA: ['china', 'korea', 'japon', 'california', 'texas', 'alemania', 'vietnam', 'filipinas'],
         CENTRALES_TERMICAS: ['alemania', 'california', 'texas', 'rusia', 'argentina', 'noruega', 'francia', 'egipto', 'algeria'],
         ENERGIAS_RENOVABLES: ['china', 'california', 'texas', 'alemania', 'japon', 'suecia', 'polonia', 'korea', 'espana', 'australia'],
@@ -126,7 +126,7 @@ export const RAW_MATERIAL_DATA: Record<RawMaterialType, { name: string; category
     AGUA_DULCE: { name: 'Agua Dulce', category: 'food', description: 'Recurso vital para agricultura y población.' },
     HIERRO: { name: 'Hierro', category: 'manufacture', description: 'Fundamental para la construcción y maquinaria.' },
     ALUMINIO: { name: 'Aluminio', category: 'manufacture', description: 'Ligero y resistente, clave para la industria.' },
-    CONDUCTORES_SEMICONDUCTORES: { name: 'Semiconductores', category: 'manufacture', description: 'Cerebros de la tecnología moderna.' },
+    CONDUCTORES_SEMICONDUCTORES: { name: 'Conductores y Semiconductores', category: 'manufacture', description: 'Cerebros de la tecnología moderna.' },
     HIDROCARBUROS: { name: 'Hidrocarburos', category: 'energy', description: 'Fuente de energía fósil y plásticos.' },
     COMBUSTIBLE_NUCLEAR: { name: 'Combustible Nuclear', category: 'energy', description: 'Energía de alta densidad y riesgo.' },
     MINERALES_BATERIAS: { name: 'Litio y Tierras Raras', category: 'energy', description: 'Almacenamiento de energía.' },

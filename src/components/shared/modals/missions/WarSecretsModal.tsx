@@ -132,131 +132,174 @@ export const WarSecretsModal: React.FC<WarSecretsModalProps> = ({
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
             backgroundColor: 'rgba(0,0,0,0.95)',
             display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 8500,
-            fontFamily: 'monospace'
+            backdropFilter: 'blur(5px)'
         }}>
             <div style={{
+                width: '850px',
                 backgroundColor: '#001a1a',
                 border: '3px solid #00ffff',
-                padding: '40px',
-                width: '800px',
-                maxHeight: '90vh',
-                overflowY: 'auto',
                 boxShadow: '0 0 50px rgba(0, 255, 255, 0.3)',
-                borderRadius: '8px'
+                color: '#ccffff',
+                fontFamily: 'monospace',
+                display: 'flex', flexDirection: 'column'
             }}>
-                <h2 style={{ color: '#00ffff', textAlign: 'center', marginBottom: '20px', letterSpacing: '2px' }}>
-                    {mission?.title || 'SECRETOS DE GUERRA'}
-                </h2>
-                <p style={{ color: '#ccc', textAlign: 'center', marginBottom: '30px', fontStyle: 'italic' }}>
-                    "{mission?.lore}"
-                </p>
-
-                <div style={{ marginBottom: '30px', padding: '15px', border: '1px solid #004444', backgroundColor: '#000' }}>
-                    <div style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '10px' }}>AGENCIA DE INTELIGENCIA ACTIVA:</div>
-
-                    {(() => {
-                        if (hasCIACard && hasMSSCard) {
-                            return (
-                                <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-                                    <button
-                                        onClick={() => setSelectedAgency('CIA')}
-                                        style={{
-                                            flex: 1, padding: '10px',
-                                            backgroundColor: selectedAgency === 'CIA' ? '#00ffff' : '#003333',
-                                            color: selectedAgency === 'CIA' ? '#000' : '#00ffff',
-                                            border: '1px solid #00ffff', fontWeight: 'bold', cursor: 'pointer'
-                                        }}
-                                    >
-                                        USAR CIA (NUEVA YORK)
-                                    </button>
-                                    <button
-                                        onClick={() => setSelectedAgency('MSS')}
-                                        style={{
-                                            flex: 1, padding: '10px',
-                                            backgroundColor: selectedAgency === 'MSS' ? '#00ffff' : '#003333',
-                                            color: selectedAgency === 'MSS' ? '#000' : '#00ffff',
-                                            border: '1px solid #00ffff', fontWeight: 'bold', cursor: 'pointer'
-                                        }}
-                                    >
-                                        USAR MSS (CHINA)
-                                    </button>
-                                </div>
-                            );
-                        }
-
-                        if (hasCIACard) {
-                            if (selectedAgency !== 'CIA') setSelectedAgency('CIA');
-                            return <div style={{ color: '#00ffff', fontWeight: 'bold' }}>CIA (CENTRAL INTELLIGENCE AGENCY)</div>;
-                        }
-                        if (hasMSSCard) {
-                            if (selectedAgency !== 'MSS') setSelectedAgency('MSS');
-                            return <div style={{ color: '#00ffff', fontWeight: 'bold' }}>MSS (MINISTRY OF STATE SECURITY)</div>;
-                        }
-
-                        return (
-                            <div style={{ color: '#ff4444', fontSize: '1.2rem', fontWeight: 'bold' }}>
-                                NINGUNA AGENCIA DISPONIBLE (REQUIERE CARTA DE ESPIONAJE)
-                            </div>
-                        );
-                    })()}
-
-                    <div style={{ color: '#ff4444', fontSize: '0.8rem', marginTop: '5px' }}>
-                        ⚠ ADVERTENCIA: Esta red de espionaje será desmantelada (cartas consumidas) tras esta operación.
+                {/* Header */}
+                <div style={{
+                    padding: '20px',
+                    borderBottom: '1px solid #00ffff',
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    backgroundColor: 'rgba(0, 255, 255, 0.1)'
+                }}>
+                    <h2 style={{ margin: 0, fontSize: '1.8em', textTransform: 'uppercase', letterSpacing: '2px', color: '#00ffff' }}>
+                        {mission?.title || 'SECRETOS DE GUERRA'}
+                    </h2>
+                    <div style={{ fontSize: '0.9em', color: '#00ffff' }}>
+                        INTELIGENCIA ESTRATÉGICA
                     </div>
                 </div>
 
-                <h3 style={{ color: '#fff', borderBottom: '1px solid #333', paddingBottom: '10px' }}>IDENTIFICAR RECURSO ESTRATÉGICO</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px', marginTop: '20px' }}>
-                    {WAR_SECRETS_RESOURCES.map(res => (
-                        <button
-                            key={res.type}
-                            disabled={!selectedAgency}
-                            onClick={() => {
-                                handleConfirm(res.type);
-                                // We can trigger callback here if we add onSuccess prop
-                            }}
-                            style={{
-                                padding: '15px',
-                                backgroundColor: !selectedAgency ? '#111' : '#003333',
-                                color: !selectedAgency ? '#444' : '#00ffff',
-                                border: `1px solid ${!selectedAgency ? '#333' : '#00ffff'}`,
-                                cursor: !selectedAgency ? 'not-allowed' : 'pointer',
-                                fontWeight: 'bold',
-                                transition: 'all 0.2s',
-                                fontSize: '0.9rem'
-                            }}
-                            onMouseEnter={(e) => {
-                                if (selectedAgency) {
-                                    e.currentTarget.style.backgroundColor = '#00ffff';
-                                    e.currentTarget.style.color = '#000';
-                                }
-                            }}
-                            onMouseLeave={(e) => {
-                                if (selectedAgency) {
-                                    e.currentTarget.style.backgroundColor = '#003333';
-                                    e.currentTarget.style.color = '#00ffff';
-                                }
-                            }}
-                        >
-                            {res.label}
-                        </button>
-                    ))}
+                <div style={{ padding: '30px', display: 'flex', gap: '30px' }}>
+                    {/* Requirements Panel */}
+                    <div style={{ flex: 1 }}>
+                        <div style={{ marginBottom: '20px', fontSize: '1.2em', fontWeight: 'bold', color: '#00ffff', letterSpacing: '1px' }}>
+                            REQUISITOS DE OPERACIÓN:
+                        </div>
+
+                        {/* Agency Selection */}
+                        <div style={{ marginBottom: '25px' }}>
+                            <div style={{ color: '#aaa', marginBottom: '8px', fontSize: '0.85rem', fontWeight: 'bold' }}>AGENCIA ACTIVA:</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {(() => {
+                                    if (hasCIACard && hasMSSCard) {
+                                        return (
+                                            <div style={{ display: 'flex', gap: '10px' }}>
+                                                <button
+                                                    onClick={() => setSelectedAgency('CIA')}
+                                                    style={{
+                                                        flex: 1, padding: '12px',
+                                                        backgroundColor: selectedAgency === 'CIA' ? '#00ffff' : '#001a1a',
+                                                        color: selectedAgency === 'CIA' ? '#000' : '#00ffff',
+                                                        border: '1px solid #00ffff', fontWeight: 'bold', cursor: 'pointer',
+                                                        transition: 'all 0.2s', fontSize: '0.85rem'
+                                                    }}
+                                                >
+                                                    CIA (NYC)
+                                                </button>
+                                                <button
+                                                    onClick={() => setSelectedAgency('MSS')}
+                                                    style={{
+                                                        flex: 1, padding: '12px',
+                                                        backgroundColor: selectedAgency === 'MSS' ? '#00ffff' : '#001a1a',
+                                                        color: selectedAgency === 'MSS' ? '#000' : '#00ffff',
+                                                        border: '1px solid #00ffff', fontWeight: 'bold', cursor: 'pointer',
+                                                        transition: 'all 0.2s', fontSize: '0.85rem'
+                                                    }}
+                                                >
+                                                    MSS (CN)
+                                                </button>
+                                            </div>
+                                        );
+                                    }
+
+                                    if (hasCIACard) {
+                                        if (selectedAgency !== 'CIA') setSelectedAgency('CIA');
+                                        return (
+                                            <div style={{ padding: '15px', backgroundColor: 'rgba(0, 255, 255, 0.1)', border: '1px solid #00ffff', color: '#00ffff', textAlign: 'center', fontWeight: 'bold' }}>
+                                                CIA ACTIVADA (NUEVA YORK)
+                                            </div>
+                                        );
+                                    }
+                                    if (hasMSSCard) {
+                                        if (selectedAgency !== 'MSS') setSelectedAgency('MSS');
+                                        return (
+                                            <div style={{ padding: '15px', backgroundColor: 'rgba(0, 255, 255, 0.1)', border: '1px solid #00ffff', color: '#00ffff', textAlign: 'center', fontWeight: 'bold' }}>
+                                                MSS ACTIVADA (CHINA)
+                                            </div>
+                                        );
+                                    }
+
+                                    return (
+                                        <div style={{ color: '#ff4444', fontSize: '0.9rem', textAlign: 'center', padding: '15px', backgroundColor: 'rgba(255,0,0,0.05)', border: '1px dashed #ff4444' }}>
+                                            Requiere carta de espionaje del eje.
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+                        </div>
+
+                        {selectedAgency && (
+                            <div>
+                                <div style={{ color: '#aaa', marginBottom: '12px', fontSize: '0.85rem', fontWeight: 'bold' }}>OBJETIVO DE RECURSO:</div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '8px' }}>
+                                    {WAR_SECRETS_RESOURCES.map(res => (
+                                        <button
+                                            key={res.type}
+                                            onClick={() => handleConfirm(res.type)}
+                                            style={{
+                                                padding: '12px',
+                                                backgroundColor: '#001a1a',
+                                                color: '#00ffff',
+                                                border: '1px solid #00ffff',
+                                                cursor: 'pointer',
+                                                fontWeight: 'bold',
+                                                fontSize: '0.9rem',
+                                                transition: 'all 0.2s',
+                                                textAlign: 'center'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.currentTarget.style.backgroundColor = '#00ffff';
+                                                e.currentTarget.style.color = '#000';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.backgroundColor = '#001a1a';
+                                                e.currentTarget.style.color = '#00ffff';
+                                            }}
+                                        >
+                                            EXTRAER {res.label.toUpperCase()}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Info Panel */}
+                    <div style={{ width: '320px', borderLeft: '1px solid #00ffff', paddingLeft: '30px' }}>
+                        <h3 style={{ marginTop: 0, color: '#00ffff' }}>ARCHIVO CLASIFICADO</h3>
+                        <div style={{ backgroundColor: 'rgba(0, 255, 255, 0.05)', padding: '20px', border: '1px dashed #00ffff' }}>
+                            <div style={{ fontWeight: 'bold', fontSize: '1.2em', marginBottom: '12px', color: '#00ffff' }}>
+                                PROTOCOLO "PHANTOM"
+                            </div>
+                            <p style={{ fontSize: '0.9em', lineHeight: '1.5', color: '#88ffff', fontStyle: 'italic', margin: 0 }}>
+                                "{mission?.lore || 'Infiltración profunda para asegurar recursos en territorios en disputa.'}"
+                            </p>
+                            <div style={{ marginTop: '20px', borderTop: '1px solid rgba(0,255,255,0.2)', paddingTop: '15px' }}>
+                                <div style={{ fontWeight: 'bold', color: '#00ffff', fontSize: '0.8rem', marginBottom: '5px' }}>ADVERTENCIA GEOFULMINANTE:</div>
+                                <p style={{ fontSize: '0.8rem', color: '#ff4444', margin: 0 }}>
+                                    La agencia será desmantelada tras el éxito. Los recursos se enviarán al inventario global de inmediato.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <button
-                    onClick={onClose}
-                    style={{
-                        marginTop: '40px',
-                        width: '100%',
-                        padding: '12px',
-                        background: 'none',
-                        border: '1px solid #666',
-                        color: '#666',
-                        cursor: 'pointer'
-                    }}
-                >
-                    CANCELAR OPERACIÓN
-                </button>
+                {/* Actions */}
+                <div style={{ padding: '20px', backgroundColor: 'rgba(0,0,0,0.3)', display: 'flex', gap: '20px' }}>
+                    <button
+                        onClick={onClose}
+                        style={{
+                            flex: 1, padding: '15px',
+                            backgroundColor: 'transparent',
+                            color: '#00ffff',
+                            border: '1px solid #004444',
+                            cursor: 'pointer',
+                            fontFamily: 'monospace',
+                            textTransform: 'uppercase'
+                        }}
+                    >
+                        ABORTAR OPERACIÓN
+                    </button>
+                </div>
             </div>
         </div>
     );

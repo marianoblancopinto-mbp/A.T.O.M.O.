@@ -9,18 +9,21 @@ import { REGIONS } from '../../../../data/mapRegions';
 interface MineralExtractionModalProps {
     show: string | null; // regionId or 'SELECTION_NEEDED' or null
     onClose: () => void;
+    playerIndex?: number;
 }
 
 
 export const MineralExtractionModal: React.FC<MineralExtractionModalProps> = ({
     show,
-    onClose
+    onClose,
+    playerIndex
 }) => {
 
     const { state } = useGameContext();
-    const { players, currentPlayerIndex, owners } = state;
+    const { players, currentPlayerIndex: stateCurrentPlayerIndex, owners } = state;
+    const effectivePlayerIndex = playerIndex ?? stateCurrentPlayerIndex;
     const { checkRoute } = useSupplyRoute();
-    const { technologies, rawMaterials } = usePlayerResources(currentPlayerIndex);
+    const { technologies, rawMaterials } = usePlayerResources(effectivePlayerIndex);
     const gameActions = useGameActions();
 
     const [selectedFallback, setSelectedFallback] = useState<string | null>(null);
@@ -44,19 +47,20 @@ export const MineralExtractionModal: React.FC<MineralExtractionModalProps> = ({
 
     if (!show) return null;
 
-    const player = players[currentPlayerIndex];
+    const player = players[effectivePlayerIndex];
     if (!player) return null;
 
     // Region Selection Logic
     const playerOwnedRegions = Object.entries(owners)
-        .filter(([_, oid]) => oid === currentPlayerIndex)
+        .filter(([_, oid]) => oid === player.id)
         .map(([rid]) => rid);
 
 
     // Valid components (only computed if effectiveRegionId is set)
     const techCards = technologies.filter(t => t.type === 'INDUSTRIA_PESADA' && !t.usedThisTurn);
-    const ironCards = effectiveRegionId ? rawMaterials.filter(r => r.type === 'HIERRO' && !r.usedThisTurn && checkRoute(r.country, effectiveRegionId, currentPlayerIndex)) : [];
-    const waterCards = effectiveRegionId ? rawMaterials.filter(r => r.type === 'AGUA_DULCE' && !r.usedThisTurn && checkRoute(r.country, effectiveRegionId, currentPlayerIndex)) : [];
+    const ironCards = effectiveRegionId ? rawMaterials.filter(r => r.type === 'HIERRO' && !r.usedThisTurn && checkRoute(r.country, effectiveRegionId, effectivePlayerIndex)) : [];
+    const waterCards = effectiveRegionId ? rawMaterials.filter(r => r.type === 'AGUA_DULCE' && !r.usedThisTurn && checkRoute(r.country, effectiveRegionId, effectivePlayerIndex)) : [];
+
 
 
     const canExtract = selectedMineralCards.techId && selectedMineralCards.ironId && selectedMineralCards.waterId;

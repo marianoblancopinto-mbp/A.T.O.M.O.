@@ -2,8 +2,9 @@ import React, { useEffect } from 'react';
 import { useGameContext } from '../../../context/GameContext';
 
 export const MissionNotificationOverlay: React.FC = () => {
-    const { state, dispatch } = useGameContext();
+    const { state, dispatch, multiplayer } = useGameContext();
     const notification = state.notification;
+    const { players, currentPlayerIndex } = state;
 
     const onClose = () => {
         dispatch({ type: 'SET_NOTIFICATION', payload: null });
@@ -11,15 +12,40 @@ export const MissionNotificationOverlay: React.FC = () => {
 
     useEffect(() => {
         if (notification) {
+            const displayTime = notification.type === 'NEUTRALIZED' ? 10000 : 5000;
             const timer = setTimeout(() => {
                 onClose();
-            }, 5000); // 5 seconds display
+            }, displayTime);
             return () => clearTimeout(timer);
         }
     }, [notification]);
 
     if (!notification) return null;
 
+    // Visibility Logic: 
+    // 1. If targetPlayerId is set, only that specific player sees it.
+    // 2. Otherwise:
+    //    a. CONQUEST notifications are global.
+    //    b. Others are only for the player whose turn it is.
+    const localPlayerId = multiplayer.playerId;
+
+    if (notification.targetPlayerId !== undefined) {
+        // Multi-player: must match my ID
+        if (localPlayerId !== undefined && notification.targetPlayerId !== localPlayerId) return null;
+        // Hot-seat/Solo: only show if it matches the current player's ID (or just show it anyway?)
+        // Usually, in hot-seat, the 'victim' isn't at the screen, so showing it during the attacker's turn 
+        // is okay but not 'private'. However, the attacker should know they destroyed something.
+        // But the user specifically asked for 'private overlays'.
+        // So for the attacker to NOT see it, we check if target !== current player.
+        if (multiplayer.connectionStatus !== 'PLAYING' && players[currentPlayerIndex]?.id !== notification.targetPlayerId) return null;
+    } else {
+        const isGlobal = notification.type === 'CONQUEST';
+        const isMyTurn = (multiplayer.connectionStatus === 'PLAYING' && localPlayerId)
+            ? players[currentPlayerIndex]?.id === localPlayerId
+            : true;
+
+        if (!isGlobal && !isMyTurn) return null;
+    }
     // Use current notification properties
     return (
         <div
@@ -55,6 +81,35 @@ export const MissionNotificationOverlay: React.FC = () => {
                 <p style={{ color: '#ccc', margin: 0, fontSize: '1.1rem' }}>
                     {notification.message}
                 </p>
+
+                <button
+                    onClick={onClose}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = notification.color;
+                        e.currentTarget.style.color = '#000';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.color = notification.color;
+                    }}
+                    style={{
+                        marginTop: '20px',
+                        padding: '8px 25px',
+                        backgroundColor: 'transparent',
+                        color: notification.color,
+                        border: `1px solid ${notification.color}`,
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                        fontSize: '0.9rem',
+                        textTransform: 'uppercase',
+                        letterSpacing: '2px',
+                        transition: 'all 0.2s ease',
+                        fontFamily: 'monospace'
+                    }}
+                >
+                    ENTENDIDO
+                </button>
             </div>
         </div>
     );

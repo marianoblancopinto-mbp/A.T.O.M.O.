@@ -10,15 +10,19 @@ import type { TechnologyType } from '../../../../types/productionTypes';
 interface NuclearDesignGenerationModalProps {
     onClose: () => void;
     locationId: string | null;
+    playerIndex?: number;
 }
 
 export const NuclearDesignGenerationModal: React.FC<NuclearDesignGenerationModalProps> = ({
     onClose,
-    locationId
+    locationId,
+    playerIndex
 }) => {
     const { state } = useGameContext();
-    const { currentPlayerIndex, owners } = state;
-    const { technologies, rawMaterials } = usePlayerResources(currentPlayerIndex);
+    const { currentPlayerIndex: stateCurrentPlayerIndex, owners } = state;
+    const effectivePlayerIndex = playerIndex ?? stateCurrentPlayerIndex;
+
+    const { technologies, rawMaterials } = usePlayerResources(effectivePlayerIndex);
     const { checkRoute } = useSupplyRoute();
     const gameActions = useGameActions();
 
@@ -59,15 +63,14 @@ export const NuclearDesignGenerationModal: React.FC<NuclearDesignGenerationModal
 
     // Region Selection Logic
     // Only countries capable of Nuclear War tech are valid sites for design
-    // Use dynamic list from game state (not static provider list)
     const nuclearCapableCountries = state.regionResources?.nuclearWarCapable || [];
 
-    // Get current player ID for strict ownership check
-    const currentPlayer = state.players[currentPlayerIndex];
-    if (!currentPlayer) return null; // Should not happen
+    // Get target player ID for strict ownership check
+    const targetPlayer = state.players[effectivePlayerIndex];
+    if (!targetPlayer) return null;
 
     const playerOwnedRegions = Object.entries(owners)
-        .filter(([_, ownerId]) => ownerId === currentPlayer.id)
+        .filter(([_, ownerId]) => ownerId === targetPlayer.id)
         .map(([rid]) => rid)
         .filter(rid => nuclearCapableCountries.includes(rid));
 
@@ -198,7 +201,7 @@ export const NuclearDesignGenerationModal: React.FC<NuclearDesignGenerationModal
                                         </div>
                                     ) : availableRaw.map(card => {
                                         const isSelected = selectedRawId === card.id;
-                                        const hasRoute = checkRoute(card.country!, effectiveLocationId, currentPlayerIndex);
+                                        const hasRoute = checkRoute(card.country!, effectiveLocationId, effectivePlayerIndex);
                                         const isSelectable = hasRoute;
 
                                         return (

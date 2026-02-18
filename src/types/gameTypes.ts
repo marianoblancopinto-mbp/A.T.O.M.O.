@@ -42,6 +42,17 @@ export interface BattleState {
         isAndesCrossing?: boolean;
         isNormandy?: boolean;
         isAlejandroBonus?: boolean;
+        isOtomanoBonus?: boolean;
+        isGengisBonus?: boolean;
+        isBolivarBonus?: boolean;
+        isPacificFireBonus?: boolean;
+    };
+
+    defenderBonuses: {
+        art: number;
+        air: number;
+        inf: number;
+        isGoldenDomeBonus?: boolean;
     };
 
     attackSourceId: string;

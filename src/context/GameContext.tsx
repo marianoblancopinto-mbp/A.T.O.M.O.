@@ -23,11 +23,12 @@ import type { ActiveProviders } from '../data/productionData';
 export type GamePhase = 'splash' | 'menu' | 'history' | 'mission' | 'setup' | 'playing';
 
 export interface MissionNotification {
-    type: 'ESPIONAJE' | 'NUCLEAR_DESIGN' | 'NUCLEAR_ALERT' | 'GAME_OVER' | 'NEUTRALIZED' | 'ROUTE_BROKEN' | 'ROUTE_RESTORED' | 'SECONDARY_MISSION';
+    type: 'ESPIONAJE' | 'NUCLEAR_DESIGN' | 'NUCLEAR_ALERT' | 'GAME_OVER' | 'NEUTRALIZED' | 'ROUTE_BROKEN' | 'ROUTE_RESTORED' | 'SECONDARY_MISSION' | 'CONQUEST';
     title: string;
     message: string;
     color: string;
     playerName?: string;
+    targetPlayerId?: string | number;
     missionId?: string;
 }
 
@@ -61,6 +62,13 @@ export interface GameState {
 
     // Lore / Narrative
     proxyWarCountry: string;
+
+    // Victory State (Global Sync)
+    winner: PlayerData | null;
+    endgameChoice: 'victory' | 'destruction' | null;
+
+    // Turn tracking
+    usedAttackSources: string[];
 }
 
 // ============================================================================
@@ -91,7 +99,7 @@ export type GameAction =
         }
     }
     | { type: 'RESET_GAME' }
-    | { type: 'MARK_CARD_AS_USED'; payload: { cardId: string; category: 'technology' | 'rawMaterial' } }
+    | { type: 'MARK_CARD_AS_USED'; payload: { cardId: string; category: 'technology' | 'rawMaterial'; playerIndex?: number } }
     | { type: 'ADD_SPECIAL_CARD'; payload: { playerIndex: number; card: SpecialCard } }
     | { type: 'ADD_SUPPLY'; payload: { playerIndex: number; supply: SupplyItem } }
     | { type: 'UPDATE_PLAYERS_FN'; payload: (players: PlayerData[]) => PlayerData[] }
@@ -108,6 +116,7 @@ export type GameAction =
     | { type: 'BATTLE_NEXT_ROUND' }
     // Sync Action
     | { type: 'SYNC_STATE'; payload: Partial<GameState> }
+    | { type: 'SET_ENDGAME_CHOICE'; payload: 'victory' | 'destruction' | null }
     | {
         type: 'PROCESS_TURN_CHANGE';
         payload: {
@@ -119,6 +128,8 @@ export type GameAction =
             owners?: Record<string, string | number | null>;
             notification?: MissionNotification | null;
             winner?: PlayerData | null;
+            endgameChoice?: 'victory' | 'destruction' | null;
+            usedAttackSources?: string[];
         }
     };
 
@@ -143,7 +154,10 @@ const initialState: GameState = {
     turnOrderIndex: 0,
     notification: null,
     battleState: null,
-    proxyWarCountry: 'País Desconocido'
+    proxyWarCountry: 'País Desconocido',
+    winner: null,
+    endgameChoice: null,
+    usedAttackSources: []
 };
 
 // ============================================================================
@@ -230,6 +244,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
                 ...state,
                 turnOrderIndex: nextIndex,
                 currentPlayerIndex: nextPlayerIndex,
+                usedAttackSources: []
             };
         }
 
@@ -247,21 +262,41 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             return { ...initialState };
 
         case 'MARK_CARD_AS_USED': {
-            if (!state.productionDeck) return state;
-            const category = action.payload.category;
-            const cardId = action.payload.cardId;
-            let newDeck = { ...state.productionDeck };
+            const { cardId, category, playerIndex } = action.payload;
+            let newState = { ...state };
 
-            if (category === 'technology') {
-                newDeck.technologies = newDeck.technologies.map(card =>
-                    card.id === cardId ? { ...card, usedThisTurn: true } : card
-                );
-            } else {
-                newDeck.rawMaterials = newDeck.rawMaterials.map(card =>
-                    card.id === cardId ? { ...card, usedThisTurn: true } : card
-                );
+            // 1. Update Production Deck (Legacy/Fallback)
+            if (state.productionDeck) {
+                const newDeck = { ...state.productionDeck };
+                const markUsed = (cards: any[]) => cards.map(c => c.id === cardId ? { ...c, usedThisTurn: true } : c);
+
+                if (category === 'technology') {
+                    newDeck.technologies = markUsed(newDeck.technologies);
+                } else {
+                    newDeck.rawMaterials = markUsed(newDeck.rawMaterials);
+                }
+                newState.productionDeck = newDeck;
             }
-            return { ...state, productionDeck: newDeck };
+
+            // 2. Update Player Inventory (Targeted)
+            if (playerIndex !== undefined) {
+                const newPlayers = [...state.players];
+                const p = newPlayers[playerIndex];
+                if (p) {
+                    const markUsed = (cards: any[]) => (cards || []).map(c => c.id === cardId ? { ...c, usedThisTurn: true } : c);
+                    newPlayers[playerIndex] = {
+                        ...p,
+                        inventory: {
+                            ...p.inventory,
+                            technologies: category === 'technology' ? markUsed(p.inventory.technologies) : p.inventory.technologies,
+                            rawMaterials: category === 'rawMaterial' ? markUsed(p.inventory.rawMaterials) : p.inventory.rawMaterials
+                        }
+                    };
+                    newState.players = newPlayers;
+                }
+            }
+
+            return newState;
         }
 
         case 'ADD_SPECIAL_CARD': {
@@ -296,7 +331,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             return { ...state, notification: action.payload };
 
         case 'INIT_BATTLE':
-            return { ...state, battleState: action.payload };
+            return {
+                ...state,
+                battleState: action.payload,
+                usedAttackSources: [...state.usedAttackSources, action.payload.attackSourceId]
+            };
 
         case 'UPDATE_BATTLE':
             return {
@@ -327,38 +366,44 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             const card = state.battleState.defenderHand.find(c => c.id === cardId);
             if (!card) return state;
 
-            // RESOLVE CLASH LOGIC
-            // Note: We need to replicate the logic from BattleOverlay.tsx here or import a helper.
-            // For now, we inline a simplified version or the full version if imports allow.
-            // Since we don't have the sophisticated helper imported, I will implement the comparison here.
-
-            const attCard = state.battleState.currentAttackerCard;
+            const { currentAttackerCard: attCard, attackerBonuses, defenderBonuses } = state.battleState;
             const defCard = card;
-            // Better to store them in BattleState if they are static for the battle.
-            // Assuming we ignore complex terrain bonuses for this immediate step or assume they are 0 for now
-            // CRITICAL: We need defense bonuses in BattleState to do accurate resolution in reducer.
-            // I will assume 0 for now and fix later, or better, calculate simple tier comparison.
 
-            // Basic Tier Comparison
-            let attackerWins = true;
-            let reason = '';
+            // --- RESOLVE CLASH LOGIC WITH BONUSES ---
 
-            // Calculate Base Defense
-            let effectiveDefTier = 0;
+            // 1. Calculate Attacker Score
+            let attackerScore = attCard.tier;
+            if (attCard.regiment === 'C') attackerScore += attackerBonuses.art;
+            if (attCard.regiment === 'B') attackerScore += attackerBonuses.inf;
+            if (attCard.regiment === 'A') {
+                if (attackerBonuses.isPacificFireBonus) attackerScore += 1;
+            }
+
+            // 2. Calculate Defender Score
+            // Base: Defender card tier counts ONLY if it matches attacker regiment (Fog of War / Tactics)
+            let baseDefenderTier = 0;
             if (defCard.regiment === attCard.regiment) {
-                effectiveDefTier = defCard.tier;
+                baseDefenderTier = defCard.tier;
             }
 
-            // Calculate Attacker Base
-            let effectiveAttTier = attCard.tier;
+            // Terrain Bonuses
+            let terrainBonus = 0;
+            if (defCard.regiment === 'A') terrainBonus = defenderBonuses.air;
+            if (defCard.regiment === 'B') terrainBonus = defenderBonuses.inf;
+            if (defCard.regiment === 'C') terrainBonus = defenderBonuses.art;
 
-            // Simple resolution
-            if (effectiveDefTier >= effectiveAttTier) {
-                attackerWins = false;
-                reason = `DEFENSA EXITOSA: ${defCard.regiment} T${defCard.tier} vs ${attCard.regiment} T${attCard.tier}`;
-            } else {
-                reason = `DEFENSA FALLIDA: ${defCard.regiment} T${defCard.tier} vs ${attCard.regiment} T${attCard.tier}`;
-            }
+            const defenderScore = baseDefenderTier + terrainBonus;
+
+            // 3. Compare
+            const attackerWins = attackerScore > defenderScore;
+
+            // Reason String for UI
+            const attRegName = attCard.regiment === 'A' ? 'Aéreo' : (attCard.regiment === 'B' ? 'Inf.' : 'Art.');
+            const defRegName = defCard.regiment === 'A' ? 'Aéreo' : (defCard.regiment === 'B' ? 'Inf.' : 'Art.');
+
+            const reason = attackerWins
+                ? `VICTORIA ATACANTE: ${attRegName} (${attackerScore}) vs ${defRegName} (${defenderScore})`
+                : `DEFENSA EXITOSA: ${defRegName} (${defenderScore}) vs ${attRegName} (${attackerScore})`;
 
             return {
                 ...state,
@@ -427,11 +472,17 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         case 'END_BATTLE':
             return { ...state, battleState: null };
 
+        case 'SET_ENDGAME_CHOICE':
+            return { ...state, endgameChoice: action.payload };
+
         case 'SYNC_STATE':
             return {
                 ...state,
                 ...action.payload,
-                gameDate: action.payload.gameDate ? new Date(action.payload.gameDate) : state.gameDate
+                gameDate: action.payload.gameDate ? new Date(action.payload.gameDate) : state.gameDate,
+                winner: action.payload.winner !== undefined ? action.payload.winner : state.winner,
+                endgameChoice: action.payload.endgameChoice !== undefined ? action.payload.endgameChoice : state.endgameChoice,
+                usedAttackSources: action.payload.usedAttackSources !== undefined ? action.payload.usedAttackSources : state.usedAttackSources
             };
 
         case 'PROCESS_TURN_CHANGE':
@@ -444,7 +495,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
                 turnOrder: action.payload.turnOrder ?? state.turnOrder,
                 owners: action.payload.owners ?? state.owners,
                 notification: action.payload.notification ?? state.notification,
-                // winner handled separately via local state or distinct action if needed, or add to GameState
+                winner: action.payload.winner ?? state.winner,
+                endgameChoice: action.payload.endgameChoice ?? state.endgameChoice,
+                usedAttackSources: action.payload.usedAttackSources ?? []
             };
 
         default:
@@ -601,7 +654,9 @@ export const GameProvider: React.FC<GameProviderProps> = ({
                                 productionDeck: remoteState.productionDeck,
                                 regionResources: remoteState.regionResources,
                                 battleState: remoteState.battleState,
-                                notification: remoteState.notification
+                                notification: remoteState.notification,
+                                winner: remoteState.winner,
+                                endgameChoice: remoteState.endgameChoice
                             }
                         });
                     }
@@ -634,7 +689,8 @@ export const GameProvider: React.FC<GameProviderProps> = ({
         'SET_GAME_PHASE',
         'BATTLE_ATTACKER_SELECT',
         'BATTLE_DEFENDER_SELECT',
-        'BATTLE_NEXT_ROUND'
+        'BATTLE_NEXT_ROUND',
+        'SET_ENDGAME_CHOICE'
     ]);
 
     const dispatchWithSync = (action: GameAction) => {
@@ -709,7 +765,10 @@ export const GameProvider: React.FC<GameProviderProps> = ({
             regionResources: state.regionResources,
             battleState: state.battleState,
             notification: state.notification,
-            proxyWarCountry: state.proxyWarCountry
+            proxyWarCountry: state.proxyWarCountry,
+            winner: state.winner,
+            endgameChoice: state.endgameChoice,
+            usedAttackSources: state.usedAttackSources
         };
 
         const stateString = JSON.stringify(syncableState);

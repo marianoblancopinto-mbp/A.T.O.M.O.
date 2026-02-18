@@ -8,18 +8,22 @@ import { usePlayerResources } from '../../../../hooks/usePlayerResources';
 interface NuclearActivationModalProps {
     show: string | null; // regionId or null
     onClose: () => void;
+    playerIndex?: number;
 }
 
 
 export const NuclearActivationModal: React.FC<NuclearActivationModalProps> = ({
     show,
-    onClose
+    onClose,
+    playerIndex
 }) => {
 
     const { state } = useGameContext();
-    const { players, currentPlayerIndex } = state;
+    const { players, currentPlayerIndex: stateCurrentPlayerIndex } = state;
+    const effectivePlayerIndex = playerIndex ?? stateCurrentPlayerIndex;
+
     const { checkRoute } = useSupplyRoute();
-    const { technologies, rawMaterials } = usePlayerResources(currentPlayerIndex);
+    const { technologies, rawMaterials } = usePlayerResources(effectivePlayerIndex);
 
 
     const [selectedActivationCards, setSelectedActivationCards] = useState<{
@@ -36,14 +40,15 @@ export const NuclearActivationModal: React.FC<NuclearActivationModalProps> = ({
 
     if (!show) return null;
 
-    const player = players[currentPlayerIndex];
+    const player = players[effectivePlayerIndex];
     if (!player) return null;
 
 
     // Filter valid requirements
     const electronicaCards = technologies.filter(t => t.type === 'INDUSTRIA_ELECTRONICA' && !t.usedThisTurn);
     // Add route check for conductores - Need to pass show (which is regionId)
-    const conductoresCards = rawMaterials.filter(r => r.type === 'CONDUCTORES_SEMICONDUCTORES' && !r.usedThisTurn && checkRoute(r.country, show, currentPlayerIndex));
+    const conductoresCards = rawMaterials.filter(r => r.type === 'CONDUCTORES_SEMICONDUCTORES' && !r.usedThisTurn && checkRoute(r.country, show!, effectivePlayerIndex));
+
 
 
     const canActivate = selectedActivationCards.techId && selectedActivationCards.rawId;

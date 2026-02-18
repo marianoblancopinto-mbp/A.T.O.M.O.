@@ -70,9 +70,9 @@ export const NuclearDesignInfoModal: React.FC<NuclearDesignInfoModalProps> = ({
                         REQUISITOS PARA COMPLETAR EL DISEÑO:
                     </div>
                     <div style={{ color: '#fff', fontSize: '0.85rem', lineHeight: '1.8' }}>
-                        \u2B22 Control del territorio<br />
-                        \u2B22 Electrónica Avanzada (Industria Electrónica)<br />
-                        \u2B22 Semiconductores (con ruta de suministro a la ubicación)
+                        • Control del territorio<br />
+                        • Electrónica Avanzada (Industria Electrónica)<br />
+                        • Semiconductores (con ruta de suministro a la ubicación)
                     </div>
                 </div>
 

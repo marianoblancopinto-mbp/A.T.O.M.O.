@@ -10,21 +10,23 @@ interface SiloFuelSelectionModalProps {
     show: boolean;
     onClose: () => void;
     siloRegionId: string | null;
+    playerIndex: number;
 }
 
 export const SiloFuelSelectionModal: React.FC<SiloFuelSelectionModalProps> = ({
     show,
     onClose,
-    siloRegionId
+    siloRegionId,
+    playerIndex
 }) => {
     const { state, dispatch } = useGameContext();
-    const { currentPlayerIndex, players } = state;
-    const { rawMaterials } = usePlayerResources(currentPlayerIndex);
+    const { players } = state;
+    const { rawMaterials } = usePlayerResources(playerIndex);
     const { checkRoute } = useSupplyRoute();
 
     if (!show || !siloRegionId) return null;
 
-    const player = players[currentPlayerIndex];
+    const player = players[playerIndex];
     const currentAssignedCardId = player.siloFuelCards?.[siloRegionId];
 
     const handleAssign = (cardId: string) => {
@@ -38,7 +40,7 @@ export const SiloFuelSelectionModal: React.FC<SiloFuelSelectionModalProps> = ({
         dispatch({
             type: 'UPDATE_PLAYER',
             payload: {
-                index: currentPlayerIndex,
+                index: playerIndex,
                 data: {
                     siloFuelCards: updatedSiloFuelCards
                 }
@@ -105,7 +107,7 @@ export const SiloFuelSelectionModal: React.FC<SiloFuelSelectionModalProps> = ({
                             const isNuclear = (card.type as string) === 'COMBUSTIBLE_NUCLEAR'; // Cast to be safe if type is narrow
 
                             // Check route
-                            const hasRoute = isNuclear ? checkRoute(card.country!, siloRegionId, currentPlayerIndex) : false;
+                            const hasRoute = isNuclear ? checkRoute(card.country!, siloRegionId, playerIndex) : false;
 
                             const isSelectable = isNuclear && hasRoute && !card.usedThisTurn;
                             const isSelected = currentAssignedCardId === card.id;

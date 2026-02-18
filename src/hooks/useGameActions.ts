@@ -26,12 +26,13 @@ import { REGIONS } from '../data/mapRegions';
  */
 export const useGameActions = (): GameActions & {
     resolveBattle: (battleState: BattleState, winner: 'attacker' | 'defender') => void;
-    executeEspionage: (targetPlayerId: number, infoType: 'silos' | 'mineral') => import('../types/playerTypes').EspionageReport | null;
-    activateNuclearArsenal: (regionId: string, activationCards: { techId: string, rawId: string }) => void;
-    extractSecretMineral: (regionId: string, resources: { techId: string, ironId: string, waterId: string }) => void;
-    constructSilo: (targetRegionId: string, resources: { techLightId: string, techHeavyId: string, techElecId: string, ironId: string, alumId: string, semiId: string }) => void;
-    initiateNuclearDeployment: (fuelCardId: string) => void;
-    generateNuclearDesign: (locationId: string, resources: { techId: string, rawId: string }) => void;
+    createEspionageCard: (hqRegionId: string, resources: { techId: string, semiId: string }, playerIndex?: number) => void;
+    executeEspionage: (targetPlayerId: number, infoType: 'silos' | 'mineral', cardId: string) => import('../types/playerTypes').EspionageReport | null;
+    activateNuclearArsenal: (regionId: string, activationCards: { techId: string, rawId: string }, playerIndex?: number) => void;
+    extractSecretMineral: (regionId: string, resources: { techId: string, ironId: string, waterId: string }, playerIndex?: number) => void;
+    constructSilo: (targetRegionId: string, resources: { techLightId: string, techHeavyId: string, techElecId: string, ironId: string, alumId: string, semiId: string }, playerIndex?: number) => void;
+    initiateNuclearDeployment: (fuelCardId: string, siloRegionId: string, playerIndex?: number) => void;
+    generateNuclearDesign: (locationId: string, resources: { techId: string, rawId: string }, playerIndex?: number) => void;
 } => {
     const { state, dispatch } = useGameContext();
     const { owners, players, currentPlayerIndex } = state;
@@ -107,7 +108,11 @@ export const useGameActions = (): GameActions & {
                             if (!currentDefender) return p;
 
                             const allGainedCards = currentDefender.specialCards.filter((c: SpecialCard) => c.originCountry === targetRegionId);
-                            const transferrableCards = allGainedCards.filter((c: SpecialCard) => !c.name.includes("SECRETOS DE") && c.type !== 'SECRETOS_GUERRA');
+                            const transferrableCards = allGainedCards.filter((c: SpecialCard) =>
+                                !c.name.includes("SECRETOS DE") &&
+                                c.type !== 'SECRETOS_GUERRA' &&
+                                c.name !== 'SILO DE LANZAMIENTO'
+                            );
 
                             if (transferrableCards.length > 0) {
                                 return {
@@ -118,10 +123,62 @@ export const useGameActions = (): GameActions & {
                         }
 
                         // 3. Logic for 'Alejandro Magno' loss (Global check)
-                        if (p.alejandroMagnoActive) {
+                        if (p.alejandroMagnoActive || p.specialCards.some(c => c.type === 'ALEJANDRO_MAGNO')) {
                             const alejandroCountries = ['grecia', 'turquia', 'egipto', 'iran'];
                             if (p.id === defenderId && alejandroCountries.includes(targetRegionId)) {
-                                return { ...p, alejandroMagnoActive: false };
+                                return {
+                                    ...p,
+                                    alejandroMagnoActive: false,
+                                    specialCards: p.specialCards.filter(c => c.type !== 'ALEJANDRO_MAGNO')
+                                };
+                            }
+                        }
+
+                        // 4. Logic for 'Legado Otomano' loss
+                        if (p.legadoOtomanoActive || p.specialCards.some(c => c.type === 'LEGADO_OTOMANO')) {
+                            const otomanoCountries = ['turquia', 'egipto', 'arabia', 'grecia'];
+                            if (p.id === defenderId && otomanoCountries.includes(targetRegionId)) {
+                                return {
+                                    ...p,
+                                    legadoOtomanoActive: false,
+                                    specialCards: p.specialCards.filter(c => c.type !== 'LEGADO_OTOMANO')
+                                };
+                            }
+                        }
+
+                        // 5. Logic for 'Gengis Khan' loss
+                        if (p.gengisKhanActive || p.specialCards.some(c => c.type === 'GENGIS_KHAN')) {
+                            const gengisCountries = ['mongolia', 'kazajistan', 'china', 'rusia'];
+                            if (p.id === defenderId && gengisCountries.includes(targetRegionId)) {
+                                return {
+                                    ...p,
+                                    gengisKhanActive: false,
+                                    specialCards: p.specialCards.filter(c => c.type !== 'GENGIS_KHAN')
+                                };
+                            }
+                        }
+
+                        // 6. Logic for 'Bolívar' loss
+                        if (p.bolivarActive || p.specialCards.some(c => c.type === 'BOLIVAR')) {
+                            const bolivarCountries = ['venezuela', 'colombia', 'panama', 'peru'];
+                            if (p.id === defenderId && bolivarCountries.includes(targetRegionId)) {
+                                return {
+                                    ...p,
+                                    bolivarActive: false,
+                                    specialCards: p.specialCards.filter(c => c.type !== 'BOLIVAR')
+                                };
+                            }
+                        }
+
+                        // 7. Logic for 'Pacific Fire' loss
+                        if (p.pacificFireActive || p.specialCards.some(c => c.type === 'PACIFIC_FIRE')) {
+                            const pacificCountries = ['japon', 'korea', 'kamchakta', 'filipinas'];
+                            if (p.id === defenderId && pacificCountries.includes(targetRegionId)) {
+                                return {
+                                    ...p,
+                                    pacificFireActive: false,
+                                    specialCards: p.specialCards.filter(c => c.type !== 'PACIFIC_FIRE')
+                                };
                             }
                         }
 
@@ -137,10 +194,58 @@ export const useGameActions = (): GameActions & {
                 type: 'UPDATE_PLAYERS_FN',
                 payload: (currentPlayers) => {
                     return currentPlayers.map(p => {
-                        if (p.id === attacker.id && p.alejandroMagnoActive) {
+                        if (p.id === attacker.id && (p.alejandroMagnoActive || p.specialCards.some(c => c.type === 'ALEJANDRO_MAGNO'))) {
                             const alejandroCountries = ['grecia', 'turquia', 'egipto', 'iran'];
                             if (alejandroCountries.includes(attackSourceId) || alejandroCountries.includes(targetRegionId)) {
-                                return { ...p, alejandroMagnoActive: false };
+                                return {
+                                    ...p,
+                                    alejandroMagnoActive: false,
+                                    specialCards: p.specialCards.filter(c => c.type !== 'ALEJANDRO_MAGNO')
+                                };
+                            }
+                        }
+
+                        if (p.id === attacker.id && (p.legadoOtomanoActive || p.specialCards.some(c => c.type === 'LEGADO_OTOMANO'))) {
+                            const otomanoCountries = ['turquia', 'egipto', 'arabia', 'grecia'];
+                            if (otomanoCountries.includes(attackSourceId) || otomanoCountries.includes(targetRegionId)) {
+                                return {
+                                    ...p,
+                                    legadoOtomanoActive: false,
+                                    specialCards: p.specialCards.filter(c => c.type !== 'LEGADO_OTOMANO')
+                                };
+                            }
+                        }
+
+                        if (p.id === attacker.id && (p.gengisKhanActive || p.specialCards.some(c => c.type === 'GENGIS_KHAN'))) {
+                            const gengisCountries = ['mongolia', 'kazajistan', 'china', 'rusia'];
+                            if (gengisCountries.includes(attackSourceId) || gengisCountries.includes(targetRegionId)) {
+                                return {
+                                    ...p,
+                                    gengisKhanActive: false,
+                                    specialCards: p.specialCards.filter(c => c.type !== 'GENGIS_KHAN')
+                                };
+                            }
+                        }
+
+                        if (p.id === attacker.id && (p.bolivarActive || p.specialCards.some(c => c.type === 'BOLIVAR'))) {
+                            const bolivarCountries = ['venezuela', 'colombia', 'panama', 'peru'];
+                            if (bolivarCountries.includes(attackSourceId) || bolivarCountries.includes(targetRegionId)) {
+                                return {
+                                    ...p,
+                                    bolivarActive: false,
+                                    specialCards: p.specialCards.filter(c => c.type !== 'BOLIVAR')
+                                };
+                            }
+                        }
+
+                        if (p.id === attacker.id && (p.pacificFireActive || p.specialCards.some(c => c.type === 'PACIFIC_FIRE'))) {
+                            const pacificCountries = ['japon', 'korea', 'kamchakta', 'filipinas'];
+                            if (pacificCountries.includes(attackSourceId) || pacificCountries.includes(targetRegionId)) {
+                                return {
+                                    ...p,
+                                    pacificFireActive: false,
+                                    specialCards: p.specialCards.filter(c => c.type !== 'PACIFIC_FIRE')
+                                };
                             }
                         }
                         return p;
@@ -152,7 +257,52 @@ export const useGameActions = (): GameActions & {
         dispatch({ type: 'END_BATTLE' });
     };
 
-    const executeEspionage = (targetPlayerId: number, infoType: 'silos' | 'mineral'): import('../types/playerTypes').EspionageReport | null => {
+    const createEspionageCard = (hqRegionId: string, resources: { techId: string, semiId: string }, playerIndex?: number) => {
+        const effectivePlayerIndex = playerIndex ?? currentPlayerIndex;
+        // 1. Consume Cards
+        // 1. Mark cards as used
+        dispatch({
+            type: 'MARK_CARD_AS_USED',
+            payload: { cardId: resources.techId, category: 'technology', playerIndex: effectivePlayerIndex }
+        });
+        dispatch({
+            type: 'MARK_CARD_AS_USED',
+            payload: { cardId: resources.semiId, category: 'rawMaterial', playerIndex: effectivePlayerIndex }
+        });
+
+        // 2. Create Espionage Card
+        const newCard: SpecialCard = {
+            id: `espionage-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            type: 'ESPIONAJE',
+            name: 'RED DE ESPIONAJE ACTIVADA',
+            originCountry: hqRegionId,
+            description: `Operación de inteligencia dirigida desde la sede en ${REGIONS.find(r => r.id === hqRegionId)?.title || hqRegionId}.`,
+            createdAt: Date.now()
+        };
+
+        // 3. Add to Player
+        dispatch({
+            type: 'ADD_SPECIAL_CARD',
+            payload: {
+                playerIndex: effectivePlayerIndex,
+                card: newCard
+            }
+        });
+
+        // 4. Notification
+        dispatch({
+            type: 'SET_NOTIFICATION',
+            payload: {
+                type: 'SECONDARY_MISSION',
+                title: 'OPERACIÓN DE ESPIONAJE',
+                message: `Se ha establecido una red de inteligencia en ${REGIONS.find(r => r.id === hqRegionId)?.title || hqRegionId}.`,
+                color: '#00ffff',
+                playerName: players[effectivePlayerIndex].name
+            }
+        });
+    };
+
+    const executeEspionage = (targetPlayerId: number, infoType: 'silos' | 'mineral', cardId: string): import('../types/playerTypes').EspionageReport | null => {
         const targetPlayer = players[targetPlayerId];
         if (!targetPlayer) return null;
 
@@ -170,18 +320,16 @@ export const useGameActions = (): GameActions & {
             };
         }
 
-        // Consume one espionage card
+        // Consume the specific espionage card
         dispatch({
             type: 'UPDATE_PLAYERS_FN',
             payload: (currentPlayers) => {
                 return currentPlayers.map(p => {
                     if (p.id === players[currentPlayerIndex].id) {
-                        const cardIndex = p.specialCards.findIndex(c => c.type === 'ESPIONAJE');
-                        if (cardIndex !== -1) {
-                            const newCards = [...p.specialCards];
-                            newCards.splice(cardIndex, 1);
-                            return { ...p, specialCards: newCards };
-                        }
+                        return {
+                            ...p,
+                            specialCards: p.specialCards.filter(c => c.id !== cardId)
+                        };
                     }
                     return p;
                 });
@@ -191,22 +339,17 @@ export const useGameActions = (): GameActions & {
         return { type: infoType, data: result };
     };
 
-    const activateNuclearArsenal = (regionId: string, activationCards: { techId: string, rawId: string }) => {
-        // 1. Consume Cards
+    const activateNuclearArsenal = (regionId: string, activationCards: { techId: string, rawId: string }, playerIndex?: number) => {
+        const effectivePlayerIndex = playerIndex ?? currentPlayerIndex;
+        // 1. Mark cards as used
         dispatch({
-            type: 'UPDATE_PRODUCTION_DECK_FN',
-            payload: (prev) => {
-                if (!prev) return null;
-                return {
-                    ...prev,
-                    technologies: prev.technologies.map(card =>
-                        card.id === activationCards.techId ? { ...card, usedThisTurn: true } : card),
-                    rawMaterials: prev.rawMaterials.map(card =>
-                        card.id === activationCards.rawId ? { ...card, usedThisTurn: true } : card)
-                };
-            }
+            type: 'MARK_CARD_AS_USED',
+            payload: { cardId: activationCards.techId, category: 'technology', playerIndex: effectivePlayerIndex }
         });
-
+        dispatch({
+            type: 'MARK_CARD_AS_USED',
+            payload: { cardId: activationCards.rawId, category: 'rawMaterial', playerIndex: effectivePlayerIndex }
+        });
         // 2. Create Nuclear Weapon Card
         const newCard: SpecialCard = {
             id: `nuclear-weapon-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -221,7 +364,7 @@ export const useGameActions = (): GameActions & {
         dispatch({
             type: 'ADD_SPECIAL_CARD',
             payload: {
-                playerIndex: currentPlayerIndex,
+                playerIndex: effectivePlayerIndex,
                 card: newCard
             }
         });
@@ -234,24 +377,25 @@ export const useGameActions = (): GameActions & {
                 title: 'ARSENAL NUCLEAR ACTIVADO',
                 message: 'Se han fabricado Armas Nucleares Intercontinentales. Capacidad de lanzamiento operativa.',
                 color: '#00ff00',
-                playerName: players[currentPlayerIndex].name
+                playerName: players[effectivePlayerIndex].name
             }
         });
     };
 
-    const extractSecretMineral = (regionId: string, resources: { techId: string, ironId: string, waterId: string }) => {
-        // 1. Consume Cards
+    const extractSecretMineral = (regionId: string, resources: { techId: string, ironId: string, waterId: string }, playerIndex?: number) => {
+        const effectivePlayerIndex = playerIndex ?? currentPlayerIndex;
+        // 1. Mark cards as used
         dispatch({
-            type: 'UPDATE_PRODUCTION_DECK_FN',
-            payload: (prev) => {
-                if (!prev) return null;
-                const markUsed = (cards: any[], id: string) => cards.map(c => c.id === id ? { ...c, usedThisTurn: true } : c);
-                return {
-                    ...prev,
-                    technologies: markUsed(prev.technologies, resources.techId),
-                    rawMaterials: markUsed(markUsed(prev.rawMaterials, resources.ironId), resources.waterId)
-                };
-            }
+            type: 'MARK_CARD_AS_USED',
+            payload: { cardId: resources.techId, category: 'technology', playerIndex: effectivePlayerIndex }
+        });
+        dispatch({
+            type: 'MARK_CARD_AS_USED',
+            payload: { cardId: resources.ironId, category: 'rawMaterial', playerIndex: effectivePlayerIndex }
+        });
+        dispatch({
+            type: 'MARK_CARD_AS_USED',
+            payload: { cardId: resources.waterId, category: 'rawMaterial', playerIndex: effectivePlayerIndex }
         });
 
         // 2. Create Secret Mineral Card
@@ -268,7 +412,7 @@ export const useGameActions = (): GameActions & {
         dispatch({
             type: 'ADD_SPECIAL_CARD',
             payload: {
-                playerIndex: currentPlayerIndex,
+                playerIndex: effectivePlayerIndex,
                 card: newCard
             }
         });
@@ -281,7 +425,7 @@ export const useGameActions = (): GameActions & {
                 title: 'EXTRACCIÓN DE MINERAL',
                 message: `Se ha extraído Mineral Secreto en ${REGIONS.find(r => r.id === regionId)?.title || regionId}.`,
                 color: '#00ffff',
-                playerName: players[currentPlayerIndex].name
+                playerName: players[effectivePlayerIndex].name
             }
         });
     };
@@ -295,8 +439,10 @@ export const useGameActions = (): GameActions & {
             ironId: string,
             alumId: string,
             semiId: string
-        }
+        },
+        playerIndex?: number
     ) => {
+        const effectivePlayerIndex = playerIndex ?? currentPlayerIndex;
         // 1. Consume Cards
         const cardsToConsume = [
             { id: resources.techLightId, type: 'technology' },
@@ -307,22 +453,12 @@ export const useGameActions = (): GameActions & {
             { id: resources.semiId, type: 'rawMaterial' }
         ];
 
-        dispatch({
-            type: 'UPDATE_PRODUCTION_DECK_FN',
-            payload: (prev) => {
-                if (!prev) return null;
-                const markUsed = (cards: any[], id: string) => cards.map(c => c.id === id ? { ...c, usedThisTurn: true } : c);
-
-                let startTech = prev.technologies;
-                let startRaw = prev.rawMaterials;
-
-                cardsToConsume.forEach(c => {
-                    if (c.type === 'technology') startTech = markUsed(startTech, c.id);
-                    else startRaw = markUsed(startRaw, c.id);
-                });
-
-                return { ...prev, technologies: startTech, rawMaterials: startRaw };
-            }
+        // 1. Mark cards as used
+        cardsToConsume.forEach(c => {
+            dispatch({
+                type: 'MARK_CARD_AS_USED',
+                payload: { cardId: c.id, category: c.type as any, playerIndex: effectivePlayerIndex }
+            });
         });
 
         // 2. Update Player State (Silos, Status, Card)
@@ -339,7 +475,7 @@ export const useGameActions = (): GameActions & {
             type: 'UPDATE_PLAYERS_FN',
             payload: (currentPlayers) => {
                 return currentPlayers.map(p => {
-                    if (p.id === players[currentPlayerIndex].id) {
+                    if (p.id === players[effectivePlayerIndex].id) {
                         return {
                             ...p,
                             silos: [...p.silos, targetRegionId],
@@ -347,7 +483,7 @@ export const useGameActions = (): GameActions & {
                                 ...p.siloStatus,
                                 [targetRegionId]: {
                                     status: 'construction',
-                                    turnsRemaining: 1,
+                                    turnsRemaining: 2,
                                 }
                             } as any, // Cast if needed for index signature
                             specialCards: [...p.specialCards, newCard]
@@ -366,24 +502,32 @@ export const useGameActions = (): GameActions & {
                 title: 'CONSTRUCCIÓN DE SILO',
                 message: `Se ha iniciado la construcción de un Silo de Lanzamiento en ${REGIONS.find(r => r.id === targetRegionId)?.title || targetRegionId}.`,
                 color: '#ff9100',
-                playerName: players[currentPlayerIndex].name
+                playerName: players[effectivePlayerIndex].name
             }
         });
     };
 
-    const initiateNuclearDeployment = (fuelCardId: string) => {
+    const initiateNuclearDeployment = (fuelCardId: string, siloRegionId: string, playerIndex?: number) => {
+        const effectivePlayerIndex = playerIndex ?? currentPlayerIndex;
+        const player = players[effectivePlayerIndex];
+
         // 1. Consume Fuel Card
         dispatch({
             type: 'MARK_CARD_AS_USED',
-            payload: { cardId: fuelCardId, category: 'rawMaterial' }
+            payload: { cardId: fuelCardId, category: 'rawMaterial', playerIndex: effectivePlayerIndex }
         });
 
-        // 2. Activate Nuclear Deployment
+        // 2. Track Silo Usage and Activate Nuclear Deployment
+        const updatedUsedSilos = [...(player.usedNuclearSilos || []), siloRegionId];
+
         dispatch({
             type: 'UPDATE_PLAYER',
             payload: {
-                index: currentPlayerIndex,
-                data: { nuclearDeploymentActive: true }
+                index: effectivePlayerIndex,
+                data: {
+                    nuclearDeploymentActive: true,
+                    usedNuclearSilos: updatedUsedSilos
+                }
             }
         });
 
@@ -399,15 +543,17 @@ export const useGameActions = (): GameActions & {
         });
     };
 
-    const generateNuclearDesign = (locationId: string, resources: { techId: string, rawId: string }) => {
+    const generateNuclearDesign = (locationId: string, resources: { techId: string, rawId: string }, playerIndex?: number) => {
+        const effectivePlayerIndex = playerIndex ?? currentPlayerIndex;
+
         // 1. Consume cards
         dispatch({
             type: 'MARK_CARD_AS_USED',
-            payload: { cardId: resources.techId, category: 'technology' }
+            payload: { cardId: resources.techId, category: 'technology', playerIndex: effectivePlayerIndex }
         });
         dispatch({
             type: 'MARK_CARD_AS_USED',
-            payload: { cardId: resources.rawId, category: 'rawMaterial' }
+            payload: { cardId: resources.rawId, category: 'rawMaterial', playerIndex: effectivePlayerIndex }
         });
 
         // 2. Create Special Card
@@ -424,7 +570,7 @@ export const useGameActions = (): GameActions & {
         dispatch({
             type: 'ADD_SPECIAL_CARD',
             payload: {
-                playerIndex: currentPlayerIndex,
+                playerIndex: effectivePlayerIndex,
                 card: newCard
             }
         });
@@ -456,6 +602,7 @@ export const useGameActions = (): GameActions & {
         },
         resolveBattle,
         executeEspionage,
+        createEspionageCard,
         activateNuclearArsenal,
         extractSecretMineral,
         constructSilo,

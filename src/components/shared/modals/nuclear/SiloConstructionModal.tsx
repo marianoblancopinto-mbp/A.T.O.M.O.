@@ -9,6 +9,7 @@ import { usePlayerResources } from '../../../../hooks/usePlayerResources';
 interface SiloConstructionModalProps {
     show: boolean;
     onClose: () => void;
+    playerIndex?: number;
 }
 
 
@@ -24,13 +25,15 @@ interface SelectedSiloCards {
 
 export const SiloConstructionModal: React.FC<SiloConstructionModalProps> = ({
     show,
-    onClose
+    onClose,
+    playerIndex
 }) => {
 
     const { state } = useGameContext();
-    const { players, currentPlayerIndex, owners } = state;
+    const { players, currentPlayerIndex: stateCurrentPlayerIndex, owners } = state;
+    const effectivePlayerIndex = playerIndex ?? stateCurrentPlayerIndex;
     const { checkRoute } = useSupplyRoute();
-    const { technologies, rawMaterials } = usePlayerResources(currentPlayerIndex);
+    const { technologies, rawMaterials } = usePlayerResources(effectivePlayerIndex);
     const gameActions = useGameActions();
 
 
@@ -60,7 +63,7 @@ export const SiloConstructionModal: React.FC<SiloConstructionModalProps> = ({
 
     if (!show) return null;
 
-    const player = players[currentPlayerIndex];
+    const player = players[effectivePlayerIndex];
     if (!player) return null;
 
 
@@ -78,9 +81,9 @@ export const SiloConstructionModal: React.FC<SiloConstructionModalProps> = ({
     const elecCards = technologies.filter(t => t.type === 'INDUSTRIA_ELECTRONICA' && !t.usedThisTurn);
 
     // Materials (Need Routes to Target)
-    const ironCards = rawMaterials.filter(r => r.type === 'HIERRO' && !r.usedThisTurn && (!hasTarget || checkRoute(r.country, targetId, currentPlayerIndex)));
-    const alumCards = rawMaterials.filter(r => r.type === 'ALUMINIO' && !r.usedThisTurn && (!hasTarget || checkRoute(r.country, targetId, currentPlayerIndex)));
-    const semiCards = rawMaterials.filter(r => r.type === 'CONDUCTORES_SEMICONDUCTORES' && !r.usedThisTurn && (!hasTarget || checkRoute(r.country, targetId, currentPlayerIndex)));
+    const ironCards = rawMaterials.filter(r => r.type === 'HIERRO' && !r.usedThisTurn && (!hasTarget || checkRoute(r.country, targetId, effectivePlayerIndex)));
+    const alumCards = rawMaterials.filter(r => r.type === 'ALUMINIO' && !r.usedThisTurn && (!hasTarget || checkRoute(r.country, targetId, effectivePlayerIndex)));
+    const semiCards = rawMaterials.filter(r => r.type === 'CONDUCTORES_SEMICONDUCTORES' && !r.usedThisTurn && (!hasTarget || checkRoute(r.country, targetId, effectivePlayerIndex)));
 
 
     const canBuild = selectedSiloCards.techLightId && selectedSiloCards.techHeavyId && selectedSiloCards.techElecId &&

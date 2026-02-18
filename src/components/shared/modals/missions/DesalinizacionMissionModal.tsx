@@ -141,116 +141,84 @@ export const DesalinizacionMissionModal: React.FC<DesalinizacionMissionModalProp
                     </button>
                 </div>
 
-                <div style={{ backgroundColor: '#000', padding: '15px', marginBottom: '20px', border: '1px solid #004466', borderRadius: '4px' }}>
-                    <div style={{ color: '#00aaff', fontSize: '1rem', fontWeight: 'bold', marginBottom: '10px' }}>
-                        UBICACIÓN: {countryName}
+                <div style={{ padding: '30px', display: 'flex', gap: '30px' }}>
+                    {/* Requirements Panel */}
+                    <div style={{ flex: 1 }}>
+                        <div style={{ marginBottom: '20px', fontSize: '1.2em', fontWeight: 'bold', color: '#00aaff', letterSpacing: '1px' }}>
+                            REQUISITOS ESTRATÉGICOS:
+                        </div>
+
+                        {/* Location Status */}
+                        <div style={{ marginBottom: '25px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '2em', marginBottom: '5px' }}>{alreadyHasPlant ? '❌' : '✅'}</div>
+                            <div style={{ fontSize: '0.9em', fontWeight: 'bold', letterSpacing: '1px' }}>ESPACIO DISPONIBLE EN {countryName.toUpperCase()}</div>
+                        </div>
+
+                        {/* Energy Selection */}
+                        <div style={{ marginBottom: '25px' }}>
+                            <div style={{ color: '#aaa', marginBottom: '8px', fontSize: '0.85rem', fontWeight: 'bold' }}>SUMINISTRO DE ENERGÍA:</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                {energySupplies.length > 0 ? (
+                                    energySupplies.map(supply => (
+                                        <div
+                                            key={supply.id}
+                                            onClick={() => setSelectedEnergySupplyId(supply.id)}
+                                            style={{
+                                                padding: '10px',
+                                                backgroundColor: selectedEnergySupplyId === supply.id ? '#00aaff' : '#001122',
+                                                color: selectedEnergySupplyId === supply.id ? '#000' : '#00aaff',
+                                                border: `1px solid #00aaff`,
+                                                cursor: 'pointer', fontSize: '0.85rem',
+                                                textAlign: 'center', transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            ENERGÍA ({supply.originCountry.toUpperCase()})
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div style={{ color: '#ff4444', fontSize: '0.9rem', textAlign: 'center', padding: '10px', backgroundColor: 'rgba(0,170,255,0.05)', border: '1px dashed #ff4444' }}>
+                                        No disponible con ruta válida.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={onOpenInventory}
+                            style={{
+                                width: '100%', padding: '12px',
+                                backgroundColor: 'transparent', color: '#00aaff', border: '1px solid #00aaff',
+                                cursor: 'pointer', fontSize: '0.9rem', fontWeight: 'bold',
+                                textTransform: 'uppercase', transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(0, 170, 255, 0.1)'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                            Fabricar Suministros
+                        </button>
                     </div>
-                    <div style={{ color: '#aaa', fontSize: '0.9rem', fontStyle: 'italic', lineHeight: '1.5' }}>
-                        "Las costas áridas del mundo esconden un recurso vital: el mar. Con la tecnología adecuada y suficiente energía, podemos convertir agua salada en el recurso más preciado: AGUA DULCE."
+
+                    {/* Info Panel */}
+                    <div style={{ width: '300px', borderLeft: '1px solid #00aaff', paddingLeft: '30px' }}>
+                        <h3 style={{ marginTop: 0, color: '#00aaff' }}>DESALINIZACIÓN</h3>
+                        <div style={{ backgroundColor: 'rgba(0, 170, 255, 0.1)', padding: '15px', border: '1px dashed #00aaff' }}>
+                            <div style={{ fontWeight: 'bold', fontSize: '1.2em', marginBottom: '10px' }}>
+                                AGUA DULCE
+                            </div>
+                            <p style={{ fontSize: '0.9em', lineHeight: '1.4' }}>
+                                Transforma agua de mar en agua potable para el territorio.
+                            </p>
+                            <ul style={{ paddingLeft: '20px', fontSize: '0.85em', color: '#66ccff' }}>
+                                <li>Genera Recurso: AGUA DULCE</li>
+                                <li>Ubicación: {countryName}</li>
+                                <li>Requisito: Suministro Energía</li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
 
-                {alreadyHasPlant ? (
-                    <div style={{
-                        backgroundColor: '#332200',
-                        padding: '20px',
-                        border: '2px solid #ff9900',
-                        borderRadius: '4px',
-                        textAlign: 'center',
-                        marginBottom: '20px'
-                    }}>
-                        <div style={{ color: '#ff9900', fontSize: '1.2rem', fontWeight: 'bold' }}>
-                            ⚠️ INFRAESTRUCTURA EXISTENTE
-                        </div>
-                        <div style={{ color: '#ffcc66', fontSize: '0.9rem', marginTop: '10px' }}>
-                            Ya existe una planta de desalinización en este territorio.
-                        </div>
-                    </div>
-                ) : (
-                    <>
-                        <div style={{
-                            backgroundColor: '#001a1a',
-                            padding: '20px',
-                            border: '1px solid #00aaff',
-                            borderRadius: '4px',
-                            marginBottom: '20px'
-                        }}>
-                            <div style={{ color: '#00aaff', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '15px' }}>
-                                REQUISITO: SUMINISTRO ENERGÉTICO
-                            </div>
-
-                            {energySupplies.length > 0 ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                    {energySupplies.map(supply => {
-                                        const originName = REGIONS.find(r => r.id === supply.originCountry)?.title || supply.originCountry;
-                                        const isSelected = selectedEnergySupplyId === supply.id;
-                                        return (
-                                            <button
-                                                key={supply.id}
-                                                onClick={() => setSelectedEnergySupplyId(supply.id)}
-                                                style={{
-                                                    padding: '12px 15px',
-                                                    backgroundColor: isSelected ? '#00aaff' : '#002233',
-                                                    color: isSelected ? '#000' : '#00aaff',
-                                                    border: `2px solid ${isSelected ? '#00aaff' : '#004466'}`,
-                                                    borderRadius: '4px',
-                                                    cursor: 'pointer',
-                                                    textAlign: 'left',
-                                                    fontFamily: 'monospace',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '10px',
-                                                    transition: 'all 0.2s'
-                                                }}
-                                            >
-                                                <span style={{ fontSize: '1.3rem' }}>⚡</span>
-                                                <div>
-                                                    <div style={{ fontWeight: 'bold' }}>Energía</div>
-                                                    <div style={{ fontSize: '0.8rem', opacity: 0.8 }}>Origen: {originName}</div>
-                                                </div>
-                                                {isSelected && <span style={{ marginLeft: 'auto', fontSize: '1.2rem' }}>✓</span>}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            ) : (
-                                <div style={{ color: '#ff6666', fontSize: '0.9rem', textAlign: 'center', padding: '20px' }}>
-                                    No tienes suministros de energía con ruta válida a {countryName}.
-                                </div>
-                            )}
-                        </div>
-
-                        <div style={{
-                            backgroundColor: '#1a1a00',
-                            padding: '15px',
-                            border: '1px solid #aaaa00',
-                            borderRadius: '4px',
-                            marginBottom: '20px',
-                            textAlign: 'center'
-                        }}>
-                            <div style={{ color: '#aaaa00', fontSize: '0.85rem', marginBottom: '10px' }}>
-                                ¿No tienes suministros de energía?
-                            </div>
-                            <button
-                                onClick={onOpenInventory}
-                                style={{
-                                    padding: '10px 20px',
-                                    backgroundColor: '#333300',
-                                    color: '#ffff00',
-                                    border: '1px solid #ffff00',
-                                    borderRadius: '4px',
-                                    cursor: 'pointer',
-                                    fontFamily: 'monospace',
-                                    fontWeight: 'bold'
-                                }}
-                            >
-                                ABRIR INVENTARIO PARA PRODUCIR
-                            </button>
-                        </div>
-                    </>
-                )}
-
-                <div style={{ display: 'flex', gap: '20px' }}>
+                {/* Actions */}
+                <div style={{ padding: '20px', backgroundColor: 'rgba(0,0,0,0.3)', display: 'flex', gap: '20px' }}>
                     <button
                         onClick={() => {
                             setSelectedEnergySupplyId(null);

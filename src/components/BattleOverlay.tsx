@@ -8,13 +8,11 @@ import type { BattleState } from '../types/gameTypes';
 
 interface BattleOverlayProps {
     battleState: BattleState | null;
-    defenseBonuses: { art: number, air: number, inf: number };
     onOpenInventory: () => void;
 }
 
 export const BattleOverlay: React.FC<BattleOverlayProps> = ({
     battleState,
-    defenseBonuses,
     onOpenInventory,
 }) => {
     // Hooks
@@ -30,6 +28,13 @@ export const BattleOverlay: React.FC<BattleOverlayProps> = ({
     // Derived Data
     const attacker = players.find(p => p.id === battleState.attacker.id) || battleState.attacker;
     const defender = players.find(p => p.id === battleState.defender.id) || battleState.defender;
+
+    // Identity Check
+    const isAttacker = multiplayer.playerId === attacker.id;
+    const isDefender = multiplayer.playerId === defender.id;
+
+    // Visibility Restriction: Only involved players see the overlay
+    if (!isAttacker && !isDefender) return null;
     const attackerName = attacker.name;
     const attackerColor = attacker.color;
     const defenderName = defender.name;
@@ -47,12 +52,9 @@ export const BattleOverlay: React.FC<BattleOverlayProps> = ({
         clashResult,
         attackerWins,
         defenderWins,
-        roundCount
+        roundCount,
+        defenderBonuses
     } = battleState;
-
-    // Identity Check
-    const isAttacker = multiplayer.playerId === attacker.id;
-    const isDefender = multiplayer.playerId === defender.id;
 
     // --- Handlers ---
 
@@ -201,12 +203,25 @@ export const BattleOverlay: React.FC<BattleOverlayProps> = ({
             if (attackerBonuses.isAlejandroBonus) {
                 attMods.push(<div key="att-inf-alejandro" style={{ color: '#ffd700' }}>+1 Infantería (Misión Alejandro Magno)</div>);
             }
+            if (attackerBonuses.isOtomanoBonus) {
+                attMods.push(<div key="att-inf-otomano" style={{ color: '#00ccff' }}>+1 Infantería (Legado Otomano)</div>);
+            }
+            if (attackerBonuses.isGengisBonus) {
+                attMods.push(<div key="att-inf-gengis" style={{ color: '#ff4444' }}>+1 Infantería (Gengis Khan)</div>);
+            }
+            if (attackerBonuses.isBolivarBonus) {
+                attMods.push(<div key="att-inf-bolivar" style={{ color: '#ffcc00' }}>+1 Infantería (Bolívar)</div>);
+            }
+            if (attackerBonuses.isPacificFireBonus) {
+                attMods.push(<div key="att-air-pacific" style={{ color: '#00ffff' }}>+1 Aéreo (Fuego del Pacífico)</div>);
+            }
         }
 
         // Defender Modifiers
-        if (defenseBonuses.art > 0) defMods.push(<div key="def-art" style={{ color: '#fff' }}>+{defenseBonuses.art} Artillería (Terreno)</div>);
-        if (defenseBonuses.air > 0) defMods.push(<div key="def-air" style={{ color: '#fff' }}>+{defenseBonuses.air} Aéreo (Terreno)</div>);
-        if (defenseBonuses.inf > 0) defMods.push(<div key="def-inf" style={{ color: '#fff' }}>+{defenseBonuses.inf} Infantería (Terreno)</div>);
+        if (defenderBonuses.art > 0) defMods.push(<div key="def-art" style={{ color: '#fff' }}>+{defenderBonuses.art} Artillería (Terreno)</div>);
+        if (defenderBonuses.air > 0) defMods.push(<div key="def-air" style={{ color: '#fff' }}>+{defenderBonuses.air} Aéreo (Terreno)</div>);
+        if (defenderBonuses.inf > 0) defMods.push(<div key="def-inf" style={{ color: '#fff' }}>+{defenderBonuses.inf} Infantería (Terreno)</div>);
+        if (defenderBonuses.isGoldenDomeBonus) defMods.push(<div key="def-goldendome" style={{ color: '#ffd700' }}>+1 Aéreo (Cúpula Dorada)</div>);
 
         return (
             <div style={{
@@ -426,11 +441,6 @@ export const BattleOverlay: React.FC<BattleOverlayProps> = ({
                             <>
                                 {isAttacker && renderAttackerView()}
                                 {isDefender && renderDefenderView()}
-                                {!isAttacker && !isDefender && (
-                                    <div style={{ color: '#666', marginTop: '50px' }}>
-                                        ESPECTANDO BATALLA...
-                                    </div>
-                                )}
                             </>
                         )}
                     </>

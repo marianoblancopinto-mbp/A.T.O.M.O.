@@ -57,11 +57,10 @@ export const REGION_ADJACENCY: Record<string, string[]> = {
     'california': ['mejico', 'texas', 'canada'],
     'texas': ['mejico', 'california', 'nueva_york', 'flordia'],
     'nueva_york': ['california', 'texas', 'canada', 'quebec', 'flordia'],
-    'alaska': ['california', 'canada', 'kamchakta'],
+    'alaska': ['canada', 'kamchakta'],
     'canada': ['california', 'nueva_york', 'groenlandia', 'alaska', 'quebec'],
     'quebec': ['nueva_york', 'groenlandia', 'canada'],
     'flordia': ['texas', 'nueva_york', 'cuba'],
-
     'groenlandia': ['quebec', 'canada', 'islandia'],
     // Europa
     'noruega': ['suecia', 'islandia'],
@@ -69,7 +68,7 @@ export const REGION_ADJACENCY: Record<string, string[]> = {
     'reino_unido': ['islandia', 'alemania', 'francia'],
     'suecia': ['noruega', 'rusia', 'alemania'],
     'rusia': ['suecia', 'polonia', 'rumania', 'turquia', 'iran', 'kazajistan', 'siberia'],
-    'polonia': ['suecia', 'rusia', 'alemania', 'rumania', 'yugoslavia'],
+    'polonia': ['rusia', 'alemania', 'rumania', 'yugoslavia'],
     'alemania': ['francia', 'polonia', 'italia', 'yugoslavia'],
     'francia': ['alemania', 'italia', 'espana', 'reino_unido'],
     'espana': ['francia'], // marruecos and algeria are now maritime only
@@ -92,7 +91,7 @@ export const REGION_ADJACENCY: Record<string, string[]> = {
     // Asia
     'turquia': ['rusia', 'iran', 'arabia'],
     'arabia': ['turquia', 'iran'],
-    'iran': ['rusia', 'kazajistan', 'tibet', 'arabia', 'turquia'],
+    'iran': ['rusia', 'kazajistan', 'tibet', 'arabia', 'turquia', 'india'],
     'kazajistan': ['rusia', 'iran', 'china', 'mongolia', 'siberia', 'tibet'],
     'siberia': ['rusia', 'kazajistan', 'mongolia', 'kamchakta'],
     'mongolia': ['siberia', 'kazajistan', 'iran', 'china', 'kamchakta'],

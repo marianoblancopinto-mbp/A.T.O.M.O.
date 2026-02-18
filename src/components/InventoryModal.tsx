@@ -10,6 +10,7 @@ interface InventoryModalProps {
     onClose: () => void;
     // Context-specific transient props that are not in global state
     battleTargetId?: string | null;
+    filterTargetCountry?: string | null;
 }
 
 // Visual constants
@@ -25,7 +26,8 @@ const COLORS = {
 export const InventoryModal: React.FC<InventoryModalProps> = ({
     isOpen,
     onClose,
-    battleTargetId
+    battleTargetId,
+    filterTargetCountry
 }) => {
     const { state } = useGameContext();
     const { productionDeck } = state;
@@ -263,7 +265,8 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
         const techName = requiredTechType ? TECHNOLOGY_DATA[requiredTechType].name : 'TECNOLOGÍA';
         const supplyLabel = rmData.category === 'food' ? 'Alimentos' : rmData.category === 'manufacture' ? 'Manufactura' : 'Energía';
 
-        const hasNoRoute = battleTargetId ? !checkRoute(rm.country, battleTargetId) : false;
+        const targetForRoute = battleTargetId || filterTargetCountry;
+        const hasNoRoute = targetForRoute ? !checkRoute(rm.country, targetForRoute) : false;
 
         return renderCard(
             rmData.name,

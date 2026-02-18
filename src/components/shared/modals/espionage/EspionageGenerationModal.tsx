@@ -10,6 +10,7 @@ interface EspionageGenerationModalProps {
     show: boolean;
     onClose: () => void;
     hqId: string | null;
+    playerIndex?: number;
 }
 
 // Better to import REGIONS to avoid prop drilling if we can, but it's passed in TegMap.
@@ -20,11 +21,13 @@ import { AGENCY_NAMES } from '../../../../data/constants';
 export const EspionageGenerationModal: React.FC<EspionageGenerationModalProps> = ({
     show,
     onClose,
-    hqId
+    hqId,
+    playerIndex
 }) => {
     const { state, dispatch } = useGameContext();
-    const { currentPlayerIndex, players } = state;
-    const { technologies, rawMaterials } = usePlayerResources(currentPlayerIndex);
+    const { currentPlayerIndex: stateCurrentPlayerIndex, players } = state;
+    const effectivePlayerIndex = playerIndex ?? stateCurrentPlayerIndex;
+    const { technologies, rawMaterials } = usePlayerResources(effectivePlayerIndex);
     const { checkRoute } = useSupplyRoute();
 
     const [selectedTechId, setSelectedTechId] = useState<string | null>(null);
@@ -53,8 +56,8 @@ export const EspionageGenerationModal: React.FC<EspionageGenerationModalProps> =
         if (!hqId || !selectedTechId || !selectedRawId) return;
 
         // 1. Consume Cards
-        dispatch({ type: 'MARK_CARD_AS_USED', payload: { cardId: selectedTechId, category: 'technology' } });
-        dispatch({ type: 'MARK_CARD_AS_USED', payload: { cardId: selectedRawId, category: 'rawMaterial' } });
+        dispatch({ type: 'MARK_CARD_AS_USED', payload: { cardId: selectedTechId, category: 'technology', playerIndex: effectivePlayerIndex } });
+        dispatch({ type: 'MARK_CARD_AS_USED', payload: { cardId: selectedRawId, category: 'rawMaterial', playerIndex: effectivePlayerIndex } });
 
         // 2. Create Espionage Card
         // Logic from what handleGenerateEspionage likely did.
@@ -67,7 +70,7 @@ export const EspionageGenerationModal: React.FC<EspionageGenerationModalProps> =
             createdAt: Date.now()
         } as SpecialCard;
 
-        const player = players[currentPlayerIndex];
+        const player = players[effectivePlayerIndex];
         const updatedSpecialCards = [...player.specialCards, newCard];
 
         // Also update secretWarData if applicable? 
@@ -78,7 +81,7 @@ export const EspionageGenerationModal: React.FC<EspionageGenerationModalProps> =
         dispatch({
             type: 'UPDATE_PLAYER',
             payload: {
-                index: currentPlayerIndex,
+                index: effectivePlayerIndex,
                 data: {
                     specialCards: updatedSpecialCards
                 }
@@ -193,7 +196,7 @@ export const EspionageGenerationModal: React.FC<EspionageGenerationModalProps> =
                                 </div>
                             ) : availableRaw.map(card => {
                                 const isSelected = selectedRawId === card.id;
-                                const hasRoute = checkRoute(card.country!, hqId, currentPlayerIndex);
+                                const hasRoute = checkRoute(card.country!, hqId, effectivePlayerIndex);
                                 const isSelectable = hasRoute;
 
                                 return (
