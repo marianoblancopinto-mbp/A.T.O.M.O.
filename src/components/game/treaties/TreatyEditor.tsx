@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useGameContext } from '../../../context/GameContext';
 import { useGameActions } from '../../../hooks/useGameActions';
+import { useMyPlayer } from '../../../hooks/useMyPlayer';
 import type { Treaty, TreatyClause, TreatyType } from '../../../types/treatyTypes';
 import { REGIONS } from '../../../data/mapRegions';
 import { RAW_MATERIAL_DATA, TECHNOLOGY_DATA } from '../../../data/productionData';
@@ -15,14 +16,21 @@ interface TreatyEditorProps {
 
 export const TreatyEditor: React.FC<TreatyEditorProps> = ({ onClose, initialTreaty, isNew }) => {
     const { state, dispatch } = useGameContext();
-    const { players, currentPlayerIndex } = state;
+    const { players } = state;
     const { acceptTreaty } = useGameActions();
-    const currentPlayer = players[currentPlayerIndex];
+    const { myPlayer } = useMyPlayer();
 
-    const [targetPlayerId, setTargetPlayerId] = useState<string | number>(initialTreaty?.targetPlayerId && initialTreaty.targetPlayerId !== currentPlayer.id ? initialTreaty.targetPlayerId : (initialTreaty?.creatorId && initialTreaty.creatorId !== currentPlayer.id ? initialTreaty.creatorId : ''));
+    // Fallback if useMyPlayer returns null (shouldn't happen in game)
+    const currentPlayer = myPlayer || state.players[state.currentPlayerIndex];
+
+    const [targetPlayerId, setTargetPlayerId] = useState<string | number>(
+        (initialTreaty?.targetPlayerId && initialTreaty.targetPlayerId != currentPlayer.id)
+            ? initialTreaty.targetPlayerId
+            : ((initialTreaty?.creatorId && initialTreaty.creatorId != currentPlayer.id) ? initialTreaty.creatorId : '')
+    );
     const [clauses, setClauses] = useState<TreatyClause[]>(initialTreaty?.clauses || []);
 
-    const targetPlayer = players.find(p => p.id === targetPlayerId);
+    const targetPlayer = players.find(p => p.id == targetPlayerId);
 
     // --- Selectors State ---
     // Instead of a generic modal, we can have inline selectors or a specific modal driven by activeCategory
@@ -41,11 +49,35 @@ export const TreatyEditor: React.FC<TreatyEditorProps> = ({ onClose, initialTrea
     };
 
     const getAvailableRawMaterials = (player: PlayerData) => {
-        return player.inventory?.rawMaterials || [];
+        // 1. Inventory
+        const inventoryItems = player.inventory?.rawMaterials || [];
+
+        // 2. Passive (Owned Territories)
+        // Find cards in productionDeck that correspond to territories owned by this player
+        const ownedTerritoryIds = Object.entries(state.owners)
+            .filter(([_, ownerId]) => ownerId == player.id)
+            .map(([regionId]) => regionId);
+
+        const passiveItems = state.productionDeck?.rawMaterials.filter(card =>
+            ownedTerritoryIds.includes(card.country)
+        ) || [];
+
+        // Deduplicate by ID just in case? Usually disjoint sets.
+        return [...inventoryItems, ...passiveItems];
     };
 
     const getAvailableTechs = (player: PlayerData) => {
-        return player.inventory?.technologies || [];
+        const inventoryItems = player.inventory?.technologies || [];
+
+        const ownedTerritoryIds = Object.entries(state.owners)
+            .filter(([_, ownerId]) => ownerId == player.id)
+            .map(([regionId]) => regionId);
+
+        const passiveItems = state.productionDeck?.technologies.filter(card =>
+            ownedTerritoryIds.includes(card.country)
+        ) || [];
+
+        return [...inventoryItems, ...passiveItems];
     };
 
     const handleAddClause = (type: TreatyType, direction: 'GIVE' | 'RECEIVE', data: any, duration: number = -1) => {
@@ -107,14 +139,14 @@ export const TreatyEditor: React.FC<TreatyEditorProps> = ({ onClose, initialTrea
         onClose();
     };
 
-    // To properly fix the "Accept" logic later, I'll need to use the hook. 
-    // For now, let's assume the reducer handles status updates, but the *Effect* (transfer) needs the hook.
-    // I'll leave the handleAccept as a TODO for the next step or integration, focusing purely on the UI REQUEST now.
+    const updateClause = (clauseId: string, updates: Partial<TreatyClause>) => {
+        setClauses(clauses.map(c => c.id === clauseId ? { ...c, ...updates } : c));
+    };
 
     const renderSection = (title: string, type: TreatyType, direction: 'GIVE' | 'RECEIVE', availableItems: any[], onSelect: (item: any) => void) => {
         const relevantClauses = clauses.filter(c =>
             c.type === type &&
-            (direction === 'GIVE' ? c.sourcePlayerId === currentPlayer.id : c.sourcePlayerId === targetPlayerId)
+            (direction === 'GIVE' ? c.sourcePlayerId == currentPlayer.id : c.sourcePlayerId == targetPlayerId)
         );
 
         return (
@@ -124,32 +156,68 @@ export const TreatyEditor: React.FC<TreatyEditorProps> = ({ onClose, initialTrea
                 </h4>
 
                 {/* List Existing */}
-                <div style={{ marginBottom: '10px', display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                <div style={{ marginBottom: '10px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
                     {relevantClauses.length === 0 && <span style={{ color: '#666', fontSize: '0.8rem' }}>Ninguno</span>}
                     {relevantClauses.map(c => {
                         let label = 'Unknown';
+
                         if (type === 'REGION_CESSION') {
-                            label = REGIONS.find(r => r.id === c.data.regionId)?.title || c.data.regionId || 'Unknown Region';
+                            const r = REGIONS.find(r => r.id === c.data.regionId);
+                            label = r?.title || c.data.regionId || 'Unknown Region';
                         } else if (type === 'RAW_MATERIAL_CESSION' || type === 'TECH_LOAN' || type === 'TECH_DUPLICATE') {
-                            label = c.data.cardId || 'Unknown Card'; // Ideally look up name
-                            // Try to find name in inventory even if moved? No, look up in "all possible cards" or just display ID for now
-                            // Better: store name in data or look up. 
+                            // Try to find the item in availableItems first
                             const item = availableItems.find(i => i.id === c.data.cardId);
-                            if (item) label = item.name || item.id;
+
+                            if (item) {
+                                const regionName = REGIONS.find(r => r.id === item.country)?.title || item.country;
+                                label = `${item.name || item.type} (${regionName})`;
+                            } else {
+                                // Search Global Deck and Inventories
+                                const deckRaw = state.productionDeck?.rawMaterials.find(d => d.id === c.data.cardId);
+                                const deckTech = state.productionDeck?.technologies.find(d => d.id === c.data.cardId);
+
+                                let foundItem = deckRaw || deckTech;
+                                if (!foundItem) {
+                                    for (const p of state.players) {
+                                        foundItem = p.inventory.rawMaterials.find(i => i.id === c.data.cardId) || p.inventory.technologies.find(i => i.id === c.data.cardId);
+                                        if (foundItem) break;
+                                    }
+                                }
+
+                                if (foundItem) {
+                                    const regionName = REGIONS.find(r => r.id === foundItem.country)?.title || foundItem.country;
+                                    label = `${(foundItem as any).name || (foundItem as any).type} (${regionName})`;
+                                } else {
+                                    label = c.data.cardId || 'Carta Desconocida';
+                                }
+                            }
                         } else if (type === 'NON_AGGRESSION') {
                             label = `Desde: ${(c.data.regionIds || []).map((rid: string) => REGIONS.find(r => r.id === rid)?.title).join(', ')}`;
                         }
 
                         return (
-                            <div key={c.id} style={{ backgroundColor: '#333', padding: '2px 8px', borderRadius: '4px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                {label}
-                                <button onClick={() => removeClause(c.id)} style={{ border: 'none', background: 'transparent', color: '#ff5555', cursor: 'pointer', fontWeight: 'bold' }}>x</button>
+                            <div key={c.id} style={{ backgroundColor: '#222', padding: '5px', borderRadius: '4px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #444' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ color: '#fff' }}>{label}</span>
+                                    {/* Duration Selector */}
+                                    <select
+                                        value={c.duration}
+                                        onChange={(e) => updateClause(c.id, { duration: parseInt(e.target.value) })}
+                                        style={{ backgroundColor: '#000', color: '#00ffff', border: '1px solid #444', fontSize: '0.7rem', padding: '2px' }}
+                                    >
+                                        <option value={1}>1 Año</option>
+                                        <option value={2}>2 Años</option>
+                                        <option value={3}>3 Años</option>
+                                        <option value={4}>4 Años</option>
+                                        <option value={5}>5 Años</option>
+                                    </select>
+                                </div>
+                                <button onClick={() => removeClause(c.id)} style={{ border: 'none', background: 'transparent', color: '#ff5555', cursor: 'pointer', fontWeight: 'bold', marginLeft: '10px' }}>x</button>
                             </div>
                         );
                     })}
                 </div>
 
-                {/* Add Button / Selector */}
                 {/* Add Button / Selector */}
                 {activeSelector?.type === type && activeSelector?.direction === direction ? (
                     <div style={{ backgroundColor: '#222', padding: '5px', borderRadius: '4px' }}>
@@ -214,9 +282,12 @@ export const TreatyEditor: React.FC<TreatyEditorProps> = ({ onClose, initialTrea
                                                         );
                                                     })}
                                             </select>
-                                            {availableItems.filter((c: any) => c.type === activeSelector.subType).length === 0 && (
-                                                <div style={{ color: '#ff5555', fontSize: '0.7rem' }}>No posees cartas de este tipo.</div>
-                                            )}
+                                            {(() => {
+                                                const filteredItems = availableItems.filter((c: any) => c.type === activeSelector.subType);
+                                                return filteredItems.length === 0 && (
+                                                    <div style={{ color: '#ff5555', fontSize: '0.7rem' }}>No posees cartas de este tipo.</div>
+                                                );
+                                            })()}
                                             <button onClick={() => setActiveSelector({ ...activeSelector, subType: undefined })} style={{ fontSize: '0.7rem', background: 'transparent', border: 'none', color: '#00ffff', cursor: 'pointer', textAlign: 'left' }}>
                                                 &lt; Volver a tipos
                                             </button>
@@ -276,7 +347,7 @@ export const TreatyEditor: React.FC<TreatyEditorProps> = ({ onClose, initialTrea
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '20px' }}>
                     <h3>SELECCIONE CONTRAPARTE</h3>
                     <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                        {players.filter(p => p.id !== currentPlayer.id).map(p => (
+                        {players.filter(p => p.id != currentPlayer.id).map(p => (
                             <button key={p.id} onClick={() => setTargetPlayerId(p.id)} style={{ padding: '20px', minWidth: '150px', backgroundColor: p.color, border: 'none', fontSize: '1.2rem', fontWeight: 'bold', cursor: 'pointer' }}>
                                 {p.name}
                             </button>
@@ -326,13 +397,22 @@ export const TreatyEditor: React.FC<TreatyEditorProps> = ({ onClose, initialTrea
             {/* Footer */}
             {targetPlayerId && (
                 <div style={{ padding: '20px', borderTop: '1px solid #333', display: 'flex', justifyContent: 'center', gap: '20px' }}>
+                    {initialTreaty?.status === 'PENDING_APPROVAL' && (
+                        <button onClick={() => {
+                            dispatch({ type: 'UPDATE_TREATY', payload: { ...initialTreaty, status: 'REJECTED', history: [...initialTreaty.history, { date: new Date(), action: 'REJECTED', actorId: currentPlayer.id }] } });
+                            onClose();
+                        }} style={{ padding: '10px 30px', backgroundColor: '#ff0000', border: 'none', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', color: '#fff' }}>
+                            RECHAZAR OFERTA
+                        </button>
+                    )}
+
                     {(!initialTreaty || initialTreaty.status === 'DRAFT' || initialTreaty.status === 'PENDING_APPROVAL') && (
                         <button onClick={handleSendOffer} style={{ padding: '10px 30px', backgroundColor: '#00ffff', border: 'none', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer' }}>
                             {initialTreaty?.status === 'PENDING_APPROVAL' ? 'ENVIAR CONTRAOFERTA' : 'ENVIAR OFERTA'}
                         </button>
                     )}
 
-                    {initialTreaty?.status === 'PENDING_APPROVAL' && initialTreaty.targetPlayerId === currentPlayer.id && (
+                    {initialTreaty?.status === 'PENDING_APPROVAL' && initialTreaty.targetPlayerId == currentPlayer.id && (
                         <button onClick={handleAccept} style={{ padding: '10px 30px', backgroundColor: '#00ff00', border: 'none', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer' }}>
                             ACEPTAR TRATADO
                         </button>

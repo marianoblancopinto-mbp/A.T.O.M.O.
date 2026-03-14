@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useGameContext } from '../../../../context/GameContext';
+import { MissionModalBase } from '../MissionModalBase';
 import { useSupplyRoute } from '../../../../hooks/useSupplyRoute';
 import type { SpecialCard } from '../../../../types/playerTypes';
 
@@ -78,37 +79,8 @@ export const PacificFireMissionModal: React.FC<PacificFireMissionModalProps> = (
     if (!show) return null;
 
     return (
-        <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.92)',
-            display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 8200,
-            backdropFilter: 'blur(5px)',
-            fontFamily: 'monospace'
-        }}>
-            <div style={{
-                width: '900px',
-                backgroundColor: '#001a33',
-                border: '2px solid #00ffff',
-                boxShadow: '0 0 50px rgba(0, 255, 255, 0.2)',
-                color: '#ccf2ff',
-                display: 'flex', flexDirection: 'column'
-            }}>
-                {/* Header - Tactical Air Force Style */}
-                <div style={{
-                    padding: '20px',
-                    borderBottom: '1px solid #00ffff',
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    backgroundColor: 'rgba(0, 255, 255, 0.05)'
-                }}>
-                    <h2 style={{ margin: 0, fontSize: '1.8em', textTransform: 'uppercase', letterSpacing: '2px', color: '#00ffff' }}>
-                        FUEGO DEL PACÍFICO
-                    </h2>
-                    <div style={{ fontSize: '0.9em', color: '#00ffff', fontWeight: 'bold' }}>
-                        SUPERIORIDAD TÁCTICA AÉREA
-                    </div>
-                </div>
-
-                <div style={{ padding: '30px', display: 'flex', gap: '30px' }}>
+        <MissionModalBase title="FUEGO DEL PACÍFICO" type="activation" onClose={onClose} width="900px">
+            <div style={{ padding: '30px', display: 'flex', gap: '30px' }}>
                     {/* Requirements Panel */}
                     <div style={{ flex: 1 }}>
                         <div style={{ marginBottom: '20px', fontSize: '1.2em', fontWeight: 'bold', color: '#00ffff', letterSpacing: '1px' }}>
@@ -266,7 +238,6 @@ export const PacificFireMissionModal: React.FC<PacificFireMissionModalProps> = (
                         DESPLEGAR FLOTA
                     </button>
                 </div>
-            </div>
-        </div>
+                    </MissionModalBase>
     );
 };

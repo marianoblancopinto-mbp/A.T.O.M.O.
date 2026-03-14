@@ -35,6 +35,7 @@ export const useGameActions = (): GameActions & {
     initiateNuclearDeployment: (fuelCardId: string, siloRegionId: string, playerIndex?: number) => void;
     generateNuclearDesign: (locationId: string, resources: { techId: string, rawId: string }, playerIndex?: number) => void;
     acceptTreaty: (treaty: Treaty) => void;
+    processTreatyStatus: () => void;
 } => {
     const { state, dispatch } = useGameContext();
     const { owners, players, currentPlayerIndex } = state;
@@ -546,112 +547,25 @@ export const useGameActions = (): GameActions & {
     };
 
     const acceptTreaty = (treaty: Treaty) => {
-        // 1. Update Treaty Status
+        // 1. Determine Start Date (Next Turn/Year?)
+        // User said "Turno que viene". If duration is Years, likely starts Next Year.
+        // Or literally next player turn?
+        // Let's assume Next Year for simplicity and consistency with Duration.
+        const startYear = state.gameDate.getFullYear() + 1;
+
+        // 2. Update Treaty Status
         const activeTreaty: Treaty = {
             ...treaty,
-            status: 'ACTIVE',
+            status: 'PENDING_START',
+            createdAtYear: startYear,
             history: [...treaty.history, { date: new Date(), action: 'ACCEPTED', actorId: players[currentPlayerIndex]?.id }]
         };
         dispatch({ type: 'UPDATE_TREATY', payload: activeTreaty });
 
-        // 2. Execute Immediate Clauses
-        treaty.clauses.forEach(clause => {
-            if (clause.type === 'REGION_CESSION') {
-                if (clause.data.regionId) {
-                    dispatch({
-                        type: 'UPDATE_OWNER',
-                        payload: {
-                            regionId: clause.data.regionId,
-                            ownerIndex: players.findIndex(p => p.id === clause.targetPlayerId)
-                        }
-                    });
-                }
-            } else if (clause.type === 'RAW_MATERIAL_CESSION' || clause.type === 'TECH_LOAN') {
-                // Transfer Card
-                if (clause.data.cardId) {
-                    dispatch({
-                        type: 'UPDATE_PLAYERS_FN',
-                        payload: (currentPlayers) => {
-                            const sourcePlayer = currentPlayers.find(p => p.id === clause.sourcePlayerId);
-                            const targetPlayerIndex = currentPlayers.findIndex(p => p.id === clause.targetPlayerId);
-
-                            if (!sourcePlayer || targetPlayerIndex === -1) return currentPlayers;
-
-                            // Find card in inventory or specialCards
-                            // Assumption: These are inventory cards (raw materials) or tech cards.
-                            // Need to support both.
-
-                            // Naive implementation: Check inventory.rawMaterials and inventory.technologies
-                            // This might need refinement based on exact data structure of 'cardId' and where it lives.
-                            // For now, let's assume rawMaterials move.
-
-                            let cardToTransfer: any = null;
-                            let newSourceInventory = { ...sourcePlayer.inventory };
-
-                            if (clause.type === 'RAW_MATERIAL_CESSION') {
-                                cardToTransfer = sourcePlayer.inventory.rawMaterials.find(c => c.id === clause.data.cardId);
-                                if (cardToTransfer) {
-                                    newSourceInventory.rawMaterials = sourcePlayer.inventory.rawMaterials.filter(c => c.id !== clause.data.cardId);
-                                }
-                            } else {
-                                // TECH_LOAN
-                                cardToTransfer = sourcePlayer.inventory.technologies.find(c => c.id === clause.data.cardId);
-                                if (cardToTransfer) {
-                                    newSourceInventory.technologies = sourcePlayer.inventory.technologies.filter(c => c.id !== clause.data.cardId);
-                                }
-                            }
-
-                            if (!cardToTransfer) return currentPlayers;
-
-                            return currentPlayers.map((p, idx) => {
-                                if (p.id === clause.sourcePlayerId) {
-                                    return { ...p, inventory: newSourceInventory };
-                                }
-                                if (idx === targetPlayerIndex) {
-                                    const newTargetInventory = { ...p.inventory };
-                                    if (clause.type === 'RAW_MATERIAL_CESSION') {
-                                        newTargetInventory.rawMaterials = [...p.inventory.rawMaterials, cardToTransfer];
-                                    } else {
-                                        newTargetInventory.technologies = [...p.inventory.technologies, cardToTransfer];
-                                    }
-                                    return { ...p, inventory: newTargetInventory };
-                                }
-                                return p;
-                            });
-                        }
-                    });
-                }
-            } else if (clause.type === 'TECH_DUPLICATE') {
-                if (clause.data.cardId) { // Origin card ID
-                    dispatch({
-                        type: 'UPDATE_PLAYERS_FN',
-                        payload: (currentPlayers) => {
-                            const sourcePlayer = currentPlayers.find(p => p.id === clause.sourcePlayerId);
-                            if (!sourcePlayer) return currentPlayers;
-
-                            const originalCard = sourcePlayer.inventory.technologies.find(c => c.id === clause.data.cardId);
-                            if (!originalCard) return currentPlayers;
-
-                            // Clone it
-                            const newCard = { ...originalCard, id: `dup-${Date.now()}-${originalCard.id}` };
-
-                            return currentPlayers.map(p => {
-                                if (p.id === clause.targetPlayerId) {
-                                    return {
-                                        ...p,
-                                        inventory: {
-                                            ...p.inventory,
-                                            technologies: [...p.inventory.technologies, newCard]
-                                        }
-                                    };
-                                }
-                                return p;
-                            });
-                        }
-                    });
-                }
-            }
-        });
+        // NOTE: We do NOT execute clauses here anymore. 
+        // They will be executed when the Game Year matches `startYear`.
+        // We need to ensure `advanceGameDate` (or similar) checks for this.
+        console.log(`[AcceptTreaty] Treaty ${treaty.id} accepted. Starts in ${startYear}. Clauses queued.`);
     };
 
     const generateNuclearDesign = (locationId: string, resources: { techId: string, rawId: string }, playerIndex?: number) => {
@@ -698,6 +612,218 @@ export const useGameActions = (): GameActions & {
         });
     };
 
+    const processTreatyStatus = () => {
+        const currentYear = state.gameDate.getFullYear();
+
+        state.treaties.forEach(treaty => {
+            // 1. Activation Check
+            if (treaty.status === 'PENDING_START' && currentYear >= treaty.createdAtYear) {
+                // Activate!
+                dispatch({
+                    type: 'UPDATE_TREATY',
+                    payload: { ...treaty, status: 'ACTIVE', history: [...treaty.history, { date: new Date(), action: 'ACTIVATED', actorId: 'SYSTEM' }] }
+                });
+
+                // Execute Clauses
+                treaty.clauses.forEach(clause => {
+                    if (clause.type === 'REGION_CESSION') {
+                        if (clause.data.regionId) {
+                            dispatch({
+                                type: 'UPDATE_OWNER',
+                                payload: {
+                                    regionId: clause.data.regionId,
+                                    ownerIndex: players.findIndex(p => p.id === clause.targetPlayerId)
+                                }
+                            });
+                        }
+                    } else if (clause.type === 'RAW_MATERIAL_CESSION' || clause.type === 'TECH_LOAN') {
+                        // Transfer Logic (Copy-Pasted and adapted from previous acceptTreaty)
+                        if (clause.data.cardId) {
+                            const sourcePlayer = state.players.find(p => p.id === clause.sourcePlayerId);
+                            let cardInInventory = sourcePlayer?.inventory.rawMaterials.find(c => c.id == clause.data.cardId);
+                            if (!cardInInventory) {
+                                cardInInventory = sourcePlayer?.inventory.technologies.find(c => c.id == clause.data.cardId);
+                            }
+
+                            if (cardInInventory) {
+                                dispatch({
+                                    type: 'UPDATE_PLAYERS_FN',
+                                    payload: (currentPlayers) => {
+                                        const spIndex = currentPlayers.findIndex(p => p.id === clause.sourcePlayerId);
+                                        const tpIndex = currentPlayers.findIndex(p => p.id === clause.targetPlayerId);
+                                        if (spIndex === -1 || tpIndex === -1) return currentPlayers;
+
+                                        return currentPlayers.map((p, idx) => {
+                                            if (idx === spIndex) {
+                                                const newInv = { ...p.inventory };
+                                                if (clause.type === 'RAW_MATERIAL_CESSION') {
+                                                    newInv.rawMaterials = p.inventory.rawMaterials.filter(c => c.id != clause.data.cardId);
+                                                } else {
+                                                    newInv.technologies = p.inventory.technologies.filter(c => c.id != clause.data.cardId);
+                                                }
+                                                return { ...p, inventory: newInv };
+                                            }
+                                            if (idx === tpIndex) {
+                                                const newInv = { ...p.inventory };
+                                                if (clause.type === 'RAW_MATERIAL_CESSION') {
+                                                    newInv.rawMaterials = [...p.inventory.rawMaterials, cardInInventory!];
+                                                } else {
+                                                    newInv.technologies = [...p.inventory.technologies, cardInInventory!];
+                                                }
+                                                return { ...p, inventory: newInv };
+                                            }
+                                            return p;
+                                        });
+                                    }
+                                });
+                            } else {
+                                // Passive/Deck Check
+                                const cardInDeckRaw = state.productionDeck?.rawMaterials.find(c => c.id == clause.data.cardId);
+                                const cardInDeckTech = state.productionDeck?.technologies.find(c => c.id == clause.data.cardId);
+                                const cardInDeck = cardInDeckRaw || cardInDeckTech;
+
+                                if (cardInDeck) {
+                                    dispatch({
+                                        type: 'UPDATE_PRODUCTION_DECK_FN',
+                                        payload: (deck) => {
+                                            if (!deck) return null;
+                                            return {
+                                                ...deck,
+                                                rawMaterials: deck.rawMaterials.filter(c => c.id != clause.data.cardId),
+                                                technologies: deck.technologies.filter(c => c.id != clause.data.cardId)
+                                            };
+                                        }
+                                    });
+                                    dispatch({
+                                        type: 'UPDATE_PLAYERS_FN',
+                                        payload: (currentPlayers) => {
+                                            const tpIndex = currentPlayers.findIndex(p => p.id === clause.targetPlayerId);
+                                            if (tpIndex === -1) return currentPlayers;
+                                            return currentPlayers.map((p, idx) => {
+                                                if (idx === tpIndex) {
+                                                    const newInv = { ...p.inventory };
+                                                    if (clause.type === 'RAW_MATERIAL_CESSION') {
+                                                        newInv.rawMaterials = [...p.inventory.rawMaterials, cardInDeck];
+                                                    } else {
+                                                        newInv.technologies = [...p.inventory.technologies, cardInDeck];
+                                                    }
+                                                    return { ...p, inventory: newInv };
+                                                }
+                                                return p;
+                                            });
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    } else if (clause.type === 'TECH_DUPLICATE') {
+                        if (clause.data.cardId) {
+                            dispatch({
+                                type: 'UPDATE_PLAYERS_FN',
+                                payload: (currentPlayers) => {
+                                    const sourcePlayer = currentPlayers.find(p => p.id === clause.sourcePlayerId);
+                                    if (!sourcePlayer) return currentPlayers;
+                                    let originalCard = sourcePlayer.inventory.technologies.find(c => c.id == clause.data.cardId);
+                                    if (!originalCard) {
+                                        originalCard = state.productionDeck?.technologies.find(c => c.id == clause.data.cardId);
+                                    }
+                                    if (!originalCard) return currentPlayers;
+
+                                    const newCard = { ...originalCard, id: `dup-${Date.now()}-${originalCard.id}` };
+                                    return currentPlayers.map(p => {
+                                        if (p.id === clause.targetPlayerId) {
+                                            return {
+                                                ...p,
+                                                inventory: { ...p.inventory, technologies: [...p.inventory.technologies, newCard] }
+                                            };
+                                        }
+                                        return p;
+                                    });
+                                }
+                            });
+                        }
+                    }
+                });
+            }
+
+            // 2. Expiration Check
+            if (treaty.status === 'ACTIVE') {
+                // Calculate Active Years based on currentYear and createdAtYear
+                const yearsActive = currentYear - treaty.createdAtYear;
+
+                treaty.clauses.forEach(clause => {
+                    // Check if expiration year is reached
+                    if (clause.duration !== -1 && yearsActive >= clause.duration) {
+
+                        // Executing Expiration Logic (Only once)
+                        if (yearsActive === clause.duration) {
+                            console.log(`[Treaty] Expiring Clause ${clause.id} (Duration ${clause.duration}). Reverting items.`);
+
+                            if (clause.type === 'RAW_MATERIAL_CESSION' || clause.type === 'TECH_LOAN') {
+                                // Revert Transfer
+                                dispatch({
+                                    type: 'UPDATE_PLAYERS_FN',
+                                    payload: (currentPlayers) => {
+                                        const tpIndex = currentPlayers.findIndex(p => p.id === clause.targetPlayerId);
+                                        const spIndex = currentPlayers.findIndex(p => p.id === clause.sourcePlayerId);
+                                        if (tpIndex === -1) return currentPlayers;
+
+                                        // 1. Find Card in Target
+                                        const targetPlayer = currentPlayers[tpIndex];
+                                        const tech = targetPlayer.inventory.technologies.find(c => c.id == clause.data.cardId);
+                                        const raw = targetPlayer.inventory.rawMaterials.find(c => c.id == clause.data.cardId);
+                                        const cardToReturn = tech || raw;
+
+                                        if (!cardToReturn) {
+                                            console.warn(`[Treaty] Card ${clause.data.cardId} not found in Target ${clause.targetPlayerId} inventory during reversion.`);
+                                            return currentPlayers;
+                                        }
+
+                                        // 2. Remove from Target & Add to Source (if Source exists)
+                                        return currentPlayers.map((p, idx) => {
+                                            if (idx === tpIndex) {
+                                                const newInv = { ...p.inventory };
+                                                newInv.rawMaterials = p.inventory.rawMaterials.filter(c => c.id != clause.data.cardId);
+                                                newInv.technologies = p.inventory.technologies.filter(c => c.id != clause.data.cardId);
+                                                return { ...p, inventory: newInv };
+                                            }
+                                            if (idx === spIndex) {
+                                                const newInv = { ...p.inventory };
+                                                if (clause.type === 'RAW_MATERIAL_CESSION') {
+                                                    newInv.rawMaterials = [...p.inventory.rawMaterials, cardToReturn];
+                                                } else {
+                                                    newInv.technologies = [...p.inventory.technologies, cardToReturn];
+                                                }
+                                                return { ...p, inventory: newInv };
+                                            }
+                                            return p;
+                                        });
+                                    }
+                                });
+                            } else if (clause.type === 'REGION_CESSION') {
+                                if (clause.data.regionId) {
+                                    dispatch({
+                                        type: 'UPDATE_OWNER',
+                                        payload: {
+                                            regionId: clause.data.regionId,
+                                            ownerIndex: players.findIndex(p => p.id === clause.sourcePlayerId)
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // Check global treaty expiration
+                const maxDuration = Math.max(...treaty.clauses.map(c => c.duration));
+                if (maxDuration !== -1 && yearsActive >= maxDuration) {
+                    dispatch({ type: 'UPDATE_TREATY', payload: { ...treaty, status: 'EXPIRED' } });
+                }
+            }
+        });
+    };
+
     const actions = useMemo(() => ({
         markCardAsUsed: (cardId: string, category: 'technology' | 'rawMaterial') => {
             dispatch({ type: 'MARK_CARD_AS_USED', payload: { cardId, category } });
@@ -719,7 +845,8 @@ export const useGameActions = (): GameActions & {
         constructSilo,
         initiateNuclearDeployment,
         generateNuclearDesign,
-        acceptTreaty
+        acceptTreaty,
+        processTreatyStatus // Exported
     }), [dispatch, owners, players, currentPlayerIndex]);
 
     return actions;

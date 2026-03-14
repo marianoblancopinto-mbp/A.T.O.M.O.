@@ -18,12 +18,12 @@ export const TreatiesPanel: React.FC<TreatiesPanelProps> = ({ onClose }) => {
 
     // Filter treaties involved with current player
     const myTreaties = treaties.filter(t =>
-        (t.creatorId === currentPlayer.id || t.targetPlayerId === currentPlayer.id) &&
-        t.status === 'ACTIVE'
+        (t.creatorId == currentPlayer.id || t.targetPlayerId == currentPlayer.id) &&
+        (t.status === 'ACTIVE' || t.status === 'PENDING_START')
     );
 
     const pendingTreaties = treaties.filter(t =>
-        (t.creatorId === currentPlayer.id || t.targetPlayerId === currentPlayer.id) &&
+        (t.creatorId == currentPlayer.id || t.targetPlayerId == currentPlayer.id) &&
         (t.status === 'PENDING_APPROVAL' || t.status === 'DRAFT')
     );
 
@@ -68,7 +68,7 @@ export const TreatiesPanel: React.FC<TreatiesPanelProps> = ({ onClose }) => {
             fontFamily: 'monospace'
         }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #ff00ff', paddingBottom: '10px' }}>
-                <h2 style={{ margin: 0, textTransform: 'uppercase', color: '#ff00ff', textShadow: '0 0 5px #ff00ff' }}>Tratados Internacionales</h2>
+                <h2 style={{ margin: 0, textTransform: 'uppercase', color: '#ff00ff', textShadow: '0 0 5px #ff00ff', whiteSpace: 'nowrap' }}>TRATADOS INTERNACIONALES</h2>
                 <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#ff00ff', fontSize: '1.5rem', cursor: 'pointer' }}>X</button>
             </div>
 
@@ -81,11 +81,38 @@ export const TreatiesPanel: React.FC<TreatiesPanelProps> = ({ onClose }) => {
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         {myTreaties.map(t => {
-                            const partnerId = t.creatorId === currentPlayer.id ? t.targetPlayerId : t.creatorId;
-                            const partner = players.find(p => p.id === partnerId);
+                            const partnerId = t.creatorId == currentPlayer.id ? t.targetPlayerId : t.creatorId;
+                            const partner = players.find(p => p.id == partnerId);
+
+                            const maxDuration = Math.max(...t.clauses.map(c => c.duration));
+
+                            let statusText = '';
+                            if (t.status === 'PENDING_START') {
+                                statusText = `(Inicia en ${t.createdAtYear})`;
+                                if (maxDuration !== -1) {
+                                    const expirationYear = t.createdAtYear + maxDuration - 1;
+                                    statusText += ` - (Hasta ${expirationYear})`;
+                                } else {
+                                    statusText += ` - (Permanente)`;
+                                }
+                            } else if (t.status === 'ACTIVE') {
+                                if (maxDuration === -1) {
+                                    statusText = '(Permanente)';
+                                } else {
+                                    // Calculate expiration year based on start year and duration
+                                    // Treaties are valid for 'duration' years starting from 'createdAtYear'
+                                    // Example: Start 2026, Duration 1 => Valid 2026. Expires end of 2026.
+                                    const expirationYear = t.createdAtYear + maxDuration - 1;
+                                    statusText = `(Vence: ${expirationYear})`;
+                                }
+                            }
+
                             return (
                                 <div key={t.id} style={{ border: '1px solid #00ff00', padding: '10px', backgroundColor: 'rgba(0, 255, 0, 0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span>CON: {partner?.name || 'Desconocido'}</span>
+                                    <div>
+                                        <span>CON: {partner?.name || 'Desconocido'}</span>
+                                        <span style={{ marginLeft: '10px', fontSize: '0.8rem', color: '#88ff88' }}>{statusText}</span>
+                                    </div>
                                     <button onClick={() => handleViewTreaty(t)} style={{ padding: '5px 10px', backgroundColor: '#003300', border: '1px solid #00ff00', color: '#00ff00', cursor: 'pointer' }}>VER DETALLES</button>
                                 </div>
                             );
@@ -100,9 +127,9 @@ export const TreatiesPanel: React.FC<TreatiesPanelProps> = ({ onClose }) => {
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         {pendingTreaties.map(t => {
-                            const partnerId = t.creatorId === currentPlayer.id ? t.targetPlayerId : t.creatorId;
-                            const partner = players.find(p => p.id === partnerId);
-                            const isMyTurnToAct = (t.status === 'PENDING_APPROVAL' && t.targetPlayerId === currentPlayer.id) || (t.status === 'DRAFT' && t.creatorId === currentPlayer.id); // Validar lógica de Draft
+                            const partnerId = t.creatorId == currentPlayer.id ? t.targetPlayerId : t.creatorId;
+                            const partner = players.find(p => p.id == partnerId);
+                            const isMyTurnToAct = (t.status === 'PENDING_APPROVAL' && t.targetPlayerId == currentPlayer.id) || (t.status === 'DRAFT' && t.creatorId == currentPlayer.id); // Validar lógica de Draft
 
                             return (
                                 <div key={t.id} style={{ border: '1px solid #ffff00', padding: '10px', backgroundColor: 'rgba(255, 255, 0, 0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -110,7 +137,7 @@ export const TreatiesPanel: React.FC<TreatiesPanelProps> = ({ onClose }) => {
                                         <span>CON: {partner?.name || 'Desconocido'}</span>
                                         <span style={{ marginLeft: '10px', fontSize: '0.8rem', color: '#ffff00' }}>
                                             {t.status === 'PENDING_APPROVAL'
-                                                ? (t.targetPlayerId === currentPlayer.id ? '(Esperando tu respuesta)' : '(Esperando respuesta)')
+                                                ? (t.targetPlayerId == currentPlayer.id ? '(Esperando tu respuesta)' : '(Esperando respuesta)')
                                                 : '(Borrador)'}
                                         </span>
                                     </div>
@@ -137,7 +164,8 @@ export const TreatiesPanel: React.FC<TreatiesPanelProps> = ({ onClose }) => {
                         border: '2px solid #ff00ff',
                         cursor: 'pointer',
                         textTransform: 'uppercase',
-                        boxShadow: '0 0 15px rgba(255, 0, 255, 0.4)'
+                        boxShadow: '0 0 15px rgba(255, 0, 255, 0.4)',
+                        whiteSpace: 'nowrap'
                     }}
                 >
                     NUEVO TRATADO

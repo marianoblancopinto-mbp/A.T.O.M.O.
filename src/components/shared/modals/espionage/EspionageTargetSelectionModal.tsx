@@ -44,7 +44,8 @@ export const EspionageTargetSelectionModal: React.FC<EspionageTargetSelectionMod
         }}>
             <div style={{
                 backgroundColor: '#001a1a', border: '2px solid #00ffff',
-                padding: '30px', width: '500px',
+                padding: '30px', width: '500px', maxWidth: '95vw',
+                maxHeight: '90vh', overflowY: 'auto', overflowX: 'auto',
                 boxShadow: '0 0 30px rgba(0, 255, 255, 0.3)'
             }}>
                 <h2 style={{ color: '#00ffff', textAlign: 'center', marginBottom: '25px' }}>OPERACIÓN DE ESPIONAJE</h2>

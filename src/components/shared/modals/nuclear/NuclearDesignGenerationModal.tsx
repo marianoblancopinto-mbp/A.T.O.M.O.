@@ -87,6 +87,7 @@ export const NuclearDesignGenerationModal: React.FC<NuclearDesignGenerationModal
                 border: '3px solid #ff9100',
                 padding: '30px',
                 width: '800px',
+                maxWidth: '95vw',
                 maxHeight: '90vh',
                 overflowY: 'auto',
                 boxShadow: '0 0 50px rgba(255, 145, 0, 0.4)',

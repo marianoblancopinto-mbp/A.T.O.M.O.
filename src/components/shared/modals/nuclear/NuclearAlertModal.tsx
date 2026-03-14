@@ -60,7 +60,7 @@ export const NuclearAlertModal: React.FC = () => {
         }}>
             <div style={{
                 backgroundColor: '#1a0000', border: '5px solid #ff0000',
-                padding: '40px', width: '90%', maxWidth: '700px', textAlign: 'center',
+                padding: '40px', width: '90%', maxWidth: '95vw', maxHeight: '90vh', overflowY: 'auto', overflowX: 'auto', textAlign: 'center',
                 boxShadow: '0 0 100px rgba(255, 0, 0, 0.8)',
                 animation: 'pulse 1.5s infinite'
             }}>

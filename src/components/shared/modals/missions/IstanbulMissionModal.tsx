@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useGameContext } from '../../../../context/GameContext';
+import { MissionModalBase } from '../MissionModalBase';
 import { useSupplyRoute } from '../../../../hooks/useSupplyRoute';
 import { usePlayerResources } from '../../../../hooks/usePlayerResources';
 import type { SpecialCard } from '../../../../types/playerTypes';
@@ -81,37 +82,11 @@ export const IstanbulMissionModal: React.FC<IstanbulMissionModalProps> = ({
     };
 
     return (
-        <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.85)',
-            display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 5000,
-            backdropFilter: 'blur(5px)'
-        }}>
-            <div style={{
-                width: '800px',
-                backgroundColor: '#1a0d00',
-                border: '2px solid #ff8800',
-                boxShadow: '0 0 50px rgba(255, 136, 0, 0.3)',
-                color: '#ffeebb',
-                fontFamily: 'monospace',
-                display: 'flex', flexDirection: 'column'
-            }}>
-                {/* Header */}
-                <div style={{
-                    padding: '20px',
-                    borderBottom: '1px solid #ff8800',
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    backgroundColor: 'rgba(255, 136, 0, 0.1)'
-                }}>
-                    <h2 style={{ margin: 0, fontSize: '1.8em', textTransform: 'uppercase', letterSpacing: '2px' }}>
-                        REFUNDACIÓN DE ESTAMBUL
-                    </h2>
-                    <div style={{ fontSize: '0.9em', color: '#ff8800' }}>
-                        MEGAPROYECTO URBANO
-                    </div>
-                </div>
-
-                <div style={{ padding: '30px', display: 'flex', gap: '30px' }}>
+        <MissionModalBase title="REFUNDACIÓN DE ESTAMBUL" type="activation" onClose={onClose} width="800px">
+            <div style={{ textAlign: 'center', color: '#ff8800', fontSize: '0.9em', marginBottom: '20px' }}>
+                MEGAPROYECTO URBANO
+            </div>
+            <div style={{ padding: '30px', display: 'flex', gap: '30px' }}>
                     {/* Requirements Panel */}
                     <div style={{ flex: 1 }}>
                         <div style={{ marginBottom: '20px', fontSize: '1.2em', fontWeight: 'bold', color: '#ff8800', letterSpacing: '1px' }}>
@@ -260,7 +235,6 @@ export const IstanbulMissionModal: React.FC<IstanbulMissionModalProps> = ({
                         REFUNDAR CIUDAD
                     </button>
                 </div>
-            </div>
-        </div>
+                    </MissionModalBase>
     );
 };

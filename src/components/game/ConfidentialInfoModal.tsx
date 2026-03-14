@@ -171,6 +171,10 @@ export const ConfidentialInfoModal: React.FC<ConfidentialInfoModalProps> = ({
     const { players, currentPlayerIndex, owners } = state;
     const { checkRoute } = useSupplyRoute();
 
+    // const isMyTurn = (multiplayer.connectionStatus === 'PLAYING' && multiplayer.playerId)
+    //    ? players[currentPlayerIndex]?.id === multiplayer.playerId
+    //    : true;
+
     // Modal State
     const [fuelModal, setFuelModal] = useState<{ show: boolean, regionId: string | null }>({ show: false, regionId: null });
     const [activeSecondary, setActiveSecondary] = useState<string | null>(null);
@@ -349,7 +353,7 @@ export const ConfidentialInfoModal: React.FC<ConfidentialInfoModalProps> = ({
                                 onAction={() => onOpenSiloConstruction?.(targetPlayerIndex)}
                                 actionLabel="CONSTRUIR SILO"
                                 requirementsMet={true}
-                                statusLabel="Disponible"
+                                statusLabel={"Disponible"}
                                 color={targetPlayer.color}
                             >
                                 {targetPlayer.silos.length > 0 && (
@@ -389,15 +393,16 @@ export const ConfidentialInfoModal: React.FC<ConfidentialInfoModalProps> = ({
                                                                 </span>
                                                             )}
                                                             <button
+                                                                disabled={!hasFuel}
                                                                 onClick={(e) => { e.stopPropagation(); setFuelModal({ show: true, regionId }); }}
                                                                 style={{
-                                                                    backgroundColor: hasFuel ? targetPlayer.color : `${targetPlayer.color}40`,
+                                                                    backgroundColor: (hasFuel) ? targetPlayer.color : `${targetPlayer.color}40`,
                                                                     color: '#000',
                                                                     border: 'none',
                                                                     padding: '4px 8px',
                                                                     fontSize: '0.7rem',
                                                                     fontWeight: 'bold',
-                                                                    cursor: 'pointer',
+                                                                    cursor: (hasFuel) ? 'pointer' : 'not-allowed',
                                                                     borderRadius: '2px',
                                                                     transition: 'all 0.2s'
                                                                 }}
@@ -548,13 +553,13 @@ export const ConfidentialInfoModal: React.FC<ConfidentialInfoModalProps> = ({
                                                                             setActiveSecondary(mission.id);
                                                                         }}
                                                                         style={{
-                                                                            backgroundColor: canBuild ? targetPlayer.color : '#222',
-                                                                            color: canBuild ? '#000' : `${targetPlayer.color}40`,
+                                                                            backgroundColor: (canBuild) ? targetPlayer.color : '#222',
+                                                                            color: (canBuild) ? '#000' : `${targetPlayer.color}40`,
                                                                             border: 'none',
                                                                             padding: '4px 10px',
                                                                             fontSize: '0.7rem',
                                                                             fontWeight: 'bold',
-                                                                            cursor: canBuild ? 'pointer' : 'not-allowed',
+                                                                            cursor: (canBuild) ? 'pointer' : 'not-allowed',
                                                                             borderRadius: '2px',
                                                                             textTransform: 'uppercase'
                                                                         }}
@@ -581,7 +586,7 @@ export const ConfidentialInfoModal: React.FC<ConfidentialInfoModalProps> = ({
                                                 onAction={() => setEspionageActivationModal(true)}
                                                 actionLabel="INICIAR OPERACIÓN"
                                                 requirementsMet={true}
-                                                statusLabel="Agencia"
+                                                statusLabel={"Agencia"}
                                                 color={targetPlayer.color}
                                             >
                                                 {espionageCards.length > 0 && (
@@ -597,12 +602,15 @@ export const ConfidentialInfoModal: React.FC<ConfidentialInfoModalProps> = ({
                                                                     <span style={{ color: targetPlayer.color, fontSize: '0.7rem' }}>OPERATIVA</span>
                                                                 </div>
                                                                 <button
+                                                                    // disabled={!isMyTurn} // User requested ability to execute anytime
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         setEspionageTargetModal({ show: true, cardId: card.id });
                                                                     }}
                                                                     style={{
-                                                                        backgroundColor: targetPlayer.color, color: '#000', border: 'none',
+                                                                        backgroundColor: targetPlayer.color,
+                                                                        color: '#000',
+                                                                        border: 'none',
                                                                         padding: '4px 10px', fontSize: '0.7rem', fontWeight: 'bold',
                                                                         cursor: 'pointer', borderRadius: '2px'
                                                                     }}
@@ -725,19 +733,19 @@ export const ConfidentialInfoModal: React.FC<ConfidentialInfoModalProps> = ({
                                                             disabled={!canDeploy}
                                                             onClick={() => onInitiateLaunch?.(siloId, targetPlayerIndex)}
                                                             style={{
-                                                                backgroundColor: canDeploy ? '#ff0000' : '#220000',
-                                                                color: canDeploy ? '#fff' : '#666',
+                                                                backgroundColor: (canDeploy) ? '#ff0000' : '#220000',
+                                                                color: (canDeploy) ? '#fff' : '#666',
                                                                 border: 'none',
                                                                 padding: '8px 15px',
                                                                 fontWeight: 'bold',
-                                                                cursor: canDeploy ? 'pointer' : 'not-allowed',
+                                                                cursor: (canDeploy) ? 'pointer' : 'not-allowed',
                                                                 fontSize: '0.75rem',
                                                                 borderRadius: '3px',
                                                                 textTransform: 'uppercase',
-                                                                boxShadow: canDeploy ? '0 0 10px rgba(255,0,0,0.3)' : 'none'
+                                                                boxShadow: (canDeploy) ? '0 0 10px rgba(255,0,0,0.3)' : 'none'
                                                             }}
                                                         >
-                                                            {canDeploy ? 'INICIAR' : 'NO DISPONIBLE'}
+                                                            {(canDeploy ? 'INICIAR' : 'NO DISPONIBLE')}
                                                         </button>
                                                     </div>
                                                 );

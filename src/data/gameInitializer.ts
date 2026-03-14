@@ -7,7 +7,7 @@ import type { ProductionDeck } from '../types/productionTypes';
 const PLAYER_PALETTE = [
     '#ff0000', // Red
     '#0088ff', // Blue
-    '#00ff00', // Green
+    '#0023beff', // Navy Blue
     '#ffff00', // Yellow
     '#ff00ff', // Magenta
     '#00ffff', // Cyan

@@ -9,13 +9,17 @@ interface MissionModalBaseProps {
     type?: MissionType;
     onClose: () => void;
     children: React.ReactNode;
+    width?: string;
+    customStyles?: React.CSSProperties;
 }
 
 export const MissionModalBase: React.FC<MissionModalBaseProps> = ({
     title,
     type = 'activation',
     onClose,
-    children
+    children,
+    width,
+    customStyles
 }) => {
     const styles = MISSION_PANEL_STYLES[type];
 
@@ -30,7 +34,7 @@ export const MissionModalBase: React.FC<MissionModalBaseProps> = ({
             zIndex: 9000,
             fontFamily: THEME.fonts.main
         }}>
-            <div style={styles.container}>
+            <div style={{ ...styles.container, ...(width ? { width } : {}), ...customStyles }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                     <h2 style={styles.header}>{title}</h2>
                     <button

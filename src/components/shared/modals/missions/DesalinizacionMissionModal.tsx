@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useGameContext } from '../../../../context/GameContext';
+import { MissionModalBase } from '../MissionModalBase';
 import { useSupplyRoute } from '../../../../hooks/useSupplyRoute';
 import type { RegionData } from '../../../../data/mapRegions';
 import type { TerritoryCard } from '../../../../types/productionTypes';
@@ -110,38 +111,8 @@ export const DesalinizacionMissionModal: React.FC<DesalinizacionMissionModalProp
     if (!show) return null;
 
     return (
-        <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.95)',
-            display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 8200,
-            fontFamily: 'monospace'
-        }}>
-            <div style={{
-                backgroundColor: '#001a33',
-                border: '3px solid #00aaff',
-                padding: '40px',
-                width: '700px',
-                maxHeight: '90vh',
-                overflowY: 'auto',
-                boxShadow: '0 0 50px rgba(0, 170, 255, 0.3)',
-                borderRadius: '8px'
-            }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                    <h2 style={{ color: '#00aaff', margin: 0, fontSize: '1.5rem', letterSpacing: '2px' }}>
-                        💧 PLANTA DE DESALINIZACIÓN
-                    </h2>
-                    <button
-                        onClick={() => {
-                            setSelectedEnergySupplyId(null);
-                            onClose();
-                        }}
-                        style={{ background: 'none', border: 'none', color: '#00aaff', fontSize: '1.5rem', cursor: 'pointer' }}
-                    >
-                        X
-                    </button>
-                </div>
-
-                <div style={{ padding: '30px', display: 'flex', gap: '30px' }}>
+        <MissionModalBase title="💧 PLANTA DE DESALINIZACIÓN" type="activation" onClose={onClose} width="700px">
+            <div style={{ padding: '30px', display: 'flex', gap: '30px' }}>
                     {/* Requirements Panel */}
                     <div style={{ flex: 1 }}>
                         <div style={{ marginBottom: '20px', fontSize: '1.2em', fontWeight: 'bold', color: '#00aaff', letterSpacing: '1px' }}>
@@ -255,7 +226,6 @@ export const DesalinizacionMissionModal: React.FC<DesalinizacionMissionModalProp
                         CONSTRUIR PLANTA
                     </button>
                 </div>
-            </div>
-        </div>
+                    </MissionModalBase>
     );
 };

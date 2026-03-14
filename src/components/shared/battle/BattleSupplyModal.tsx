@@ -208,9 +208,9 @@ export const BattleSupplyModal: React.FC<BattleSupplyModalProps> = ({
             display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>
             <div style={{
-                width: '800px', backgroundColor: '#111', border: `2px solid ${playerColor}`,
+                width: '800px', maxWidth: '95vw', backgroundColor: '#111', border: `2px solid ${playerColor}`,
                 padding: '25px', display: 'flex', flexDirection: 'column', gap: '15px',
-                maxHeight: '90vh', overflowY: 'auto'
+                maxHeight: '90vh', overflowY: 'auto', overflowX: 'auto'
             }}>
                 <h2 style={{ color: playerColor, textTransform: 'uppercase', textAlign: 'center', margin: 0 }}>
                     SOLICITAR REFUERZOS - {playerName}

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { PlayerData } from '../../../../types/playerTypes';
+import { MissionModalBase } from '../MissionModalBase';
 interface AndesMissionModalProps {
     show: boolean;
     onClose: () => void;
@@ -28,37 +29,8 @@ export const AndesMissionModal: React.FC<AndesMissionModalProps> = ({
     if (!show) return null;
 
     return (
-        <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.85)',
-            display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 5000,
-            backdropFilter: 'blur(5px)'
-        }}>
-            <div style={{
-                width: '800px',
-                backgroundColor: '#051a00',
-                border: '2px solid #aaff00',
-                boxShadow: '0 0 50px rgba(170, 255, 0, 0.3)',
-                color: '#eeffcc',
-                fontFamily: 'monospace',
-                display: 'flex', flexDirection: 'column'
-            }}>
-                {/* Header */}
-                <div style={{
-                    padding: '20px',
-                    borderBottom: '1px solid #aaff00',
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    backgroundColor: 'rgba(170, 255, 0, 0.1)'
-                }}>
-                    <h2 style={{ margin: 0, fontSize: '1.8em', textTransform: 'uppercase', letterSpacing: '2px' }}>
-                        OPERACIÓN: CRUCE DE LOS ANDES
-                    </h2>
-                    <div style={{ fontSize: '0.9em', color: '#aaff00' }}>
-                        LOGÍSTICA MILITAR
-                    </div>
-                </div>
-
-                <div style={{ padding: '30px', display: 'flex', gap: '30px' }}>
+        <MissionModalBase title="OPERACIÓN: CRUCE DE LOS ANDES" type="activation" onClose={onClose} width="800px">
+            <div style={{ padding: '30px', display: 'flex', gap: '30px' }}>
                     {/* Requirements Panel */}
                     <div style={{ flex: 1 }}>
                         <div style={{ marginBottom: '20px', fontSize: '1.2em', fontWeight: 'bold', color: '#aaff00', letterSpacing: '1px' }}>
@@ -167,7 +139,6 @@ export const AndesMissionModal: React.FC<AndesMissionModalProps> = ({
                         ASEGURAR PASO
                     </button>
                 </div>
-            </div>
-        </div>
+                    </MissionModalBase>
     );
 };

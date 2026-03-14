@@ -10,6 +10,7 @@ import type { PlayerData, SpecialCard } from '../types/playerTypes';
 import type { ProductionDeck, SupplyItem } from '../types/productionTypes';
 import type { ActiveProviders } from '../data/productionData';
 import type { Treaty } from '../types/treatyTypes';
+import { REGIONS } from '../data/mapRegions';
 
 // ============================================================================
 // Types
@@ -395,9 +396,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
             // Terrain Bonuses
             let terrainBonus = 0;
-            if (defCard.regiment === 'A') terrainBonus = defenderBonuses.air;
-            if (defCard.regiment === 'B') terrainBonus = defenderBonuses.inf;
-            if (defCard.regiment === 'C') terrainBonus = defenderBonuses.art;
+            // Fix: Terrain bonuses are "Defense VS [Type]", so we check the ATTACKER'S regiment
+            if (attCard.regiment === 'A') terrainBonus = defenderBonuses.air;
+            if (attCard.regiment === 'B') terrainBonus = defenderBonuses.inf;
+            if (attCard.regiment === 'C') terrainBonus = defenderBonuses.art;
 
             const defenderScore = baseDefenderTier + terrainBonus;
 
@@ -451,6 +453,16 @@ function gameReducer(state: GameState, action: GameAction): GameState {
                     newState.owners = {
                         ...newState.owners,
                         [targetRegionId]: attacker.id
+                    };
+
+                    // Global Notification
+                    const regionName = REGIONS.find(r => r.id === targetRegionId)?.title || targetRegionId;
+                    newState.notification = {
+                        type: 'CONQUEST',
+                        title: 'CONQUISTA REGIONAL',
+                        message: `LAS FUERZAS DE ${attacker.name.toUpperCase()} HAN TOMADO EL CONTROL DE ${regionName.toUpperCase()}.`,
+                        color: attacker.color,
+                        playerName: attacker.name
                     };
                 }
 
@@ -671,7 +683,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({
                         dispatch({
                             type: 'SYNC_STATE',
                             payload: {
-                                players: remoteState.players,
+                                players: remoteState.players, // Trace this
                                 owners: remoteState.owners,
                                 currentPlayerIndex: remoteState.currentPlayerIndex,
                                 gameDate: remoteState.gameDate ? new Date(remoteState.gameDate) : state.gameDate,
@@ -733,14 +745,18 @@ export const GameProvider: React.FC<GameProviderProps> = ({
             // Block gameplay actions if it's not my turn
             // Exception: SYNC_STATE (incoming from remote) is always allowed.
             // Exception: Battle Defender Actions (BATTLE_DEFENDER_SELECT) allowed for the defender.
+            // Exception: Mission Actions (MARK_CARD_AS_USED, ADD_SPECIAL_CARD, ADD_SUPPLY) allowed anytime per user request.
 
             const isBattleDefenderAction = action.type === 'BATTLE_DEFENDER_SELECT';
             // We need to check if we are the defender in the current battle
             // NOTE: state.battleState might be null if we are not in battle, but if we are sending this action we presumably are.
             // Safely check:
-            const isDefender = state.battleState && state.battleState.defender.id === multiplayer.playerId;
+            const isDefender = state.battleState && (state.battleState.defender.id === multiplayer.playerId || state.battleState.defender.id === Number(multiplayer.playerId)); // Handle string/number mismatch potential
 
-            const isAllowedException = (isBattleDefenderAction && isDefender);
+            const isMissionAction = ['MARK_CARD_AS_USED', 'ADD_SPECIAL_CARD', 'ADD_SUPPLY'].includes(action.type);
+            const isTreatyAction = ['CREATE_TREATY_OFFER', 'UPDATE_TREATY', 'CANCEL_TREATY'].includes(action.type);
+
+            const isAllowedException = (isBattleDefenderAction && isDefender) || isMissionAction || isTreatyAction;
 
             if (SYNCABLE_ACTIONS.has(action.type) && !isMyTurn && action.type !== 'SYNC_STATE' && !isAllowedException) {
                 console.warn(`[GameContext] 🚫 Action BLOCKED: ${action.type}. It is ${currentPlayer?.name}'s turn (ID: ${currentPlayer?.id}), but you are ${multiplayer.playerId}.`);

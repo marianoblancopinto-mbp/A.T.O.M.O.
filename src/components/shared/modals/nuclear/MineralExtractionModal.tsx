@@ -92,7 +92,7 @@ export const MineralExtractionModal: React.FC<MineralExtractionModalProps> = ({
                 padding: '30px',
                 borderRadius: '10px',
                 border: '2px solid #00ffff',
-                maxWidth: '900px',
+                maxWidth: '95vw',
                 width: '90%',
                 maxHeight: '90vh',
                 overflowY: 'auto'

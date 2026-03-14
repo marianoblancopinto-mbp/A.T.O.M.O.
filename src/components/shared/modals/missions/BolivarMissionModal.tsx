@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useGameContext } from '../../../../context/GameContext';
+import { MissionModalBase } from '../MissionModalBase';
 import { useSupplyRoute } from '../../../../hooks/useSupplyRoute';
 import type { SpecialCard } from '../../../../types/playerTypes';
 
@@ -78,37 +79,11 @@ export const BolivarMissionModal: React.FC<BolivarMissionModalProps> = ({
     if (!show) return null;
 
     return (
-        <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.9)',
-            display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 8200,
-            backdropFilter: 'blur(5px)',
-            fontFamily: 'monospace'
-        }}>
-            <div style={{
-                width: '900px',
-                backgroundColor: '#1a1a00',
-                border: '2px solid #ffcc00',
-                boxShadow: '0 0 50px rgba(255, 204, 0, 0.3)',
-                color: '#eeddcc',
-                display: 'flex', flexDirection: 'column'
-            }}>
-                {/* Header - Cleaned up to match Gengis/Alejandro style */}
-                <div style={{
-                    padding: '20px',
-                    borderBottom: '1px solid #ffcc00',
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    backgroundColor: 'rgba(255, 204, 0, 0.1)'
-                }}>
-                    <h2 style={{ margin: 0, fontSize: '1.8em', textTransform: 'uppercase', letterSpacing: '2px', color: '#ffcc00' }}>
-                        OPERACIÓN BOLÍVAR
-                    </h2>
-                    <div style={{ fontSize: '0.9em', color: '#ffcc00' }}>
-                        EL SUEÑO DEL LIBERTADOR
-                    </div>
-                </div>
-
-                <div style={{ padding: '30px', display: 'flex', gap: '30px' }}>
+        <MissionModalBase title="OPERACIÓN BOLÍVAR" type="activation" onClose={onClose} width="900px">
+            <div style={{ textAlign: 'center', color: '#ffcc00', fontSize: '0.9em', marginBottom: '20px' }}>
+                EL SUEÑO DEL LIBERTADOR
+            </div>
+            <div style={{ padding: '30px', display: 'flex', gap: '30px' }}>
                     {/* Requirements Panel */}
                     <div style={{ flex: 1 }}>
                         <div style={{ marginBottom: '20px', fontSize: '1.2em', fontWeight: 'bold', color: '#ffcc00', letterSpacing: '1px' }}>
@@ -265,7 +240,6 @@ export const BolivarMissionModal: React.FC<BolivarMissionModalProps> = ({
                         UNIFICAR NACIONES
                     </button>
                 </div>
-            </div>
-        </div>
+                    </MissionModalBase>
     );
 };

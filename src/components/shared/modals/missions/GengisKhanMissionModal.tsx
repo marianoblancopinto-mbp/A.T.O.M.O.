@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useGameContext } from '../../../../context/GameContext';
+import { MissionModalBase } from '../MissionModalBase';
 import { useSupplyRoute } from '../../../../hooks/useSupplyRoute';
 import type { SpecialCard } from '../../../../types/playerTypes';
 
@@ -78,37 +79,8 @@ export const GengisKhanMissionModal: React.FC<GengisKhanMissionModalProps> = ({
     if (!show) return null;
 
     return (
-        <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.9)',
-            display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 8200,
-            backdropFilter: 'blur(5px)',
-            fontFamily: 'monospace'
-        }}>
-            <div style={{
-                width: '900px',
-                backgroundColor: '#1a0505',
-                border: '2px solid #ff4444',
-                boxShadow: '0 0 50px rgba(255, 68, 68, 0.3)',
-                color: '#eeddcc',
-                display: 'flex', flexDirection: 'column'
-            }}>
-                {/* Header */}
-                <div style={{
-                    padding: '20px',
-                    borderBottom: '1px solid #ff4444',
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    backgroundColor: 'rgba(255, 68, 68, 0.1)'
-                }}>
-                    <h2 style={{ margin: 0, fontSize: '1.8em', textTransform: 'uppercase', letterSpacing: '2px' }}>
-                        OPERACIÓN GENGIS KHAN
-                    </h2>
-                    <div style={{ fontSize: '0.9em', color: '#ff4444' }}>
-                        EL RUGIDO DEL LOBO
-                    </div>
-                </div>
-
-                <div style={{ padding: '30px', display: 'flex', gap: '30px' }}>
+        <MissionModalBase title="OPERACIÓN GENGIS KHAN" type="activation" onClose={onClose} width="900px">
+            <div style={{ padding: '30px', display: 'flex', gap: '30px' }}>
                     {/* Requirements Panel */}
                     <div style={{ flex: 1 }}>
                         <div style={{ marginBottom: '20px', fontSize: '1.2em', fontWeight: 'bold', color: '#ff4444', letterSpacing: '1px' }}>
@@ -265,7 +237,6 @@ export const GengisKhanMissionModal: React.FC<GengisKhanMissionModalProps> = ({
                         INICIAR CONQUISTA
                     </button>
                 </div>
-            </div>
-        </div>
+                    </MissionModalBase>
     );
 };

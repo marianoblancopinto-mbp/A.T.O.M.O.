@@ -210,8 +210,6 @@ export const RegionInfoPanel: React.FC<RegionInfoPanelProps> = ({
                             const espionageCountries = ['nueva_york', 'reino_unido', 'china', 'rusia'];
                             const isEspionageHq = espionageCountries.includes(selectedRegionId);
 
-                            const belongsToMe = owners[selectedRegionId] === currentPlayer?.id;
-
                             const specialBtnStyle = (bg: string, color: string, border: string): React.CSSProperties => ({
                                 width: '100%',
                                 padding: '8px',
@@ -232,48 +230,44 @@ export const RegionInfoPanel: React.FC<RegionInfoPanelProps> = ({
 
                             return (
                                 <>
-                                    {isMyTurn && (
-                                        <>
-                                            {isNuclear && (
-                                                <button
-                                                    onClick={() => onShowNuclearDesignInfo(selectedRegionId)}
-                                                    style={specialBtnStyle('#1a0a00', '#ff9100', '#ff9100')}
-                                                >
-                                                    <span style={{ fontSize: '1.2rem' }}>☢️</span>
-                                                    DISEÑO DE ARMAS NUCLEARES INTERCONTINENTALES
-                                                </button>
-                                            )}
-                                            {isSecret && (
-                                                <button
-                                                    onClick={() => onShowMineralExtraction(selectedRegionId)}
-                                                    style={specialBtnStyle('#001a1a', '#00ffff', '#00ffff')}
-                                                >
-                                                    EXTRAER MINERAL SECRETO
-                                                </button>
-                                            )}
-                                            {isEspionageHq && (
-                                                <button
-                                                    onClick={() => onShowEspionageNetworkInfo(selectedRegionId)}
-                                                    style={specialBtnStyle('#001122', '#00ffff', '#00ffff')}
-                                                >
-                                                    🕵️ RED DE ESPIONAJE
-                                                </button>
-                                            )}
-                                            {belongsToMe && specialMissions
-                                                .filter(m => m.visibleFor.includes(selectedRegionId) || m.visibleFor.includes('GLOBAL'))
-                                                .map(mission => (
-                                                    <button
-                                                        key={mission.id}
-                                                        onClick={() => onShowSpecialMissionInfo(mission.id)}
-                                                        style={specialBtnStyle('#002200', '#00ff00', '#00ff00')}
-                                                    >
-                                                        {mission.title}
-                                                    </button>
-                                                ))}
-                                        </>
+                                    {isNuclear && (
+                                        <button
+                                            onClick={() => onShowNuclearDesignInfo(selectedRegionId)}
+                                            style={specialBtnStyle('#1a0a00', '#ff9100', '#ff9100')}
+                                        >
+                                            <span style={{ fontSize: '1.2rem' }}>☢️</span>
+                                            DISEÑO DE ARMAS NUCLEARES INTERCONTINENTALES
+                                        </button>
                                     )}
+                                    {isSecret && (
+                                        <button
+                                            onClick={() => onShowMineralExtraction(selectedRegionId)}
+                                            style={specialBtnStyle('#001a1a', '#00ffff', '#00ffff')}
+                                        >
+                                            EXTRAER MINERAL SECRETO
+                                        </button>
+                                    )}
+                                    {isEspionageHq && (
+                                        <button
+                                            onClick={() => onShowEspionageNetworkInfo(selectedRegionId)}
+                                            style={specialBtnStyle('#001122', '#00ffff', '#00ffff')}
+                                        >
+                                            🕵️ RED DE ESPIONAJE
+                                        </button>
+                                    )}
+                                    {specialMissions
+                                        .filter(m => m.visibleFor.includes(selectedRegionId) || m.visibleFor.includes('GLOBAL'))
+                                        .map(mission => (
+                                            <button
+                                                key={mission.id}
+                                                onClick={() => onShowSpecialMissionInfo(mission.id)}
+                                                style={specialBtnStyle('#002200', '#00ff00', '#00ff00')}
+                                            >
+                                                {mission.title}
+                                            </button>
+                                        ))}
 
-                                    {!isNuclear && !isSecret && !isEspionageHq && (!belongsToMe || !specialMissions.some(m => m.visibleFor.includes(selectedRegionId) || m.visibleFor.includes('GLOBAL'))) && (
+                                    {!isNuclear && !isSecret && !isEspionageHq && (!specialMissions.some(m => m.visibleFor.includes(selectedRegionId) || m.visibleFor.includes('GLOBAL'))) && (
                                         <div style={{ color: '#555' }}>Sin habilidades especiales</div>
                                     )}
                                 </>
@@ -308,7 +302,7 @@ export const RegionInfoPanel: React.FC<RegionInfoPanelProps> = ({
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 
 };

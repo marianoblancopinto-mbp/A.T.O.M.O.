@@ -14,7 +14,7 @@ export interface TreatyClause {
     };
 }
 
-export type TreatyStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'ACTIVE' | 'REJECTED' | 'CANCELLED' | 'EXPIRED';
+export type TreatyStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'PENDING_START' | 'ACTIVE' | 'REJECTED' | 'CANCELLED' | 'EXPIRED';
 
 export interface Treaty {
     id: string;

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { MissionModalBase } from '../MissionModalBase';
 import { useGameContext } from '../../../../context/GameContext';
 import { useGameActions } from '../../../../hooks/useGameActions';
 import { useSupplyRoute } from '../../../../hooks/useSupplyRoute';
@@ -68,29 +69,21 @@ export const NuclearActivationModal: React.FC<NuclearActivationModalProps> = ({
     };
 
     return (
-        <div style={{
-            position: 'fixed',
-            top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.85)',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 3000
-        }}>
-            <div style={{
-                backgroundColor: '#1a1a2e',
-                padding: '30px',
-                borderRadius: '10px',
-                border: '2px solid #00ff00',
-                maxWidth: '700px',
-                width: '90%'
-            }}>
-                <h2 style={{ color: '#00ff00', textAlign: 'center', marginBottom: '20px' }}>ACTIVAR ARSENAL NUCLEAR</h2>
-                <p style={{ color: '#fff', marginBottom: '20px', textAlign: 'center' }}>
-                    Selecciona los componentes necesarios para fabricar Armas Nucleares Intercontinentales.
-                </p>
-
-                <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
+        <MissionModalBase 
+            title="ACTIVAR ARSENAL NUCLEAR" 
+            type="activation" 
+            onClose={onClose}
+            width="700px"
+            customStyles={{ 
+                border: '2px solid #00ff00', 
+                boxShadow: '0 0 50px rgba(0, 255, 0, 0.2)', 
+                backgroundColor: '#0a1a0a' 
+            }}
+        >
+            <div style={{ textAlign: 'center', color: '#00ff00', fontSize: '0.9em', marginBottom: '20px' }}>
+                Selecciona los componentes necesarios para fabricar Armas Nucleares Intercontinentales.
+            </div>
+            <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
                     {/* TECH SECTION */}
                     <div style={{ flex: 1, backgroundColor: '#000', padding: '10px', borderRadius: '5px' }}>
                         <h4 style={{ color: '#aaa', borderBottom: '1px solid #333', marginBottom: '10px' }}>Tecnología: Electrónica Avanzada</h4>
@@ -170,7 +163,6 @@ export const NuclearActivationModal: React.FC<NuclearActivationModalProps> = ({
                         CONFIRMAR ACTIVACIÓN
                     </button>
                 </div>
-            </div>
-        </div>
+        </MissionModalBase>
     );
 };

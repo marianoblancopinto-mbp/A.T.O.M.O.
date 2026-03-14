@@ -50,7 +50,7 @@ export const REGION_ADJACENCY: Record<string, string[]> = {
     'brasil': ['argentina', 'uruguay', 'peru', 'colombia', 'venezuela'], // Removed sahara, costa_de_marfil (now maritime only)
     'uruguay': ['argentina', 'brasil'],
     'colombia': ['peru', 'brasil', 'venezuela', 'panama'], // Panama/Mexico borders - FIXED: Removed Mexico, added Panama
-    'venezuela': ['colombia', 'brasil', 'mexico'], // Keeping Mexico to avoid breaking unrecognized logic if any, but logic says Panama handles crossing
+    'venezuela': ['colombia', 'brasil', 'mejico'], // Keeping Mexico to avoid breaking unrecognized logic if any, but logic says Panama handles crossing
     // America del Norte
     'mejico': ['california', 'texas', 'panama'], // FIXED: Linked to Panama
     'panama': ['mejico', 'colombia'], // NEW: Panama Region
@@ -95,7 +95,7 @@ export const REGION_ADJACENCY: Record<string, string[]> = {
     'kazajistan': ['rusia', 'iran', 'china', 'mongolia', 'siberia', 'tibet'],
     'siberia': ['rusia', 'kazajistan', 'mongolia', 'kamchakta'],
     'mongolia': ['siberia', 'kazajistan', 'iran', 'china', 'kamchakta'],
-    'china': ['mongolia', 'tibet', 'india', 'korea', 'japon', 'kamchakta', 'vietnam', 'tailandia'],
+    'china': ['mongolia', 'tibet', 'india', 'korea', 'kamchakta', 'vietnam', 'tailandia', 'kazajistan'],
     'korea': ['china', 'japon'],
     'japon': ['korea', 'china', 'kamchakta', 'filipinas'],
     'kamchakta': ['alaska', 'siberia', 'mongolia', 'china'],
@@ -129,7 +129,8 @@ export const checkSupplyRoute = (
     // 0. Basic validation
     if (!startRegionId || !endRegionId) return false;
     if (startRegionId === endRegionId) return true; // Already there
-    if (owners[startRegionId] !== playerIndex || owners[endRegionId] !== playerIndex) return false;
+    // Loose equality for owner check to handle string/number mismatch
+    if (owners[startRegionId] != playerIndex || owners[endRegionId] != playerIndex) return false;
 
     // 1. Build Adjacency List (including Maritime) just for this check?
     // Efficient approach: Use BFS with on-the-fly neighbor discovery.
@@ -160,8 +161,8 @@ export const checkSupplyRoute = (
         const allNeighbors = [...landNeighbors, ...maritimeNeighbors];
 
         for (const neighbor of allNeighbors) {
-            // Check ownership and visitation
-            if (!visited.has(neighbor) && owners[neighbor] === playerIndex) {
+            // Check ownership and visitation (Loose equality)
+            if (!visited.has(neighbor) && owners[neighbor] == playerIndex) {
                 visited.add(neighbor);
                 queue.push(neighbor);
             }

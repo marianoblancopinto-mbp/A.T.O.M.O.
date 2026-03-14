@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useGameContext } from '../../../../context/GameContext';
 import { useSupplyRoute } from '../../../../hooks/useSupplyRoute';
 import type { SpecialCard } from '../../../../types/playerTypes';
+import { MissionModalBase } from '../MissionModalBase';
 
 interface AlejandroMissionModalProps {
     show: boolean;
@@ -78,37 +79,12 @@ export const AlejandroMissionModal: React.FC<AlejandroMissionModalProps> = ({
     if (!show) return null;
 
     return (
-        <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.9)',
-            display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 8200,
-            backdropFilter: 'blur(5px)',
-            fontFamily: 'monospace'
-        }}>
-            <div style={{
-                width: '900px',
-                backgroundColor: '#1a0500',
-                border: '2px solid #ff8800',
-                boxShadow: '0 0 50px rgba(255, 136, 0, 0.3)',
-                color: '#ffddcc',
-                display: 'flex', flexDirection: 'column'
-            }}>
-                {/* Header */}
-                <div style={{
-                    padding: '20px',
-                    borderBottom: '1px solid #ff8800',
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    backgroundColor: 'rgba(255, 136, 0, 0.1)'
-                }}>
-                    <h2 style={{ margin: 0, fontSize: '1.8em', textTransform: 'uppercase', letterSpacing: '2px' }}>
-                        OPERACIÓN ALEJANDRO MAGNO
-                    </h2>
-                    <div style={{ fontSize: '0.9em', color: '#ff8800' }}>
-                        CONQUISTA DE ORIENTE
-                    </div>
-                </div>
+        <MissionModalBase title="OPERACIÓN ALEJANDRO MAGNO" type="activation" onClose={onClose} width="900px">
+            <div style={{ textAlign: 'center', color: '#ff8800', fontSize: '0.9em', marginBottom: '20px' }}>
+                CONQUISTA DE ORIENTE
+            </div>
 
-                <div style={{ padding: '30px', display: 'flex', gap: '30px' }}>
+                <div style={{ padding: '30px', display: 'flex', gap: '30px', overflowY: 'auto', overflowX: 'auto', flex: 1, flexWrap: 'wrap' }}>
                     {/* Requirements Panel */}
                     <div style={{ flex: 1 }}>
                         <div style={{ marginBottom: '20px', fontSize: '1.2em', fontWeight: 'bold', color: '#ff8800', letterSpacing: '1px' }}>
@@ -265,7 +241,6 @@ export const AlejandroMissionModal: React.FC<AlejandroMissionModalProps> = ({
                         INICIAR CONQUISTA
                     </button>
                 </div>
-            </div>
-        </div >
+        </MissionModalBase>
     );
 };

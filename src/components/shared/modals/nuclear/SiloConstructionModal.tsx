@@ -116,7 +116,7 @@ export const SiloConstructionModal: React.FC<SiloConstructionModalProps> = ({
                 padding: '30px',
                 borderRadius: '10px',
                 border: '2px solid #ff9100',
-                maxWidth: '1000px',
+                maxWidth: '95vw',
                 width: '95%',
                 maxHeight: '90vh',
                 overflowY: 'auto',

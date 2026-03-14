@@ -63,6 +63,7 @@ export const SiloFuelSelectionModal: React.FC<SiloFuelSelectionModalProps> = ({
                 border: '3px solid #ff9900',
                 padding: '30px',
                 width: '700px',
+                maxWidth: '95vw',
                 maxHeight: '85vh',
                 overflowY: 'auto',
                 boxShadow: '0 0 50px rgba(255, 153, 0, 0.6)',

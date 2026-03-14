@@ -96,12 +96,15 @@ export const GenericSpecialMissionModal: React.FC<GenericSpecialMissionModalProp
         }}>
             <div style={{
                 width: '850px',
+                maxWidth: '95vw',
+                maxHeight: '90vh',
                 backgroundColor: '#001a00',
                 border: '2px solid #00ff00',
                 boxShadow: '0 0 50px rgba(0, 255, 0, 0.3)',
                 color: '#ccffcc',
                 fontFamily: 'monospace',
-                display: 'flex', flexDirection: 'column'
+                display: 'flex', flexDirection: 'column',
+                overflow: 'hidden'
             }}>
                 {/* Header */}
                 <div style={{
@@ -118,7 +121,7 @@ export const GenericSpecialMissionModal: React.FC<GenericSpecialMissionModalProp
                     </div>
                 </div>
 
-                <div style={{ padding: '30px', display: 'flex', gap: '30px' }}>
+                <div style={{ padding: '30px', display: 'flex', gap: '30px', overflowY: 'auto', overflowX: 'auto', flex: 1, flexWrap: 'wrap' }}>
                     {/* Requirements Panel */}
                     <div style={{ flex: 1 }}>
                         <div style={{ marginBottom: '20px', fontSize: '1.2em', fontWeight: 'bold', color: '#00ff00', letterSpacing: '1px' }}>

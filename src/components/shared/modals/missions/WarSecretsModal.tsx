@@ -136,12 +136,15 @@ export const WarSecretsModal: React.FC<WarSecretsModalProps> = ({
         }}>
             <div style={{
                 width: '850px',
+                maxWidth: '95vw',
+                maxHeight: '90vh',
                 backgroundColor: '#001a1a',
                 border: '3px solid #00ffff',
                 boxShadow: '0 0 50px rgba(0, 255, 255, 0.3)',
                 color: '#ccffff',
                 fontFamily: 'monospace',
-                display: 'flex', flexDirection: 'column'
+                display: 'flex', flexDirection: 'column',
+                overflow: 'hidden'
             }}>
                 {/* Header */}
                 <div style={{
@@ -158,7 +161,7 @@ export const WarSecretsModal: React.FC<WarSecretsModalProps> = ({
                     </div>
                 </div>
 
-                <div style={{ padding: '30px', display: 'flex', gap: '30px' }}>
+                <div style={{ padding: '30px', display: 'flex', gap: '30px', overflowY: 'auto', overflowX: 'auto', flex: 1, flexWrap: 'wrap' }}>
                     {/* Requirements Panel */}
                     <div style={{ flex: 1 }}>
                         <div style={{ marginBottom: '20px', fontSize: '1.2em', fontWeight: 'bold', color: '#00ffff', letterSpacing: '1px' }}>

@@ -24,14 +24,14 @@ export const PROVIDER_COUNTRIES: ExtendedProviderLists = {
         HIERRO: ['australia', 'brasil', 'rusia', 'china', 'tailandia', 'vietnam', 'rumania', 'canada', 'sudafrica', 'iran', 'kazajistan', 'suecia', 'mejico', 'peru', 'chile', 'yugoslavia'],
         ALUMINIO: ['brasil', 'india', 'vietnam', 'groenlandia', 'cuba', 'costa_de_marfil', 'java', 'sumatra', 'borneo', 'kazajistan', 'turquia', 'iran', 'venezuela', 'yugoslavia'],
         CONDUCTORES_SEMICONDUCTORES: ['chile', 'china', 'siberia', 'congo', 'vietnam', 'australia', 'peru', 'india', 'mejico', 'filipinas', 'yugoslavia', 'polonia', 'canada'],
-        HIDROCARBUROS: ['venezuela', 'arabia', 'iran', 'siberia', 'egipto', 'canada', 'texas', 'argentina', 'costa_de_marfil', 'noruega', 'reino_unido', 'alaska', 'mozambique', 'cuba', 'mexico'],
+        HIDROCARBUROS: ['venezuela', 'arabia', 'iran', 'siberia', 'egipto', 'canada', 'texas', 'argentina', 'costa_de_marfil', 'noruega', 'reino_unido', 'alaska', 'mozambique', 'cuba', 'mejico'],
         COMBUSTIBLE_NUCLEAR: ['australia', 'kazajistan', 'quebec', 'india', 'brasil', 'sudafrica', 'argentina', 'sahel', 'tibet', 'siberia', 'congo'],
         MINERALES_BATERIAS: ['chile', 'tibet', 'argentina', 'mozambique', 'congo', 'siberia', 'california', 'mejico', 'canada', 'florida'],
     },
 
     technologies: {
         GANADERIA_INTENSIVA: ['brasil', 'argentina', 'california', 'polonia', 'china', 'india', 'alemania'],
-        AGROINDUSTRIA_MASIVA: ['china', 'india', 'california', 'rusia', 'brasil', 'argentina', 'rumania', 'grecia', 'vietnam', 'tailandia', 'francia', 'canada', 'yugoslavia', 'mexico', 'italia'],
+        AGROINDUSTRIA_MASIVA: ['china', 'india', 'california', 'rusia', 'brasil', 'argentina', 'rumania', 'grecia', 'vietnam', 'tailandia', 'francia', 'canada', 'yugoslavia', 'mejico', 'italia'],
         DISTRIBUCION_AGUA: ['francia', 'california', 'alemania', 'rusia', 'japon', 'china', 'tailandia', 'argentina', 'espana', 'reino_unido'],
         INDUSTRIA_LIGERA: ['alemania', 'japon', 'polonia', 'nueva_york', 'turquia', 'argentina', 'brasil', 'china', 'korea', 'texas', 'canada', 'mejico', 'noruega', 'yugoslavia', 'filipinas', 'italia'],
         INDUSTRIA_PESADA: ['california', 'china', 'japon', 'india', 'turquia', 'alemania', 'iran', 'rusia', 'yugoslavia', 'texas', 'italia'],

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useGameContext } from '../../../../context/GameContext';
+import { MissionModalBase } from '../MissionModalBase';
 import { useSupplyRoute } from '../../../../hooks/useSupplyRoute';
 import { usePlayerResources } from '../../../../hooks/usePlayerResources';
 import type { SpecialCard } from '../../../../types/playerTypes';
@@ -79,37 +80,8 @@ export const NormandyMissionModal: React.FC<NormandyMissionModalProps> = ({
     };
 
     return (
-        <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.9)',
-            display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 8200,
-            backdropFilter: 'blur(5px)',
-            fontFamily: 'monospace'
-        }}>
-            <div style={{
-                width: '900px',
-                backgroundColor: '#00051a',
-                border: '2px solid #00aaff',
-                boxShadow: '0 0 50px rgba(0, 170, 255, 0.3)',
-                color: '#cceeff',
-                display: 'flex', flexDirection: 'column'
-            }}>
-                {/* Header */}
-                <div style={{
-                    padding: '20px',
-                    borderBottom: '1px solid #00aaff',
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    backgroundColor: 'rgba(0, 170, 255, 0.1)'
-                }}>
-                    <h2 style={{ margin: 0, fontSize: '1.8em', textTransform: 'uppercase', letterSpacing: '2px' }}>
-                        OPERACIÓN: DESEMBARCO DE NORMANDÍA
-                    </h2>
-                    <div style={{ fontSize: '0.9em', color: '#00aaff' }}>
-                        INVASIÓN ANFIBIA
-                    </div>
-                </div>
-
-                <div style={{ padding: '30px', display: 'flex', gap: '30px' }}>
+        <MissionModalBase title="OPERACIÓN: DESEMBARCO DE NORMANDÍA" type="activation" onClose={onClose} width="900px">
+            <div style={{ padding: '30px', display: 'flex', gap: '30px' }}>
                     {/* Requirements Panel */}
                     <div style={{ flex: 1 }}>
                         <div style={{ marginBottom: '20px', fontSize: '1.2em', fontWeight: 'bold', color: '#00aaff', letterSpacing: '1px' }}>
@@ -238,7 +210,6 @@ export const NormandyMissionModal: React.FC<NormandyMissionModalProps> = ({
                         LANZAR INVASIÓN
                     </button>
                 </div>
-            </div>
-        </div>
+                    </MissionModalBase>
     );
 };

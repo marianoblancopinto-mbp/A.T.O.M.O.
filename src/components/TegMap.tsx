@@ -42,12 +42,14 @@ import { useBattleState } from '../hooks/useBattleState';
 import { REGIONS } from '../data/mapRegions';
 import { useGameContext } from '../context/GameContext';
 import { type PlayerData } from '../types/playerTypes';
+import { useGameActions } from '../hooks/useGameActions';
 
 
 
 
 export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false }) => {
     const { state, dispatch, multiplayer } = useGameContext();
+    const { processTreatyStatus } = useGameActions();
 
     const {
         gamePhase,
@@ -551,6 +553,8 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
         if (currentYear > prevYearRef.current) {
             setShowYearStart(currentYear);
             prevYearRef.current = currentYear;
+            // Process Treaties (Activation/Expiration)
+            processTreatyStatus();
         }
 
         // Turn change detection

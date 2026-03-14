@@ -164,6 +164,10 @@ export const NuclearDeploymentModal: React.FC<NuclearDeploymentModalProps> = ({
                 border: '3px solid #ff0000',
                 padding: '30px',
                 width: '600px',
+                maxWidth: '95vw',
+                maxHeight: '90vh',
+                overflowY: 'auto',
+                overflowX: 'auto',
                 boxShadow: '0 0 50px rgba(255, 0, 0, 0.6)',
                 borderRadius: '8px'
             }}>

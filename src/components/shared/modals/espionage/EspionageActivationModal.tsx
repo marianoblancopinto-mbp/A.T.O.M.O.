@@ -67,7 +67,7 @@ export const EspionageActivationModal: React.FC<EspionageActivationModalProps> =
         }}>
             <div style={{
                 backgroundColor: '#001a1a', border: '3px solid #00ffff',
-                padding: '30px', width: '800px', maxHeight: '90vh', overflowY: 'auto',
+                padding: '30px', width: '800px', maxWidth: '95vw', maxHeight: '90vh', overflowY: 'auto', overflowX: 'auto',
                 boxShadow: '0 0 50px rgba(0, 255, 255, 0.3)', borderRadius: '8px'
             }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
