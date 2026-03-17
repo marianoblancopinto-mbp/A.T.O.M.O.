@@ -3,6 +3,7 @@ import { BattleOverlay } from './BattleOverlay';
 
 
 import { TurnOverlay } from './shared/overlays/TurnOverlay';
+import { TakeoverPromptModal } from './shared/modals/TakeoverPromptModal';
 import { MapRender } from './game/MapRender';
 import { SidebarPanel } from './game/SidebarPanel';
 import { RegionInfoPanel } from './game/RegionInfoPanel';
@@ -226,91 +227,16 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
     // Silo Fuel Selection State
     const [showSiloFuelSelectionModal, setShowSiloFuelSelectionModal] = useState<string | null>(null);
 
-
-
-
-
-    // Silo Fuel Selection State
-
-
     // Espionage State
     const [showEspionageModal, setShowEspionageModal] = useState<string | null>(null);
-
-
     const [showEspionageGenSelection, setShowEspionageGenSelection] = useState(false);
-
-    const [showEspionageNetworkInfo, setShowEspionageNetworkInfo] = useState<string | null>(null); // Country ID for espionage network info
+    const [showEspionageNetworkInfo, setShowEspionageNetworkInfo] = useState<string | null>(null);
 
     // Nuclear Design State
-    const [showNuclearDesignInfo, setShowNuclearDesignInfo] = useState<string | null>(null); // Country ID for nuclear design info
+    const [showNuclearDesignInfo, setShowNuclearDesignInfo] = useState<string | null>(null);
     const [showNuclearGenSelection, setShowNuclearGenSelection] = useState(false);
     const [nuclearGenLocation, setNuclearGenLocation] = useState<string | null>(null);
     const [missionPlayerIndex, setMissionPlayerIndex] = useState<number | null>(null);
-
-
-
-
-
-
-
-
-
-
-    // --- GameActions Hook ---
-    // Centralizes game logic for future multiplayer support
-    // --- GameActions Hook ---
-    // Centralizes game logic for future multiplayer support
-
-
-
-
-
-    // ... (Functions remain the same)
-    // Intro Audio
-
-
-
-    // Intro Audio (RESTORED TEMPORARILY TO FIX CRASH)
-    const introAudioRef = useRef<HTMLAudioElement | null>(null);
-
-    useEffect(() => {
-        // Initialize audio
-        introAudioRef.current = new Audio('/intro_soundtrack.wav');
-        introAudioRef.current.loop = true;
-
-        if (gamePhase === 'splash' && !spectator) {
-            // introAudioRef.current.play().catch(e => console.log('Audio autoplay prevented:', e));
-        }
-
-        return () => {
-            if (introAudioRef.current) {
-                introAudioRef.current.pause();
-                introAudioRef.current.currentTime = 0;
-            }
-        };
-    }, []);
-
-    useEffect(() => {
-        // Handle audio playback based on gamePhase
-        const audio = introAudioRef.current;
-        if (!audio) return;
-
-        // Phases where audio should play
-        const playingPhases = ['splash', 'history', 'mission', 'setup'];
-
-        if (playingPhases.includes(gamePhase)) {
-            // Ensure it's playing
-            if (audio.paused) {
-                // audio.play().catch(e => {});
-            }
-        } else {
-            // Stop logic for other phases (e.g., 'playing')
-            if (!audio.paused) {
-                audio.pause();
-                audio.currentTime = 0;
-            }
-        }
-    }, [gamePhase]);
 
     // Synchronization Channel
     useEffect(() => {
@@ -952,6 +878,8 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                     }}
                 />
             )}
+
+            {!spectator && <TakeoverPromptModal />}
 
             {/* Conquest Overlay */}
             {/* Conquest Overlay */}

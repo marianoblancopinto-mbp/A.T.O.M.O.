@@ -5,6 +5,7 @@ import { useGameContext } from '../context/GameContext';
 import { BattleCard } from './shared/battle/BattleCard';
 import { BattleSupplyModal } from './shared/battle/BattleSupplyModal';
 import type { BattleState } from '../types/gameTypes';
+import { selectBestDefenderCard } from '../utils/combatCalculations';
 
 interface BattleOverlayProps {
     battleState: BattleState | null;
@@ -22,6 +23,9 @@ export const BattleOverlay: React.FC<BattleOverlayProps> = ({
     // --- Local UI State for non-synced interactions ---
     const [showSupplyModal, setShowSupplyModal] = useState(false);
     const [supplyRole, setSupplyRole] = useState<'attacker' | 'defender'>('attacker');
+    const [isPendingSync, setIsPendingSync] = useState(false);
+    const [phaseStartTime, setPhaseStartTime] = useState(Date.now());
+    const [showForceExit, setShowForceExit] = useState(false);
 
     if (!battleState) return null;
 
@@ -30,11 +34,14 @@ export const BattleOverlay: React.FC<BattleOverlayProps> = ({
     const defender = players.find(p => p.id === battleState.defender.id) || battleState.defender;
 
     // Identity Check
-    const isAttacker = multiplayer.playerId === attacker.id;
-    const isDefender = multiplayer.playerId === defender.id;
+    const isAttacker = String(multiplayer.playerId) === String(attacker.id);
+    const isDefender = String(multiplayer.playerId) === String(defender.id);
+    const isNeutralAI = String(defender.id) === 'neutral_ai';
 
     // Visibility Restriction: Only involved players see the overlay
-    if (!isAttacker && !isDefender) return null;
+    if (!isAttacker && !isDefender && !isNeutralAI) return null;
+    // Special case: if defender is AI, the attacker is the only one who should see/control the flow
+    if (isNeutralAI && !isAttacker) return null;
     const attackerName = attacker.name;
     const attackerColor = attacker.color;
     const defenderName = defender.name;
@@ -55,6 +62,84 @@ export const BattleOverlay: React.FC<BattleOverlayProps> = ({
         roundCount,
         defenderBonuses
     } = battleState;
+
+    // --- Sync & AFK Monitoring ---
+    React.useEffect(() => {
+        setIsPendingSync(false);
+        setPhaseStartTime(Date.now());
+        setShowForceExit(false);
+    }, [phase, roundCount]);
+
+    React.useEffect(() => {
+        const interval = setInterval(() => {
+            const idleTime = Date.now() - phaseStartTime;
+            if (idleTime > 20000) { // 20 seconds
+                setShowForceExit(true);
+            }
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [phaseStartTime]);
+
+    // --- AI Auto-trigger ---
+    React.useEffect(() => {
+        console.log(`[BattleOverlay] AI Check: Phase=${phase}, isNeutral=${isNeutralAI}, isAttacker=${isAttacker}`);
+        if (phase === 'DEFENDER_SELECTION' && isNeutralAI && isAttacker) {
+            console.log('[BattleOverlay] Fuerzas Locales detected. Attacker is triggering AI move.');
+            
+            let aiCard: Card | null = null;
+            
+            try {
+                if (defenderHand.length > 0) {
+                    aiCard = selectBestDefenderCard(
+                        currentAttackerCard!,
+                        attackerBonuses,
+                        defenderHand,
+                        defenderBonuses,
+                        attackerHand,
+                        battleState.isAiCheating
+                    );
+                }
+            } catch (error) {
+                console.error('[BattleOverlay] Error in AI strategy calculation:', error);
+                // Fallback to random card immediately if the algorithm throws
+                if (defenderHand.length > 0) {
+                    aiCard = defenderHand[Math.floor(Math.random() * defenderHand.length)];
+                    console.log('[BattleOverlay] AI fallback to random card due to error:', aiCard);
+                }
+            }
+            
+            let timer: ReturnType<typeof setTimeout>;
+            let failsafeTimer: ReturnType<typeof setTimeout>;
+
+            if (aiCard) {
+                // Regular AI move with a small visual delay
+                timer = setTimeout(() => {
+                    dispatch({
+                        type: 'BATTLE_DEFENDER_SELECT',
+                        payload: { cardId: aiCard!.id }
+                    });
+                }, 1500);
+            }
+
+            // Failsafe timer: 30 seconds after phase start, if we are somehow still stuck, throw a random card.
+            failsafeTimer = setTimeout(() => {
+                console.warn('[BattleOverlay] AI 30-second failsafe triggered.');
+                // We don't check phase directly from state here because closures, but dispatch will handle it safely
+                if (defenderHand.length > 0) {
+                    const randomCard = defenderHand[Math.floor(Math.random() * defenderHand.length)];
+                    dispatch({
+                        type: 'BATTLE_DEFENDER_SELECT',
+                        payload: { cardId: randomCard.id }
+                    });
+                }
+            }, 30000);
+
+            return () => {
+                clearTimeout(timer);
+                clearTimeout(failsafeTimer);
+            };
+        }
+    }, [phase, isNeutralAI, isAttacker, state.settings?.aiActive, currentAttackerCard]);
 
     // --- Handlers ---
 
@@ -142,6 +227,7 @@ export const BattleOverlay: React.FC<BattleOverlayProps> = ({
     };
 
     const nextClash = () => {
+        setIsPendingSync(true);
         // Just proceed to next round/end. Reducer handles logic.
         dispatch({ type: 'BATTLE_NEXT_ROUND' });
     };
@@ -261,7 +347,14 @@ export const BattleOverlay: React.FC<BattleOverlayProps> = ({
                 {/* Status Message */}
                 {phase === 'DEFENDER_SELECTION' && (
                     <div style={{ textAlign: 'center', marginBottom: '30px', animation: 'fadeIn 0.5s' }}>
-                        <h2 style={{ color: '#888' }}>ESPERANDO AL DEFENSOR...</h2>
+                        <h2 style={{ color: '#888' }}>
+                            {isNeutralAI ? 'PROCESANDO DEFENSA ESTRATÉGICA...' : 'ESPERANDO AL DEFENSOR...'}
+                        </h2>
+                        {isNeutralAI && (
+                            <div style={{ marginTop: '20px' }}>
+                                <div style={{ color: '#00ff00', fontSize: '0.8rem', marginBottom: '10px' }}>FUERZAS LOCALES ACTIVAS</div>
+                            </div>
+                        )}
                         <div style={{ marginTop: '20px', opacity: 0.7 }}>
                             <BattleCard card={currentAttackerCard!} role="attacker" disabled={true} />
                         </div>
@@ -366,25 +459,56 @@ export const BattleOverlay: React.FC<BattleOverlayProps> = ({
                 </div>
 
                 {isAttacker ? (
-                    <button
-                        onClick={nextClash}
-                        style={{
-                            padding: '15px 40px',
-                            fontSize: '1.2rem',
-                            backgroundColor: '#333',
-                            color: '#fff',
-                            border: '1px solid #666',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontWeight: 'bold',
-                            marginTop: '20px'
-                        }}
-                    >
-                        CONTINUAR
-                    </button>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
+                        <button
+                            onClick={nextClash}
+                            disabled={isPendingSync}
+                            style={{
+                                padding: '15px 40px',
+                                fontSize: '1.2rem',
+                                backgroundColor: isPendingSync ? '#222' : '#333',
+                                color: isPendingSync ? '#666' : '#fff',
+                                border: `1px solid ${isPendingSync ? '#444' : '#666'}`,
+                                borderRadius: '4px',
+                                cursor: isPendingSync ? 'wait' : 'pointer',
+                                fontWeight: 'bold',
+                                marginTop: '20px'
+                            }}
+                        >
+                            {isPendingSync ? 'SINCRONIZANDO...' : 'CONTINUAR ATAQUE'}
+                        </button>
+                        {isPendingSync && (
+                            <div style={{ color: '#00ff00', fontSize: '0.8rem', animation: 'blink 1s infinite' }}>
+                                ENVIANDO DATOS AL CUARTEL GENERAL...
+                            </div>
+                        )}
+                    </div>
                 ) : (
-                    <div style={{ marginTop: '20px', color: '#888', fontStyle: 'italic', animation: 'pulse 1.5s infinite' }}>
-                        Esperando a que el atacante continúe...
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px', marginTop: '20px' }}>
+                        <div style={{ color: '#888', fontStyle: 'italic', animation: 'pulse 1.5s infinite' }}>
+                            {showForceExit ? 'EL ATACANTE NO RESPONDE' : 'Esperando a que el atacante continúe...'}
+                        </div>
+                        <button
+                            onClick={handleClose}
+                            style={{
+                                padding: '10px 20px',
+                                fontSize: '0.9rem',
+                                backgroundColor: showForceExit ? 'rgba(255,0,0,0.1)' : 'transparent',
+                                color: showForceExit ? '#ff4444' : '#666',
+                                border: `1px solid ${showForceExit ? '#ff4444' : '#444'}`,
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontWeight: showForceExit ? 'bold' : 'normal',
+                                boxShadow: showForceExit ? '0 0 10px rgba(255,0,0,0.2)' : 'none'
+                            }}
+                        >
+                            {showForceExit ? 'ABANDONAR BATALLA (SISTEMA AFK DETECTADO)' : 'SALIR (SI EL ATACANTE NO RESPONDE)'}
+                        </button>
+                        {showForceExit && (
+                            <div style={{ fontSize: '0.7rem', color: '#ff4444', maxWidth: '300px', textAlign: 'center' }}>
+                                Se ha detectado inactividad prolongada del atacante. Puedes retirarte de la batalla sin perder tropas adicionales.
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

@@ -57,6 +57,9 @@ export const useGameActions = (): GameActions & {
                     const attackerId = attacker.id;
                     const defenderId = defender.id;
 
+                    // If defender is AI, there are no cards to lose or transfers to process
+                    if (defenderId === 'neutral_ai') return currentPlayers;
+
                     return currentPlayers.map(p => {
                         // 1. Logic for Defender (Loser)
                         if (p.id === defenderId) {

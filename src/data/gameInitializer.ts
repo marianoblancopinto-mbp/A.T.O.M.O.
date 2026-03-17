@@ -36,14 +36,14 @@ export interface InitialGameState {
     turnOrder: number[];
     currentPlayerIndex: number;
     gameDate: Date;
-    proxyWarCountry: string;
+    settings: import('../context/GameContext').GameSettings;
 }
 
 export function generateInitialGameState(
     numPlayers: number,
     playerNames: string[] = [],
     playerIds: (string | number)[] = [],
-    proxyWarCountry: string = 'País Desconocido'
+    settings: import('../context/GameContext').GameSettings
 ): InitialGameState {
 
     // Shuffle commander names for random selection
@@ -90,10 +90,19 @@ export function generateInitialGameState(
     }
 
     const initialOwners: Record<string, string | number> = {};
-    shuffledRegions.forEach((regionId, index) => {
-        const playerIndex = index % numPlayers;
-        initialOwners[regionId] = newPlayers[playerIndex].id;
-    });
+    if (settings.gameMode === 'chaos') {
+        // Chaos mode: 1 country per player
+        for (let i = 0; i < numPlayers; i++) {
+            initialOwners[shuffledRegions[i]] = newPlayers[i].id;
+        }
+        // Remaining regions are implicitly not in initialOwners -> undefined -> Neutral
+    } else {
+        // Classic mode: distribute all countries
+        shuffledRegions.forEach((regionId, index) => {
+            const playerIndex = index % numPlayers;
+            initialOwners[regionId] = newPlayers[playerIndex].id;
+        });
+    }
 
     // Assign Secret Minerals
     const playerMineralLocations: Record<string | number, string> = {};
@@ -133,6 +142,6 @@ export function generateInitialGameState(
         turnOrder: initialOrder,
         currentPlayerIndex: initialOrder[0],
         gameDate: new Date(2100, 0, 1),
-        proxyWarCountry: proxyWarCountry
+        settings: settings
     };
 }

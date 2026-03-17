@@ -80,7 +80,7 @@ interface UseTegMapHelpersProps {
 }
 
 export const useTegMapHelpers = ({ owners, players }: UseTegMapHelpersProps) => {
-    const getFillColor = useCallback((regionId: string, continent: string): string => {
+    const getFillColor = useCallback((regionId: string): string => {
         const ownerId = owners[regionId];
         if (ownerId === -2) return '#000000'; // Black for destruction
         if (ownerId !== undefined && ownerId !== null) {
@@ -88,7 +88,7 @@ export const useTegMapHelpers = ({ owners, players }: UseTegMapHelpersProps) => 
             const player = players.find(p => p.id === ownerId) || players[ownerId as number];
             if (player) return player.color;
         }
-        return CONTINENT_COLORS[continent] || '#f1c40f';
+        return '#666666'; // Gray for Neutral / Unassigned territories
     }, [owners, players]);
 
     const getRegionCenter = useCallback((region: RegionData): { x: number; y: number } => {

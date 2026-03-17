@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 
 
@@ -6,14 +6,24 @@ export const useMultiplayer = () => {
     const [gameId, setGameId] = useState<string | null>(null);
     const [playerId, setPlayerId] = useState<string | null>(null);
     const [isHost, setIsHost] = useState(false);
-    const [connectionStatus, setConnectionStatus] = useState<'IDLE' | 'CONNECTING' | 'CONNECTED' | 'PLAYING' | 'ERROR'>('IDLE');
+    const [connectionStatus, setConnectionStatus] = useState<'IDLE' | 'CONNECTING' | 'CONNECTED' | 'PLAYING' | 'ERROR' | 'TAKEOVER_PENDING'>('IDLE');
     const [error, setError] = useState<string | null>(null);
     const [lobbyPlayers, setLobbyPlayers] = useState<any[]>([]); // Temporary type until we define PlayerRow
-    const [lastBroadcastedAction, setLastBroadcastedAction] = useState<any>(null); // For Action Sync
+    const onBroadcastReceivedRef = useRef<((action: any) => void) | null>(null);
+
+    // Persist Session details to localStorage whenever they change
+    useEffect(() => {
+        if (gameId && playerId) {
+            localStorage.setItem('teg_gameId', gameId);
+            localStorage.setItem('teg_playerId', playerId);
+            localStorage.setItem('teg_isHost', String(isHost));
+        }
+    }, [gameId, playerId, isHost]);
 
     // Create a new game session
     const createGame = useCallback(async (hostName: string) => {
         setConnectionStatus('CONNECTING');
+        setError(null);
         try {
             // Generate Proxy War Country
             const { REGIONS } = await import('../data/mapRegions');
@@ -81,11 +91,11 @@ export const useMultiplayer = () => {
         }
     }, []);
 
-    // Join an existing game
     const joinGame = useCallback(async (targetGameId: string, playerName: string) => {
         setConnectionStatus('CONNECTING');
+        setError(null);
         try {
-            // 1. Check if game exists and is in LOBBY
+            // 1. Check if game exists
             const { data: gameData, error: gameCheckError } = await supabase
                 .from('games')
                 .select('status')
@@ -93,31 +103,150 @@ export const useMultiplayer = () => {
                 .single();
 
             if (gameCheckError || !gameData) throw new Error('Partida no encontrada');
-            if (gameData.status !== 'LOBBY') throw new Error('La partida ya ha comenzado o finalizado');
 
-            // 2. Add Player
-            const { data: playerData, error: playerError } = await supabase
+            // Find if player with this name already exists in this game
+            const { data: playersList, error: playersError } = await supabase
                 .from('players')
-                .insert([{
-                    game_id: targetGameId,
-                    name: playerName,
-                    is_ready: false
-                }])
-                .select()
-                .single();
+                .select('id, name, ip_address')
+                .eq('game_id', targetGameId);
 
-            if (playerError) throw playerError;
+            if (playersError || !playersList) {
+                throw new Error('Error al buscar jugadores en la partida.');
+            }
 
-            setGameId(targetGameId);
-            setPlayerId(playerData.id);
-            setIsHost(false);
-            setConnectionStatus('CONNECTED');
-            return true;
+            const existingPlayer = playersList.find(p => p.name.trim().toLowerCase() === playerName.trim().toLowerCase());
+
+            if (gameData.status !== 'LOBBY') {
+                if (!existingPlayer) {
+                    throw new Error('Esa partida ya está en progreso y ningún comandante es parte de esa operación.');
+                }
+                
+                // --- TAKEOVER LOGIC ---
+                // We broadcast a request, then wait up to 5 seconds.
+                setConnectionStatus('TAKEOVER_PENDING');
+                return new Promise<boolean>((resolve) => {
+                    const timeoutId = setTimeout(() => {
+                        // Timeout reached, assume original player is offline
+                        subscription.unsubscribe();
+                        finishJoin();
+                    }, 5500); // 5 seconds + ping allowance
+
+                    const subscription = supabase
+                        .channel(`game_actions_sub:${targetGameId}`)
+                        .on('broadcast', { event: 'GAME_ACTION' }, (payload) => {
+                            const action = payload.payload;
+                            if (action.type === 'TAKEOVER_DENIED' && action.payload.playerId === existingPlayer.id) {
+                                clearTimeout(timeoutId);
+                                subscription.unsubscribe();
+                                setConnectionStatus('ERROR');
+                                setError('Acceso denegado: El comandante actual bloqueó tu solicitud.');
+                                resolve(false);
+                            } else if (action.type === 'TAKEOVER_GRANTED' && action.payload.playerId === existingPlayer.id) {
+                                clearTimeout(timeoutId);
+                                subscription.unsubscribe();
+                                finishJoin();
+                            }
+                        })
+                        .subscribe(async (status) => {
+                            if (status === 'SUBSCRIBED') {
+                                // Request takeover
+                                await supabase.channel(`game_actions_sub:${targetGameId}`).send({
+                                    type: 'broadcast',
+                                    event: 'GAME_ACTION',
+                                    payload: { type: 'TAKEOVER_REQUEST', payload: { playerId: existingPlayer.id, requesterSessionId: supabase.auth.getSession()?.toString() } }
+                                });
+                            }
+                        });
+                        
+                    // Cleanup function to apply the join state
+                    const finishJoin = () => {
+                        setGameId(targetGameId);
+                        setPlayerId(existingPlayer.id);
+                        setIsHost(existingPlayer.ip_address === 'host');
+                        setConnectionStatus('PLAYING');
+                        resolve(true);
+                    };
+                });
+            } else {
+                // Game is in LOBBY
+                if (existingPlayer) {
+                    // Rejoin existing lobby player
+                    setGameId(targetGameId);
+                    setPlayerId(existingPlayer.id);
+                    setIsHost(existingPlayer.ip_address === 'host');
+                    setConnectionStatus('CONNECTED');
+                    return true;
+                }
+
+                // Add New Player
+                const { data: playerData, error: playerError } = await supabase
+                    .from('players')
+                    .insert([{
+                        game_id: targetGameId,
+                        name: playerName,
+                        is_ready: false
+                    }])
+                    .select()
+                    .single();
+
+                if (playerError) throw playerError;
+
+                setGameId(targetGameId);
+                setPlayerId(playerData.id);
+                setIsHost(false);
+                setConnectionStatus('CONNECTED');
+                return true;
+            }
 
         } catch (error: any) {
             console.error('Error joining game:', error);
             setConnectionStatus('ERROR');
             setError(error.message || 'Error desconocido al unirse a partida');
+            return false;
+        }
+    }, []);
+
+    // Rejoin an active game (from localStorage)
+    const rejoinGame = useCallback(async (targetGameId: string, savedPlayerId: string, savedIsHost: boolean) => {
+        setConnectionStatus('CONNECTING');
+        try {
+            // Check if game exists
+            const { data: gameData, error: gameCheckError } = await supabase
+                .from('games')
+                .select('status')
+                .eq('id', targetGameId)
+                .single();
+
+            if (gameCheckError || !gameData) throw new Error('Partida no encontrada o finalizada');
+
+            // Verify player exists in this game
+            const { data: playerData, error: playerError } = await supabase
+                .from('players')
+                .select('id, name')
+                .eq('id', savedPlayerId)
+                .eq('game_id', targetGameId)
+                .single();
+
+            if (playerError || !playerData) throw new Error('No estás registrado en esta partida o fuiste expulsado.');
+
+            setGameId(targetGameId);
+            setPlayerId(savedPlayerId);
+            setIsHost(savedIsHost);
+
+            // Inherit the game status (LOBBY or PLAYING)
+            setConnectionStatus(gameData.status as 'CONNECTED' | 'PLAYING');
+            if (gameData.status === 'LOBBY') {
+               setConnectionStatus('CONNECTED'); 
+            }
+            return true;
+
+        } catch (error: any) {
+            console.error('Error rejoining game:', error);
+            setConnectionStatus('ERROR');
+            setError(error.message || 'Error desconocido al reconectar a la partida');
+            // Clear bad local data so it doesn't get stuck loop
+            localStorage.removeItem('teg_gameId');
+            localStorage.removeItem('teg_playerId');
             return false;
         }
     }, []);
@@ -224,7 +353,11 @@ export const useMultiplayer = () => {
                     // Payload is nested: { type: 'broadcast', event: 'GAME_ACTION', payload: { action_object } }
                     // Usually payload.payload is the data we sent.
                     if (payload.payload) {
-                        setLastBroadcastedAction(payload.payload);
+                        if (onBroadcastReceivedRef.current) {
+                            onBroadcastReceivedRef.current(payload.payload);
+                        } else {
+                            console.warn('[useMultiplayer] ⚠️ broadcast received but no handler set:', payload.payload.type);
+                        }
                     }
                 }
             )
@@ -276,6 +409,7 @@ export const useMultiplayer = () => {
         gameSettings,
         createGame,
         joinGame,
+        rejoinGame,
         startGame,
         // Helper to update full state
         updateInitialState: async (initialState: any) => {
@@ -302,7 +436,6 @@ export const useMultiplayer = () => {
 
             if (error) console.error("[useMultiplayer] Error syncing state:", error);
         },
-        // Broadcast Action (Ephemeral)
         broadcastAction: async (action: any) => {
             if (!gameId) {
                 console.warn('[useMultiplayer] ⚠️ Cannot broadcast: No Game ID');
@@ -323,6 +456,8 @@ export const useMultiplayer = () => {
                 console.log('[useMultiplayer] ✅ Broadcast sent successfully');
             }
         },
-        lastBroadcastedAction,
+        setOnBroadcastReceived: useCallback((callback: (action: any) => void) => {
+            onBroadcastReceivedRef.current = callback;
+        }, []),
     };
 };

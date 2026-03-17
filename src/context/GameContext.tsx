@@ -30,8 +30,15 @@ export interface MissionNotification {
     message: string;
     color: string;
     playerName?: string;
-    targetPlayerId?: string | number;
-    missionId?: string;
+    targetPlayerId?: string | number | null;
+}
+
+export interface GameSettings {
+    proxyWarCountry: string;
+    abandonmentMode: 'redistribute' | 'neutralize';
+    aiActive: boolean;
+    aiDifficulty: number;
+    gameMode: 'classic' | 'chaos';
 }
 
 export interface GameState {
@@ -72,6 +79,7 @@ export interface GameState {
     // Turn tracking
     usedAttackSources: string[];
     treaties: Treaty[];
+    settings: GameSettings;
 }
 
 // ============================================================================
@@ -98,7 +106,7 @@ export type GameAction =
         type: 'START_GAME'; payload: {
             players: PlayerData[];
             owners: Record<string, string | number | null>;
-            proxyWarCountry: string;
+            settings: GameSettings;
         }
     }
     | { type: 'RESET_GAME' }
@@ -134,11 +142,13 @@ export type GameAction =
             endgameChoice?: 'victory' | 'destruction' | null;
             usedAttackSources?: string[];
             treaties?: Treaty[];
+            settings?: GameSettings;
         }
     }
     | { type: 'CREATE_TREATY_OFFER'; payload: Treaty }
     | { type: 'UPDATE_TREATY'; payload: Treaty }
-    | { type: 'CANCEL_TREATY'; payload: { treatyId: string } };
+    | { type: 'CANCEL_TREATY'; payload: { treatyId: string } }
+    | { type: 'KICK_PLAYER'; payload: { playerId: string | number } };
 
 
 
@@ -165,7 +175,14 @@ const initialState: GameState = {
     winner: null,
     endgameChoice: null,
     usedAttackSources: [],
-    treaties: []
+    treaties: [],
+    settings: {
+        proxyWarCountry: 'País Desconocido',
+        abandonmentMode: 'redistribute',
+        aiActive: false,
+        aiDifficulty: 50,
+        gameMode: 'classic'
+    }
 };
 
 // ============================================================================
@@ -246,8 +263,21 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             return { ...state, turnOrderIndex: action.payload };
 
         case 'NEXT_TURN': {
-            const nextIndex = (state.turnOrderIndex + 1) % state.turnOrder.length;
-            const nextPlayerIndex = state.turnOrder[nextIndex] ?? 0;
+            let nextIndex = state.turnOrderIndex;
+            let nextPlayerIndex: number;
+            let nextPlayer: any;
+            let loops = 0;
+
+            // Loop until we find a player who is not eliminated
+            do {
+                nextIndex = (nextIndex + 1) % state.turnOrder.length;
+                nextPlayerIndex = state.turnOrder[nextIndex] ?? 0;
+                nextPlayer = state.players[nextPlayerIndex];
+                loops++;
+                // Emergency break to prevent infinite loop if all players eliminated
+                if (loops > state.turnOrder.length * 2) break; 
+            } while (nextPlayer && nextPlayer.isEliminated);
+
             return {
                 ...state,
                 turnOrderIndex: nextIndex,
@@ -263,7 +293,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
                 gamePhase: 'playing',
                 players: action.payload.players,
                 owners: action.payload.owners,
-                proxyWarCountry: action.payload.proxyWarCountry,
+                settings: action.payload.settings,
+                proxyWarCountry: action.payload.settings.proxyWarCountry,
             };
 
         case 'RESET_GAME':
@@ -538,6 +569,80 @@ function gameReducer(state: GameState, action: GameAction): GameState {
                 treaties: state.treaties.filter(t => t.id !== action.payload.treatyId)
             };
 
+        case 'KICK_PLAYER': {
+            const playerIdToKick = action.payload.playerId;
+            
+            // 1. Mark player as eliminated
+            const newPlayers = state.players.map(p => 
+                p.id === playerIdToKick ? { ...p, isEliminated: true } : p
+            );
+
+            // 2. Redistribute their regions among active players
+            const newOwners = { ...state.owners };
+            const regionsToDistribute: string[] = [];
+            Object.keys(newOwners).forEach(regionId => {
+                if (String(newOwners[regionId]) === String(playerIdToKick)) {
+                    regionsToDistribute.push(regionId);
+                }
+            });
+
+            const activePlayers = newPlayers.filter(p => !p.isEliminated && String(p.id) !== String(playerIdToKick));
+            const abandonmentMode = state.settings?.abandonmentMode || 'redistribute';
+
+            if (abandonmentMode === 'redistribute' && activePlayers.length > 0) {
+                // Shuffle for fairness and distribute round-robin
+                const shuffledRegions = [...regionsToDistribute].sort(() => Math.random() - 0.5);
+                shuffledRegions.forEach((regionId, index) => {
+                    const assignedPlayer = activePlayers[index % activePlayers.length];
+                    newOwners[regionId] = assignedPlayer.id;
+                });
+            } else {
+                // neutralization mode OR no active players
+                regionsToDistribute.forEach(regionId => {
+                    newOwners[regionId] = null;
+                });
+            }
+
+            // 3. Advancing the turn if it was their turn
+            let newState = {
+                ...state,
+                players: newPlayers,
+                owners: newOwners
+            };
+
+            const currentPlayer = newState.players[newState.currentPlayerIndex];
+            if (currentPlayer && String(currentPlayer.id) === String(playerIdToKick)) {
+                // Call NEXT_TURN logic manually since we are inside the reducer
+                let nextIndex = newState.turnOrderIndex;
+                let nextPlayerIndex: number;
+                let nextPlayer: any;
+                let loops = 0;
+                do {
+                    nextIndex = (nextIndex + 1) % newState.turnOrder.length;
+                    nextPlayerIndex = newState.turnOrder[nextIndex] ?? 0;
+                    nextPlayer = newState.players[nextPlayerIndex];
+                    loops++;
+                    if (loops > newState.turnOrder.length * 2) break;
+                } while (nextPlayer && nextPlayer.isEliminated);
+                
+                newState.turnOrderIndex = nextIndex;
+                newState.currentPlayerIndex = nextPlayerIndex;
+                newState.usedAttackSources = [];
+            }
+
+            // Notification
+            const kickedPlayerInfo = state.players.find(p => String(p.id) === String(playerIdToKick));
+            // const abandonmentMode = state.settings?.abandonmentMode || 'redistribute'; // Already declared above
+            newState.notification = {
+                type: 'NEUTRALIZED',
+                title: 'JUGADOR EXPULSADO',
+                message: `EL COMANDANTE ${kickedPlayerInfo?.name.toUpperCase() || 'DESCONOCIDO'} HA SIDO EXPULSADO. SUS REGIONES AHORA SON ${abandonmentMode === 'neutralize' ? 'NEUTRALES' : 'ADMINISTRADAS POR EL RESTO'}.`,
+                color: '#ff4444'
+            };
+
+            return newState;
+        }
+
         default:
             return state;
     }
@@ -559,6 +664,9 @@ interface GameContextValue {
     state: GameState;
     dispatch: React.Dispatch<GameAction>;
     multiplayer: ReturnType<typeof useMultiplayer>;
+    forceSyncFromDatabase: (isInitialStartup?: boolean, attempts?: number) => Promise<void>;
+    takeoverRequest: string | null;
+    respondToTakeover: (allow: boolean) => void;
 }
 
 const GameContext = createContext<GameContextValue | null>(null);
@@ -587,70 +695,98 @@ export const GameProvider: React.FC<GameProviderProps> = ({
         }
     );
 
-    // Sync Multiplayer Players to Game State and Start Game
+    const [takeoverRequest, setTakeoverRequest] = React.useState<string | null>(null);
+
+    const forceSyncFromDatabase = React.useCallback(async (isInitialStartup: boolean = false, attempts = 0) => {
+        const { supabase } = await import('../supabaseClient');
+        if (!multiplayer.gameId) return;
+
+        console.log(`[GameContext] Fetching full state from database... (Initial: ${isInitialStartup}, Attempt: ${attempts + 1})`);
+
+        const { data, error } = await supabase
+            .from('game_states')
+            .select('full_state')
+            .eq('game_id', multiplayer.gameId)
+            .single();
+
+        if (error) {
+            console.error("[GameContext] Error fetching game_states:", error);
+        }
+
+        if (data && data.full_state && Object.keys(data.full_state).length > 0) {
+            const remoteState = data.full_state;
+            console.log("[GameContext] Full state received.");
+
+            if (isInitialStartup) {
+                dispatch({
+                    type: 'START_GAME',
+                    payload: {
+                        players: remoteState.players,
+                        owners: remoteState.owners,
+                        settings: remoteState.settings || {
+                            proxyWarCountry: remoteState.proxyWarCountry || 'País Desconocido',
+                            abandonmentMode: 'redistribute',
+                            aiActive: false,
+                            aiDifficulty: 50,
+                            gameMode: 'classic'
+                        }
+                    }
+                });
+                if (remoteState.productionDeck) dispatch({ type: 'SET_PRODUCTION_DECK', payload: remoteState.productionDeck });
+                if (remoteState.regionResources) dispatch({ type: 'SET_REGION_RESOURCES', payload: remoteState.regionResources });
+                if (remoteState.turnOrder) dispatch({ type: 'SET_TURN_ORDER', payload: remoteState.turnOrder });
+                if (remoteState.currentPlayerIndex !== undefined) dispatch({ type: 'SET_CURRENT_PLAYER', payload: remoteState.currentPlayerIndex });
+                if (remoteState.gameDate) dispatch({ type: 'SET_GAME_DATE', payload: new Date(remoteState.gameDate) });
+            } else {
+                dispatch({
+                    type: 'SYNC_STATE',
+                    payload: {
+                        players: remoteState.players,
+                        owners: remoteState.owners,
+                        currentPlayerIndex: remoteState.currentPlayerIndex,
+                        gameDate: remoteState.gameDate ? new Date(remoteState.gameDate) : undefined,
+                        turnOrder: remoteState.turnOrder,
+                        turnOrderIndex: remoteState.turnOrderIndex,
+                        productionDeck: remoteState.productionDeck,
+                        regionResources: remoteState.regionResources,
+                        battleState: remoteState.battleState,
+                        notification: remoteState.notification,
+                        winner: remoteState.winner,
+                        endgameChoice: remoteState.endgameChoice,
+                        treaties: remoteState.treaties,
+                        settings: remoteState.settings
+                    }
+                });
+            }
+        } else {
+            if (isInitialStartup && attempts < 10) {
+                console.warn(`[GameContext] State not found. Retrying in 500ms...`);
+                setTimeout(() => forceSyncFromDatabase(true, attempts + 1), 500);
+            } else if (isInitialStartup) {
+                console.error("[GameContext] Critical Error: Could not get initial state.");
+            }
+        }
+    }, [multiplayer.gameId]);
+
+    // Initial Startup Sync
     React.useEffect(() => {
         if (multiplayer.connectionStatus === 'PLAYING' && !state.gameStarted) {
-
-            const fetchGameState = async (attempts = 0) => {
-                const { supabase } = await import('../supabaseClient');
-                if (!multiplayer.gameId) return;
-
-                console.log(`[GameContext] Intentando obtener estado inicial... (Intento ${attempts + 1})`);
-
-                const { data, error } = await supabase
-                    .from('game_states')
-                    .select('full_state')
-                    .eq('game_id', multiplayer.gameId)
-                    .single();
-
-                if (error) {
-                    console.error("[GameContext] Error al consultar game_states:", error);
-                }
-
-                if (data && data.full_state && Object.keys(data.full_state).length > 0) {
-                    const fullState = data.full_state;
-                    console.log("[GameContext] Estado inicial recibido y sincronizado.");
-
-                    // Initialize the entire game engine with synchronised data
-                    dispatch({
-                        type: 'START_GAME',
-                        payload: {
-                            players: fullState.players,
-                            owners: fullState.owners,
-                            proxyWarCountry: fullState.proxyWarCountry || 'País Desconocido'
-                        }
-                    });
-
-                    // Sync other complex state objects
-                    if (fullState.productionDeck) {
-                        dispatch({ type: 'SET_PRODUCTION_DECK', payload: fullState.productionDeck });
-                    }
-                    if (fullState.regionResources) {
-                        dispatch({ type: 'SET_REGION_RESOURCES', payload: fullState.regionResources });
-                    }
-                    if (fullState.turnOrder) {
-                        dispatch({ type: 'SET_TURN_ORDER', payload: fullState.turnOrder });
-                    }
-                    if (fullState.currentPlayerIndex !== undefined) {
-                        dispatch({ type: 'SET_CURRENT_PLAYER', payload: fullState.currentPlayerIndex });
-                    }
-                    if (fullState.gameDate) {
-                        dispatch({ type: 'SET_GAME_DATE', payload: new Date(fullState.gameDate) });
-                    }
-
-                } else {
-                    if (attempts < 10) { // Try for ~5 seconds
-                        console.warn(`[GameContext] Estado no encontrado. Reintentando en 500ms...`);
-                        setTimeout(() => fetchGameState(attempts + 1), 500);
-                    } else {
-                        console.error("[GameContext] Error crítico: No se pudo obtener el estado inicial después de varios intentos.");
-                    }
-                }
-            };
-
-            fetchGameState();
+            forceSyncFromDatabase(true);
         }
-    }, [multiplayer.connectionStatus, state.gameStarted, multiplayer.gameId]);
+    }, [multiplayer.connectionStatus, state.gameStarted, forceSyncFromDatabase]);
+
+    // Visibility Change / Reconnect Sync (Fix for mobile sleep/backgrounding)
+    React.useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible' && multiplayer.connectionStatus === 'PLAYING' && state.gameStarted) {
+                console.log('[GameContext] Returned to foreground, forcing state sync...');
+                forceSyncFromDatabase(false);
+            }
+        };
+
+        window.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => window.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, [multiplayer.connectionStatus, state.gameStarted, forceSyncFromDatabase]);
 
     // REAL-TIME SYNC: Subscribe to remote changes
     React.useEffect(() => {
@@ -677,7 +813,8 @@ export const GameProvider: React.FC<GameProviderProps> = ({
                         if (!remoteState) return;
 
                         // Prevent feedback loop: only sync if we are NOT the active player
-                        const isMyTurn = state.players[state.currentPlayerIndex]?.id === multiplayer.playerId;
+                        const currentPlayer = state.players[state.currentPlayerIndex];
+                        const isMyTurn = currentPlayer && String(currentPlayer.id) === String(multiplayer.playerId);
                         if (isMyTurn) return;
 
                         dispatch({
@@ -732,7 +869,8 @@ export const GameProvider: React.FC<GameProviderProps> = ({
         'SET_ENDGAME_CHOICE',
         'CREATE_TREATY_OFFER',
         'UPDATE_TREATY',
-        'CANCEL_TREATY'
+        'CANCEL_TREATY',
+        'KICK_PLAYER'
     ]);
 
     const dispatchWithSync = (action: GameAction) => {
@@ -740,25 +878,11 @@ export const GameProvider: React.FC<GameProviderProps> = ({
         // If we in a multiplayer game, ensure we are the Active Player before doing state-changing actions.
         if (multiplayer.connectionStatus === 'PLAYING' && multiplayer.playerId && state.gameStarted) {
             const currentPlayer = state.players[state.currentPlayerIndex];
-            const isMyTurn = currentPlayer?.id === multiplayer.playerId;
+            const isMyTurn = currentPlayer && String(currentPlayer.id) === String(multiplayer.playerId);
 
-            // Block gameplay actions if it's not my turn
-            // Exception: SYNC_STATE (incoming from remote) is always allowed.
-            // Exception: Battle Defender Actions (BATTLE_DEFENDER_SELECT) allowed for the defender.
-            // Exception: Mission Actions (MARK_CARD_AS_USED, ADD_SPECIAL_CARD, ADD_SUPPLY) allowed anytime per user request.
-
-            const isBattleDefenderAction = action.type === 'BATTLE_DEFENDER_SELECT';
-            // We need to check if we are the defender in the current battle
-            // NOTE: state.battleState might be null if we are not in battle, but if we are sending this action we presumably are.
-            // Safely check:
-            const isDefender = state.battleState && (state.battleState.defender.id === multiplayer.playerId || state.battleState.defender.id === Number(multiplayer.playerId)); // Handle string/number mismatch potential
-
-            const isMissionAction = ['MARK_CARD_AS_USED', 'ADD_SPECIAL_CARD', 'ADD_SUPPLY'].includes(action.type);
-            const isTreatyAction = ['CREATE_TREATY_OFFER', 'UPDATE_TREATY', 'CANCEL_TREATY'].includes(action.type);
-
-            const isAllowedException = (isBattleDefenderAction && isDefender) || isMissionAction || isTreatyAction;
-
-            if (SYNCABLE_ACTIONS.has(action.type) && !isMyTurn && action.type !== 'SYNC_STATE' && !isAllowedException) {
+            // User request: LA UNICA ACCION BLOQUEDA POR TURNO DEBE SER ATACAR OTRO PAIS. 
+            // EL RESTO DE LAS ACCIONES SON EJECUTABLES EN CUALQUIER MOMENTO.
+            if (action.type === 'INIT_BATTLE' && !isMyTurn) {
                 console.warn(`[GameContext] 🚫 Action BLOCKED: ${action.type}. It is ${currentPlayer?.name}'s turn (ID: ${currentPlayer?.id}), but you are ${multiplayer.playerId}.`);
                 return; // DROP ACTION LOCALLY
             }
@@ -777,12 +901,28 @@ export const GameProvider: React.FC<GameProviderProps> = ({
     };
 
     React.useEffect(() => {
-        if (multiplayer.lastBroadcastedAction) {
-            const action = multiplayer.lastBroadcastedAction;
-            console.log('[GameContext] Received Remote Action:', action.type);
+        // Register the fast-path broadcast receiver to avoid React batching dropped actions
+        multiplayer.setOnBroadcastReceived((action) => {
+            console.log('[GameContext] Received Remote Action (Fast Path):', action.type);
+            
+            // Handle takeover requests outside reducer (if affecting THIS client)
+            if (action.type === ('TAKEOVER_REQUEST' as any) && action.payload.playerId === multiplayer.playerId) {
+                setTakeoverRequest(multiplayer.playerId);
+                return;
+            }
+            if (action.type === ('TAKEOVER_GRANTED' as any) && action.payload.playerId === multiplayer.playerId) {
+                // Someone else successfully took over our player ID. We must disconnect locally.
+                setTakeoverRequest(null);
+                alert("Tu sesión ha sido transferida a otro dispositivo.");
+                localStorage.removeItem('teg_gameId');
+                localStorage.removeItem('teg_playerId');
+                window.location.reload();
+                return;
+            }
+
             dispatch(action);
-        }
-    }, [multiplayer.lastBroadcastedAction]);
+        });
+    }, [multiplayer]);
 
 
     // REAL-TIME SYNC: Push local changes to remote
@@ -796,7 +936,8 @@ export const GameProvider: React.FC<GameProviderProps> = ({
         // Exception: During INIT_BATTLE or END_BATTLE, maybe the attacker pushes?
         // Simple heuristic: If it's my turn, I push.
 
-        const isMyTurn = state.players[state.currentPlayerIndex]?.id === multiplayer.playerId;
+        const currentPlayer = state.players[state.currentPlayerIndex];
+        const isMyTurn = currentPlayer && String(currentPlayer.id) === String(multiplayer.playerId);
         if (!isMyTurn) return;
 
         // Serialize relevant parts of state to check for changes
@@ -815,7 +956,8 @@ export const GameProvider: React.FC<GameProviderProps> = ({
             winner: state.winner,
             endgameChoice: state.endgameChoice,
             usedAttackSources: state.usedAttackSources,
-            treaties: state.treaties
+            treaties: state.treaties,
+            settings: state.settings
         };
 
         const stateString = JSON.stringify(syncableState);
@@ -831,8 +973,35 @@ export const GameProvider: React.FC<GameProviderProps> = ({
         }
     }, [state, multiplayer.gameId, multiplayer.connectionStatus, state.gameStarted, multiplayer.playerId]);
 
+    // Function to respond to takeover
+    const respondToTakeover = React.useCallback((allow: boolean) => {
+        if (!takeoverRequest || !multiplayer.playerId) return;
+        
+        multiplayer.broadcastAction({
+            type: allow ? 'TAKEOVER_GRANTED' : 'TAKEOVER_DENIED',
+            payload: { playerId: multiplayer.playerId }
+        } as any);
+
+        setTakeoverRequest(null);
+        
+        if (allow) {
+            // Disconnect ourselves since we allowed it
+            alert("Sesión transferida exitosamente.");
+            localStorage.removeItem('teg_gameId');
+            localStorage.removeItem('teg_playerId');
+            window.location.reload();
+        }
+    }, [takeoverRequest, multiplayer.playerId, multiplayer]);
+
     return (
-        <GameContext.Provider value={{ state, dispatch: dispatchWithSync, multiplayer }}>
+        <GameContext.Provider value={{ 
+            state, 
+            dispatch: dispatchWithSync, 
+            multiplayer,
+            forceSyncFromDatabase,
+            takeoverRequest,
+            respondToTakeover 
+        }}>
             {children}
         </GameContext.Provider>
     );

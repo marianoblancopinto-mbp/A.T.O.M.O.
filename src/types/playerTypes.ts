@@ -43,6 +43,7 @@ export interface PlayerData {
         agency: 'CIA' | 'MSS';
         isActive: boolean;
     }[];
+    isEliminated?: boolean;
 }
 
 export interface EspionageReport {

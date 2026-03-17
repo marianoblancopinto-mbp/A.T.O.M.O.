@@ -128,7 +128,7 @@ export const MapRender: React.FC<MapRenderProps> = ({ selectedRegionId, onRegion
                 const isSelected = selectedRegionId === region.id;
                 const commonProps = {
                     id: region.id,
-                    fill: getFillColor(region.id, region.continent),
+                    fill: getFillColor(region.id),
                     stroke: isSelected ? '#ffffff' : '#00ff00', // White stroke when selected
                     strokeWidth: isSelected ? "4" : "3",
                     strokeOpacity: "1", // Full opacity for borders

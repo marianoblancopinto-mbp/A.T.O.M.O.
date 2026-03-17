@@ -1,14 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useMultiplayerContext } from '../context/GameContext';
-import { MENU_SECTIONS, getHistoryLogs, MISSION_LOGS } from '../data/loreData';
-import { HistoryAnimation } from './shared/overlays/HistoryAnimation';
+import { MENU_SECTIONS } from '../data/loreData';
 import { generateInitialGameState } from '../data/gameInitializer';
+import { RulesModal } from './shared/modals/RulesModal';
+import { HistoryModal } from './shared/modals/HistoryModal';
+import { MissionModal } from './shared/modals/MissionModal';
+import { SecondaryMissionsModal } from './shared/modals/SecondaryMissionsModal';
+import { GameSettingsModal } from './shared/modals/GameSettingsModal';
 
 interface LobbyProps {
     onGameStart?: () => void;
+    muted?: boolean;
+    onMuteToggle?: () => void;
 }
 
-export const Lobby: React.FC<LobbyProps> = ({ onGameStart }) => {
+export const Lobby: React.FC<LobbyProps> = ({ onGameStart, muted, onMuteToggle }) => {
     const {
         gameId,
         playerId,
@@ -25,7 +31,20 @@ export const Lobby: React.FC<LobbyProps> = ({ onGameStart }) => {
 
     const [playerName, setPlayerName] = useState('');
     const [joinGameId, setJoinGameId] = useState('');
-    const [activeSection, setActiveSection] = useState<string | null>(null);
+    const [showRules, setShowRules] = useState(false);
+    const [showHistory, setShowHistory] = useState(false);
+    const [showMission, setShowMission] = useState(false);
+    const [showSecondaryMissions, setShowSecondaryMissions] = useState(false);
+    const [showSettings, setShowSettings] = useState(false);
+
+    // Auto-fill from URL if present
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const room = urlParams.get('room');
+        if (room) {
+            setJoinGameId(room);
+        }
+    }, []);
 
     // Handle Create Game
     const handleCreate = async () => {
@@ -37,7 +56,26 @@ export const Lobby: React.FC<LobbyProps> = ({ onGameStart }) => {
     const handleJoin = async () => {
         if (!playerName) return alert('Ingresa tu nombre primero');
         if (!joinGameId) return alert('Ingresa el ID de la partida');
-        await joinGame(joinGameId, playerName);
+
+        let targetId = joinGameId.trim();
+        
+        // If the user pasted a full URL, extract the ?room= value
+        if (targetId.includes('http') || targetId.includes('?')) {
+            try {
+                // Prepend http fake base if it starts with query param
+                const urlString = targetId.startsWith('http') ? targetId : `http://localhost/${targetId}`;
+                const url = new URL(urlString);
+                const roomParam = url.searchParams.get('room');
+                if (roomParam) {
+                    targetId = roomParam;
+                    setJoinGameId(roomParam); // correct the input visually
+                }
+            } catch (e) {
+                // Ignore parsing errors
+            }
+        }
+
+        await joinGame(targetId, playerName);
     };
 
     // React to Game Start
@@ -49,11 +87,26 @@ export const Lobby: React.FC<LobbyProps> = ({ onGameStart }) => {
 
     // --- Content Handlers ---
     const handleMenuClick = (phase: string) => {
-        setActiveSection(phase);
-    };
-
-    const closeOverlay = () => {
-        setActiveSection(null);
+        if (phase === 'rules_intro') {
+            setShowRules(true);
+            return;
+        }
+        if (phase === 'history') {
+            setShowHistory(true);
+            return;
+        }
+        if (phase === 'mission') {
+            setShowMission(true);
+            return;
+        }
+        if (phase === 'secondary_intro') {
+            setShowSecondaryMissions(true);
+            return;
+        }
+        if (phase === 'settings') {
+            setShowSettings(true);
+            return;
+        }
     };
 
     const isMobile = window.innerWidth <= 768;
@@ -62,7 +115,6 @@ export const Lobby: React.FC<LobbyProps> = ({ onGameStart }) => {
 
         // Proxy War Country for Lore
         const proxyCountry = gameSettings?.proxyWarCountry || 'País Desconocido';
-        const historyLogs = getHistoryLogs(proxyCountry);
 
         return (
             <div style={{
@@ -99,8 +151,40 @@ export const Lobby: React.FC<LobbyProps> = ({ onGameStart }) => {
                     padding: isMobile ? '20px' : '40px',
                     display: 'flex', flexDirection: 'column', zIndex: 1,
                     backgroundColor: 'rgba(0,0,0,0.5)',
-                    width: isMobile ? '100%' : 'auto'
+                    width: isMobile ? '100%' : 'auto',
+                    position: 'relative'
                 }}>
+                    <div style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 10 }}>
+                        <button 
+                            onClick={onMuteToggle}
+                            title={muted ? "Activar Música" : "Desactivar Música"}
+                            style={{
+                                backgroundColor: 'transparent',
+                                border: '1px solid #00ff00',
+                                color: '#00ff00',
+                                padding: '5px 12px',
+                                cursor: 'pointer',
+                                fontSize: '0.9rem',
+                                borderRadius: '0',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                transition: 'all 0.2s',
+                                fontFamily: 'monospace',
+                                fontWeight: 'bold'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = 'rgba(0, 255, 0, 0.2)';
+                                e.currentTarget.style.boxShadow = '0 0 10px rgba(0, 255, 0, 0.3)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'transparent';
+                                e.currentTarget.style.boxShadow = 'none';
+                            }}
+                        >
+                            AUDIO: <span style={{ color: muted ? '#ff4444' : '#00ff00' }}>{muted ? 'MUTED' : 'ENABLED'}</span>
+                        </button>
+                    </div>
                     <h1 style={{ fontSize: isMobile ? '1.8rem' : '2.5rem', marginBottom: '10px', textShadow: '0 0 10px #00ff00' }}>SALA DE OPERACIONES</h1>
                     <div style={{ marginBottom: isMobile ? '20px' : '40px', color: '#666', fontSize: '0.9rem' }}>
                         ID DE MISIÓN: <span style={{ color: '#fff', letterSpacing: '2px' }}>{gameId}</span>
@@ -208,7 +292,13 @@ export const Lobby: React.FC<LobbyProps> = ({ onGameStart }) => {
                                             lobbyPlayers.length,
                                             playerNames,
                                             playerIds,
-                                            gameSettings?.proxyWarCountry || 'País Desconocido'
+                                            gameSettings || {
+                                                proxyWarCountry: 'País Desconocido',
+                                                abandonmentMode: 'redistribute',
+                                                aiActive: false,
+                                                aiDifficulty: 50,
+                                                gameMode: 'classic'
+                                            }
                                         );
 
                                         // 2. Save state to Supabase
@@ -238,43 +328,21 @@ export const Lobby: React.FC<LobbyProps> = ({ onGameStart }) => {
                     </div>
                 </div>
 
-                {/* Overlays */}
-                {activeSection === 'history' && (
-                    <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 100 }}>
-                        <HistoryAnimation
-                            entries={historyLogs}
-                            onComplete={closeOverlay}
-                            skipLabel="CERRAR ARCHIVO"
-                            onSkip={closeOverlay}
-                        />
-                    </div>
-                )}
-
-                {activeSection === 'mission' && (
-                    <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 100 }}>
-                        <HistoryAnimation
-                            entries={MISSION_LOGS}
-                            onComplete={closeOverlay}
-                            skipLabel="CERRAR INFORME"
-                            onSkip={closeOverlay}
-                        />
-                    </div>
-                )}
-
-                {/* Placeholders for other sections */}
-                {(activeSection === 'secondary_intro' || activeSection === 'rules_intro') && (
-                    <div style={{
-                        position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 100,
-                        backgroundColor: 'rgba(0,0,0,0.9)', display: 'flex', justifyContent: 'center', alignItems: 'center'
-                    }}>
-                        <div style={{ border: '2px solid #00ff00', padding: '40px', backgroundColor: '#001100' }}>
-                            <h2>ACCESO DENEGADO</h2>
-                            <p>Archivo dañado o encriptado. Intente nuevamente más tarde.</p>
-                            <button onClick={closeOverlay} style={{ marginTop: '20px', padding: '10px 20px', background: '#00ff00', border: 'none' }}>CERRAR</button>
-                        </div>
-                    </div>
-                )}
-
+                <HistoryModal isOpen={showHistory} onClose={() => setShowHistory(false)} proxyWarCountry={proxyCountry} />
+                <MissionModal isOpen={showMission} onClose={() => setShowMission(false)} />
+                <SecondaryMissionsModal 
+                    isOpen={showSecondaryMissions} 
+                    onClose={() => setShowSecondaryMissions(false)} 
+                    proxyWarCountry={proxyCountry}
+                />
+                <RulesModal isOpen={showRules} onClose={() => setShowRules(false)} />
+                <GameSettingsModal
+                    isOpen={showSettings}
+                    onClose={() => setShowSettings(false)}
+                    gameId={gameId}
+                    isHost={isHost}
+                    currentSettings={gameSettings}
+                />
             </div>
         );
     }
@@ -292,6 +360,7 @@ export const Lobby: React.FC<LobbyProps> = ({ onGameStart }) => {
                 backgroundColor: '#111', boxShadow: '0 0 50px rgba(0,0,0,0.8)'
             }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
                     <input
                         type="text"
                         placeholder="TU NOMBRE DE GENERAL"
@@ -334,12 +403,13 @@ export const Lobby: React.FC<LobbyProps> = ({ onGameStart }) => {
                         />
                         <button
                             onClick={handleJoin}
+                            disabled={connectionStatus === 'CONNECTING' || connectionStatus === 'TAKEOVER_PENDING'}
                             style={{
                                 padding: '15px', backgroundColor: '#002244', color: '#00ffff', border: '1px solid #00ffff',
-                                fontSize: '1.1rem', cursor: 'pointer', fontWeight: 'bold'
+                                fontSize: '1.1rem', cursor: (connectionStatus === 'CONNECTING' || connectionStatus === 'TAKEOVER_PENDING') ? 'wait' : 'pointer', fontWeight: 'bold'
                             }}
                         >
-                            UNIRSE
+                            {connectionStatus === 'TAKEOVER_PENDING' ? 'VERIFICANDO...' : 'UNIRSE'}
                         </button>
                     </div>
                 </div>

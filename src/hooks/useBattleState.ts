@@ -6,7 +6,24 @@ import { MARITIME_ROUTES, REGION_ADJACENCY, isMaritimeConnection } from '../data
 import { calculateRegionBonuses } from '../data/biomeData';
 import { useGameContext } from '../context/GameContext';
 import { useGameActions } from './useGameActions';
-// BattleState is now global in types/gameTypes.ts
+const NEUTRAL_AI_PLAYER: PlayerData = {
+    id: 'neutral_ai',
+    name: 'Fuerzas Locales',
+    color: '#ffffff',
+    supplies: { manufacture: [], food: [], energy: [] },
+    resources: { rawMaterials: 0, technology: 0 },
+    inventory: { rawMaterials: [], technologies: [] },
+    specialCards: [],
+    secretMineralLocation: null,
+    silos: [],
+    siloStatus: {},
+    siloFuelCards: {},
+    mineralUsedThisTurn: false,
+    usedEspionageHqs: [],
+    usedNuclearSilos: [],
+    activeSpecialMissions: [],
+    secretWarData: []
+};
 
 interface UseBattleStateProps {
     // Only UI-specific props remain
@@ -81,6 +98,9 @@ export const useBattleState = ({
             return;
         }
 
+        // Allow attacking Neutral Territories (ownerValue === null) if AI is enabled or game rules allow
+        // In this game, neutral territories are attackable by anyone.
+
         // Get Neighbors from Adjacency Map
         const allNeighbors = [...(REGION_ADJACENCY[selectedRegionId] || [])];
 
@@ -108,7 +128,7 @@ export const useBattleState = ({
         // Valid sources: Adjacent regions owned by current player AND not already used this turn
         const currentPlayerId = players[currentPlayerIndex]?.id;
         const validSources = allNeighbors.filter(id =>
-            owners[id] === currentPlayerId &&
+            String(owners[id]) === String(currentPlayerId) &&
             !state.usedAttackSources.includes(id)
         );
 
@@ -126,8 +146,8 @@ export const useBattleState = ({
             activeTreaties.forEach(treaty => {
                 treaty.clauses.forEach(clause => {
                     if (clause.type === 'NON_AGGRESSION' &&
-                        clause.sourcePlayerId === currentPlayerId &&
-                        clause.targetPlayerId === defenderId) {
+                        String(clause.sourcePlayerId) === String(currentPlayerId) &&
+                        String(clause.targetPlayerId) === String(defenderId)) {
 
                         if (clause.data.regionIds) {
                             clause.data.regionIds.forEach(rid => restrictedRegions.add(rid));
@@ -217,20 +237,22 @@ export const useBattleState = ({
         const defenderId = owners[targetId];
         console.log('[confirmAttackSource] defenderId for', targetId, 'is', defenderId);
 
+        let defender: PlayerData | undefined;
+
         if (defenderId === undefined || defenderId === null) {
-            console.error('[confirmAttackSource] Defender ID not found!');
-            return;
+            // Neutral Territory: Assign AI Operador
+            defender = { ...NEUTRAL_AI_PLAYER };
+            console.log('[confirmAttackSource] Territory is Neutral. Assigning Fuerzas Locales as Defender.');
+        } else {
+            defender = players.find(p => String(p.id) === String(defenderId));
         }
 
-        const defender = players.find(p => String(p.id) === String(defenderId));
         if (!defender) {
-            // Try comparing numbers if strings failed
             console.error('[confirmAttackSource] Defender player not found for ID:', defenderId);
-            console.log('Available players:', players.map(p => p.id));
             return;
         }
 
-        console.log('[confirmAttackSource] Defender found:', defender.name);
+        console.log('[confirmAttackSource] Defender ready:', defender.name);
 
         // Generate Decks
         const deck = shuffleDeck(generateDeck());
@@ -240,6 +262,16 @@ export const useBattleState = ({
         for (let i = 0; i < 5; i++) defHand.push(deck.pop()!);
 
         console.log('[confirmAttackSource] Dispatching INIT_BATTLE');
+
+        // --- CHEATING ROLL ---
+        let isAiCheating = false;
+        if (defender.id === 'neutral_ai' && state.settings) {
+            const roll = Math.floor(Math.random() * 100) + 1;
+            const diff = state.settings.aiDifficulty ?? 50;
+            isAiCheating = roll <= diff;
+            console.log(`[AI Logic] Difficulty: ${diff}, Roll: ${roll} -> Cheating: ${isAiCheating}`);
+        }
+
         // Dispatch Global Action
         dispatch({
             type: 'INIT_BATTLE',
@@ -262,7 +294,8 @@ export const useBattleState = ({
                 clashResult: null,
                 roundCount: 0,
                 attackerWins: 0,
-                defenderWins: 0
+                defenderWins: 0,
+                isAiCheating
             }
         });
 

@@ -71,6 +71,7 @@ export interface BattleState {
     roundCount: number; // 0, 1, 2 (max 3 rounds)
     attackerWins: number;
     defenderWins: number;
+    isAiCheating?: boolean;
 }
 
 export interface GameState {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useGameContext } from '../../context/GameContext';
 
 interface SidebarPanelProps {
@@ -22,7 +22,7 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
     mobileOpen = false,
     onCloseMobile,
 }) => {
-    const { state, multiplayer } = useGameContext();
+    const { state, dispatch, multiplayer } = useGameContext();
     const { players, currentPlayerIndex, gameDate } = state;
     const currentPlayer = players[currentPlayerIndex];
 
@@ -55,6 +55,9 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
         e.currentTarget.style.backgroundColor = '#002200';
         e.currentTarget.style.color = '#00ff00';
     };
+
+    // Kick Player State
+    const [showKickConfirm, setShowKickConfirm] = useState<string | null>(null);
 
     // Mobile specific logic
     const isMobile = window.innerWidth <= 768;
@@ -224,6 +227,58 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
                 >
                     TRATADOS
                 </button>
+
+                {/* Host Controls */}
+                {multiplayer.connectionStatus === 'PLAYING' && multiplayer.isHost && (
+                    <div style={{ marginTop: '20px', borderTop: '1px solid #ff4444', paddingTop: '10px' }}>
+                        <div style={{ fontSize: '0.8rem', color: '#ff4444', marginBottom: '10px', textAlign: 'center' }}>CONTROL DE ANFITRIÓN</div>
+                        
+                        {players.map(p => {
+                            if (p.isEliminated) return null; // Don't show already eliminated players
+                            
+                            const isConfirming = showKickConfirm === p.id.toString();
+                            
+                            return (
+                                <div key={p.id} style={{ marginBottom: '10px' }}>
+                                    <button
+                                        onClick={() => {
+                                            if (isConfirming) {
+                                                dispatch({ type: 'KICK_PLAYER', payload: { playerId: p.id } });
+                                                setShowKickConfirm(null);
+                                            } else {
+                                                setShowKickConfirm(p.id.toString());
+                                            }
+                                        }}
+                                        style={{
+                                            width: '100%',
+                                            padding: '8px',
+                                            fontSize: '0.8rem',
+                                            backgroundColor: isConfirming ? '#ff0000' : 'transparent',
+                                            color: isConfirming ? '#fff' : '#ff4444',
+                                            border: `1px solid ${isConfirming ? '#ff0000' : '#ff4444'}`,
+                                            cursor: 'pointer',
+                                            textTransform: 'uppercase'
+                                        }}
+                                    >
+                                        {isConfirming ? `CONFIRMAR EXPULSIÓN DE ${p.name}` : `EXPULSAR A ${p.name}`}
+                                    </button>
+                                    
+                                    {isConfirming && (
+                                        <button 
+                                            onClick={() => setShowKickConfirm(null)}
+                                            style={{
+                                                width: '100%', padding: '5px', marginTop: '5px',
+                                                backgroundColor: '#333', color: '#fff', border: 'none', fontSize: '0.7rem', cursor: 'pointer'
+                                            }}
+                                        >
+                                            CANCELAR
+                                        </button>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
 
             <div style={{

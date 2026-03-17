@@ -60,6 +60,7 @@ export interface MenuSection {
 export const MENU_SECTIONS: MenuSection[] = [
     { label: 'HISTORIA PREVIA', phase: 'history', available: true },
     { label: 'OBJETIVO PRINCIPAL', phase: 'mission', available: true },
-    { label: 'OBJETIVOS SECUNDARIOS', phase: 'secondary_intro', available: false },
-    { label: 'REGLAS E INSTRUCCIONES', phase: 'rules_intro', available: false },
+    { label: 'OBJETIVOS SECUNDARIOS', phase: 'secondary_intro', available: true },
+    { label: 'REGLAS E INSTRUCCIONES', phase: 'rules_intro', available: true },
+    { label: 'CONFIGURACIÓN Y MODOS DE JUEGO', phase: 'settings', available: true },
 ];
