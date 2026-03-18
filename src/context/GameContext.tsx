@@ -31,6 +31,7 @@ export interface MissionNotification {
     color: string;
     playerName?: string;
     targetPlayerId?: string | number | null;
+    missionId?: string;
 }
 
 export interface GameSettings {
