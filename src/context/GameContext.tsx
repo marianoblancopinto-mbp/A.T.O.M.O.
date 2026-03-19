@@ -736,6 +736,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({
             console.log("[GameContext] Full state received.");
 
             if (isInitialStartup) {
+                // 1. Enter the "Playing" state
                 dispatch({
                     type: 'START_GAME',
                     payload: {
@@ -750,32 +751,30 @@ export const GameProvider: React.FC<GameProviderProps> = ({
                         }
                     }
                 });
-                if (remoteState.productionDeck) dispatch({ type: 'SET_PRODUCTION_DECK', payload: remoteState.productionDeck });
-                if (remoteState.regionResources) dispatch({ type: 'SET_REGION_RESOURCES', payload: remoteState.regionResources });
-                if (remoteState.turnOrder) dispatch({ type: 'SET_TURN_ORDER', payload: remoteState.turnOrder });
-                if (remoteState.currentPlayerIndex !== undefined) dispatch({ type: 'SET_CURRENT_PLAYER', payload: remoteState.currentPlayerIndex });
-                if (remoteState.gameDate) dispatch({ type: 'SET_GAME_DATE', payload: new Date(remoteState.gameDate) });
-            } else {
-                dispatch({
-                    type: 'SYNC_STATE',
-                    payload: {
-                        players: remoteState.players,
-                        owners: remoteState.owners,
-                        currentPlayerIndex: remoteState.currentPlayerIndex,
-                        gameDate: remoteState.gameDate ? new Date(remoteState.gameDate) : undefined,
-                        turnOrder: remoteState.turnOrder,
-                        turnOrderIndex: remoteState.turnOrderIndex,
-                        productionDeck: remoteState.productionDeck,
-                        regionResources: remoteState.regionResources,
-                        battleState: remoteState.battleState,
-                        notification: remoteState.notification,
-                        winner: remoteState.winner,
-                        endgameChoice: remoteState.endgameChoice,
-                        treaties: remoteState.treaties,
-                        settings: remoteState.settings
-                    }
-                });
             }
+
+            // 2. Sync ALL remaining state fields (applies to both initial and background syncs)
+            dispatch({
+                type: 'SYNC_STATE',
+                payload: {
+                    players: remoteState.players,
+                    owners: remoteState.owners,
+                    currentPlayerIndex: remoteState.currentPlayerIndex,
+                    gameDate: remoteState.gameDate ? new Date(remoteState.gameDate) : undefined,
+                    turnOrder: remoteState.turnOrder,
+                    turnOrderIndex: remoteState.turnOrderIndex,
+                    productionDeck: remoteState.productionDeck,
+                    regionResources: remoteState.regionResources,
+                    battleState: remoteState.battleState,
+                    notification: remoteState.notification,
+                    winner: remoteState.winner,
+                    endgameChoice: remoteState.endgameChoice,
+                    treaties: remoteState.treaties,
+                    settings: remoteState.settings,
+                    proxyWarCountry: remoteState.proxyWarCountry,
+                    usedAttackSources: remoteState.usedAttackSources
+                }
+            });
         } else {
             if (isInitialStartup && attempts < 10) {
                 console.warn(`[GameContext] State not found. Retrying in 500ms...`);
