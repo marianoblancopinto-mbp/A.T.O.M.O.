@@ -26,6 +26,7 @@ export const BattleOverlay: React.FC<BattleOverlayProps> = ({
     const [isPendingSync, setIsPendingSync] = useState(false);
     const [phaseStartTime, setPhaseStartTime] = useState(Date.now());
     const [showForceExit, setShowForceExit] = useState(false);
+    const [showKickConfirm, setShowKickConfirm] = useState(false);
 
     if (!battleState) return null;
 
@@ -37,6 +38,10 @@ export const BattleOverlay: React.FC<BattleOverlayProps> = ({
     const isAttacker = String(multiplayer.playerId) === String(attacker.id);
     const isDefender = String(multiplayer.playerId) === String(defender.id);
     const isNeutralAI = String(defender.id) === 'neutral_ai';
+    const isHost = multiplayer.isHost;
+    const opponentId = isAttacker ? defender.id : attacker.id;
+    const opponentName = isAttacker ? defender.name : attacker.name;
+    const canKickOpponent = isHost && (isAttacker || isDefender) && !isNeutralAI;
 
     // Visibility Restriction: Only involved players see the overlay
     if (!isAttacker && !isDefender && !isNeutralAI) return null;
@@ -236,6 +241,12 @@ export const BattleOverlay: React.FC<BattleOverlayProps> = ({
         dispatch({ type: 'END_BATTLE' });
     };
 
+    const handleKickOpponent = () => {
+        if (!canKickOpponent) return;
+        dispatch({ type: 'KICK_PLAYER', payload: { playerId: opponentId } });
+        setShowKickConfirm(false);
+    };
+
     // --- Render Helpers ---
 
     const renderScoreBanner = () => (
@@ -265,6 +276,65 @@ export const BattleOverlay: React.FC<BattleOverlayProps> = ({
                 <span style={{ color: defenderColor }}>{defenderName.toUpperCase()}: {defenderWins}</span>
                 <div style={{ width: '12px', height: '12px', backgroundColor: defenderColor, borderRadius: '50%' }} />
             </div>
+            {/* Host Kick Button */}
+            {canKickOpponent && phase !== 'VICTORY' && phase !== 'DEFEAT' && (
+                <div style={{ position: 'absolute', right: '15px', top: '50%', transform: 'translateY(-50%)' }}>
+                    {!showKickConfirm ? (
+                        <button
+                            onClick={() => setShowKickConfirm(true)}
+                            style={{
+                                padding: '5px 10px',
+                                fontSize: '0.7rem',
+                                backgroundColor: 'transparent',
+                                color: '#ff4444',
+                                border: '1px solid #ff4444',
+                                cursor: 'pointer',
+                                fontFamily: 'monospace',
+                                textTransform: 'uppercase',
+                                opacity: 0.7,
+                                transition: 'opacity 0.2s'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.7'; }}
+                        >
+                            EXPULSAR AFK
+                        </button>
+                    ) : (
+                        <div style={{ display: 'flex', gap: '5px' }}>
+                            <button
+                                onClick={handleKickOpponent}
+                                style={{
+                                    padding: '5px 10px',
+                                    fontSize: '0.7rem',
+                                    backgroundColor: '#ff0000',
+                                    color: '#fff',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    fontFamily: 'monospace',
+                                    fontWeight: 'bold',
+                                    textTransform: 'uppercase'
+                                }}
+                            >
+                                CONFIRMAR EXPULSI\u00D3N DE {opponentName.toUpperCase()}
+                            </button>
+                            <button
+                                onClick={() => setShowKickConfirm(false)}
+                                style={{
+                                    padding: '5px 8px',
+                                    fontSize: '0.7rem',
+                                    backgroundColor: '#333',
+                                    color: '#fff',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    fontFamily: 'monospace'
+                                }}
+                            >
+                                X
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 

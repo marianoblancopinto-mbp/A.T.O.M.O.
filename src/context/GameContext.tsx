@@ -572,6 +572,22 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
         case 'KICK_PLAYER': {
             const playerIdToKick = action.payload.playerId;
+
+            // 0. BATTLE RESOLUTION: If kicked player is in an active battle, resolve it first
+            let battleOwnerOverride: Record<string, string | number | null> = {};
+            let clearedBattleState = state.battleState;
+            if (state.battleState && state.battleState.isActive) {
+                const isKickedDefender = String(state.battleState.defender.id) === String(playerIdToKick);
+                const isKickedAttacker = String(state.battleState.attacker.id) === String(playerIdToKick);
+                if (isKickedDefender) {
+                    // Attacker wins → gets the contested country
+                    battleOwnerOverride[state.battleState.targetRegionId] = state.battleState.attacker.id;
+                    clearedBattleState = null;
+                } else if (isKickedAttacker) {
+                    // Defender wins → keeps the country (no owner change needed)
+                    clearedBattleState = null;
+                }
+            }
             
             // 1. Mark player as eliminated
             const newPlayers = state.players.map(p => 
@@ -579,7 +595,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             );
 
             // 2. Redistribute their regions among active players
-            const newOwners = { ...state.owners };
+            const newOwners = { ...state.owners, ...battleOwnerOverride };
             const regionsToDistribute: string[] = [];
             Object.keys(newOwners).forEach(regionId => {
                 if (String(newOwners[regionId]) === String(playerIdToKick)) {
@@ -608,7 +624,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             let newState = {
                 ...state,
                 players: newPlayers,
-                owners: newOwners
+                owners: newOwners,
+                battleState: clearedBattleState
             };
 
             const currentPlayer = newState.players[newState.currentPlayerIndex];
@@ -814,9 +831,15 @@ export const GameProvider: React.FC<GameProviderProps> = ({
                         if (!remoteState) return;
 
                         // Prevent feedback loop: only sync if we are NOT the active player
+                        // Exception: during battle, both participants must receive updates
                         const currentPlayer = state.players[state.currentPlayerIndex];
                         const isMyTurn = currentPlayer && String(currentPlayer.id) === String(multiplayer.playerId);
-                        if (isMyTurn) return;
+                        const remoteBattle = remoteState.battleState;
+                        const isBattleParticipant = remoteBattle && (
+                            String(remoteBattle.attacker?.id) === String(multiplayer.playerId) ||
+                            String(remoteBattle.defender?.id) === String(multiplayer.playerId)
+                        );
+                        if (isMyTurn && !isBattleParticipant) return;
 
                         dispatch({
                             type: 'SYNC_STATE',
@@ -934,12 +957,15 @@ export const GameProvider: React.FC<GameProviderProps> = ({
 
         // Only the "Active Player" (whose turn it is) should push state updates
         // to avoid race conditions and redundant writes.
-        // Exception: During INIT_BATTLE or END_BATTLE, maybe the attacker pushes?
-        // Simple heuristic: If it's my turn, I push.
+        // Exception: During active battle, both participants need to push their actions.
 
         const currentPlayer = state.players[state.currentPlayerIndex];
         const isMyTurn = currentPlayer && String(currentPlayer.id) === String(multiplayer.playerId);
-        if (!isMyTurn) return;
+        const isBattleParticipant = state.battleState && (
+            String(state.battleState.attacker?.id) === String(multiplayer.playerId) ||
+            String(state.battleState.defender?.id) === String(multiplayer.playerId)
+        );
+        if (!isMyTurn && !isBattleParticipant) return;
 
         // Serialize relevant parts of state to check for changes
         const syncableState = {
