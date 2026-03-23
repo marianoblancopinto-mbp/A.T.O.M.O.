@@ -557,10 +557,11 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
         });
 
         const nextOrderIndex = turnOrderIndex + 1;
-        const isEndOfRound = nextOrderIndex >= players.length;
+        // Correct: Round ends when we exceed the number of players in the turn order
+        const isEndOfRound = nextOrderIndex >= (turnOrder.length || 1);
 
         // 2. Advance Months
-        const maxMonthsPerTurn = Math.floor(12 / players.length);
+        const maxMonthsPerTurn = Math.floor(12 / (players.length || 1));
         const monthsToAdd = Math.floor(Math.random() * (maxMonthsPerTurn + 1));
         const dateWithMonths = new Date(gameDate);
         dateWithMonths.setMonth(dateWithMonths.getMonth() + monthsToAdd);
@@ -568,8 +569,27 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
         let nextGameDate = dateWithMonths;
         let nextTurnOrder = [...turnOrder];
         let nextTurnOrderIndex = nextOrderIndex;
-        // Strict fallback: ensure we don't dispatch an undefined index if turnOrder is corrupted or out of bounds
-        let nextPlayerIdx = (turnOrder && turnOrder[nextOrderIndex] !== undefined) ? turnOrder[nextOrderIndex] : (turnOrder[0] ?? 0);
+        
+        // Find next non-eliminated player index in mid-round
+        let nextPlayerIdx: number;
+        if (!isEndOfRound) {
+            let searchIdx = nextOrderIndex;
+            while (searchIdx < turnOrder.length && players[turnOrder[searchIdx]]?.isEliminated) {
+                console.log(`[TegMap] ⏩ Skipping eliminated player: ${players[turnOrder[searchIdx]]?.name}`);
+                searchIdx++;
+            }
+            if (searchIdx >= turnOrder.length) {
+                // Round actually ended because all remaining players in order were eliminated
+                nextPlayerIdx = turnOrder[0]; // will be overwritten by round reset logic below
+                nextTurnOrderIndex = searchIdx; // trigger isEndOfRound logic
+            } else {
+                nextPlayerIdx = turnOrder[searchIdx];
+                nextTurnOrderIndex = searchIdx;
+            }
+        } else {
+            nextPlayerIdx = (turnOrder && turnOrder[0] !== undefined) ? turnOrder[0] : 0;
+        }
+
         let nextWinner: PlayerData | null = null;
         let nextNotification: any = null;
 
@@ -614,15 +634,20 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                 const nextYear = gameDate.getFullYear() + 1;
                 nextGameDate = new Date(nextYear, 0, 1);
 
-                // C. Shuffle New Order
-                const newOrder = Array.from({ length: players.length }, (_, i) => i);
+                // C. Shuffle New Order (Active Players ONLY)
+                const activeIndices = players
+                    .map((p, i) => ({ p, i }))
+                    .filter(item => !item.p.isEliminated)
+                    .map(item => item.i);
+
+                const newOrder = [...activeIndices];
                 for (let i = newOrder.length - 1; i > 0; i--) {
                     const j = Math.floor(Math.random() * (i + 1));
                     [newOrder[i], newOrder[j]] = [newOrder[j], newOrder[i]];
                 }
                 nextTurnOrder = newOrder;
                 nextTurnOrderIndex = 0;
-                nextPlayerIdx = newOrder[0];
+                nextPlayerIdx = newOrder[0] ?? 0;
             }
         }
 

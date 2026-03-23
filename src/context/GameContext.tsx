@@ -729,32 +729,49 @@ function gameReducer(state: GameState, action: GameAction): GameState {
                 });
             }
 
-            // 3. Advancing the turn if it was their turn
+            // 3. Advancing the turn if it was their turn AND cleaning turnOrder
+            const kickedPlayerIndexInArray = state.players.findIndex(p => String(p.id) === String(playerIdToKick));
+            const newTurnOrder = state.turnOrder.filter(idx => idx !== kickedPlayerIndexInArray);
+            
             let newState = {
                 ...state,
                 players: newPlayers,
                 owners: newOwners,
-                battleState: clearedBattleState
+                battleState: clearedBattleState,
+                turnOrder: newTurnOrder
             };
 
-            const currentPlayer = newState.players[newState.currentPlayerIndex];
-            if (currentPlayer && String(currentPlayer.id) === String(playerIdToKick)) {
-                // Call NEXT_TURN logic manually since we are inside the reducer
-                let nextIndex = newState.turnOrderIndex;
+            const currentPlayer = state.players[state.currentPlayerIndex];
+            const isKickedCurrent = currentPlayer && String(currentPlayer.id) === String(playerIdToKick);
+
+            if (isKickedCurrent) {
+                // Find next in the NEW turn order
+                // If we were at the end of turnOrder, wrapping will happen naturally
+                let nextIndex = state.turnOrderIndex % newTurnOrder.length; 
                 let nextPlayerIndex: number;
                 let nextPlayer: any;
                 let loops = 0;
-                do {
-                    nextIndex = (nextIndex + 1) % newState.turnOrder.length;
-                    nextPlayerIndex = newState.turnOrder[nextIndex] ?? 0;
-                    nextPlayer = newState.players[nextPlayerIndex];
-                    loops++;
-                    if (loops > newState.turnOrder.length * 2) break;
-                } while (nextPlayer && nextPlayer.isEliminated);
                 
-                newState.turnOrderIndex = nextIndex;
+                // Extra safety: keep skipping if there are more eliminated players (shouldn't be in newTurnOrder but just in case)
+                do {
+                    nextPlayerIndex = newTurnOrder[nextIndex % newTurnOrder.length] ?? 0;
+                    nextPlayer = newState.players[nextPlayerIndex];
+                    if (nextPlayer && !nextPlayer.isEliminated) break;
+                    nextIndex++;
+                    loops++;
+                    if (loops > newTurnOrder.length + 1) break;
+                } while (true);
+                
+                newState.turnOrderIndex = nextIndex % newTurnOrder.length;
                 newState.currentPlayerIndex = nextPlayerIndex;
                 newState.usedAttackSources = [];
+            } else {
+                // If the kicked player was BEFORE the current player in turnOrder, we must decrement turnOrderIndex
+                // so it keeps pointing to the same current player in the shrunken array.
+                const kickedPos = state.turnOrder.indexOf(kickedPlayerIndexInArray);
+                if (kickedPos !== -1 && kickedPos < state.turnOrderIndex) {
+                    newState.turnOrderIndex = Math.max(0, state.turnOrderIndex - 1);
+                }
             }
 
             // Notification
