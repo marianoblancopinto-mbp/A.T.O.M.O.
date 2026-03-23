@@ -30,7 +30,7 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
 
     // Check if it is the local player's turn (Multiplayer guard)
     const isMyTurn = (multiplayer.connectionStatus === 'PLAYING' && multiplayer.playerId)
-        ? currentPlayer.id === multiplayer.playerId
+        ? String(currentPlayer.id) === String(multiplayer.playerId)
         : true;
 
     const greenBtnStyle: React.CSSProperties = {
@@ -139,16 +139,16 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
                     height: '30px',
                     borderRadius: '2px',
                     border: '2px solid #fff',
-                    backgroundColor: currentPlayer.color,
+                    backgroundColor: currentPlayer.color || '#fff',
                 }} />
                 <span style={{
                     fontSize: '1.2rem',
                     fontWeight: 'bold',
                     textTransform: 'uppercase',
-                    color: currentPlayer.color,
-                    textShadow: `0 0 5px ${currentPlayer.color}`
+                    color: currentPlayer.color || '#00ff00',
+                    textShadow: `0 0 5px ${currentPlayer.color || '#00ff00'}`
                 }}>
-                    {currentPlayer.name}
+                    {currentPlayer.name || 'Desconocido'}
                 </span>
             </div>
 
@@ -236,7 +236,7 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
                         {players.map(p => {
                             if (p.isEliminated) return null; // Don't show already eliminated players
                             
-                            const isConfirming = showKickConfirm === p.id.toString();
+                            const isConfirming = showKickConfirm === String(p.id);
                             
                             return (
                                 <div key={p.id} style={{ marginBottom: '10px' }}>
@@ -246,7 +246,7 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
                                                 dispatch({ type: 'KICK_PLAYER', payload: { playerId: p.id } });
                                                 setShowKickConfirm(null);
                                             } else {
-                                                setShowKickConfirm(p.id.toString());
+                                                setShowKickConfirm(String(p.id));
                                             }
                                         }}
                                         style={{

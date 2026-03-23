@@ -108,7 +108,11 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
 
     console.log('TegMap Render - Game Phase:', gamePhase);
     console.log('Game Started:', gameStarted);
-    if (players.length === 0) console.log('Players empty');
+    if (players.length === 0) console.warn('[TegMap] ⚠️ Players array is EMPTY!');
+    console.log(`[TegMap] Current Player Index: ${currentPlayerIndex}, Player Count: ${players.length}`);
+    if (players[currentPlayerIndex]) {
+        console.log(`[TegMap] Active Player ID: ${players[currentPlayerIndex].id}, My ID: ${multiplayer.playerId}`);
+    }
 
     // Play State (Moved to Context)
     // const [owners, setOwners = useState<Record<string, number | null>>({}); // Removed
@@ -185,7 +189,7 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
         // we might want to show it every time currentPlayerIndex changes.
 
         const isMyTurn = (multiplayer.connectionStatus === 'PLAYING' && multiplayer.playerId)
-            ? currentPlayerId === multiplayer.playerId
+            ? String(currentPlayerId) === String(multiplayer.playerId)
             : true; // Always show in hotseat
 
         if (isMyTurn && !showTurnOverlay && !state.winner && gamePhase === 'playing') {

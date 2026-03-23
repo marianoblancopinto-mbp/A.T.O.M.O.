@@ -196,7 +196,26 @@ const initialState: GameState = {
  * when data arrives from Supabase with null/missing fields.
  */
 function sanitizePlayer(p: any): PlayerData {
-    if (!p) return p;
+    if (!p) {
+        return {
+            id: 'unknown',
+            name: 'Desconocido',
+            color: '#888888',
+            supplies: { manufacture: [], food: [], energy: [] },
+            resources: { rawMaterials: 0, technology: 0 },
+            inventory: { rawMaterials: [], technologies: [] },
+            specialCards: [],
+            silos: [],
+            siloStatus: {},
+            siloFuelCards: {},
+            usedEspionageHqs: [],
+            usedNuclearSilos: [],
+            activeSpecialMissions: [],
+            secretWarData: [],
+            mineralUsedThisTurn: false,
+            secretMineralLocation: null
+        };
+    }
     return {
         ...p,
         specialCards: p.specialCards ?? [],
@@ -570,9 +589,12 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
         case 'SYNC_STATE': {
             const syncPayload = { ...action.payload };
-            if (syncPayload.players) {
-                syncPayload.players = sanitizePlayers(syncPayload.players);
-            }
+            
+            // Critical: Ensure players is always an array
+            const sanitizedPlayers = (syncPayload.players !== undefined && syncPayload.players !== null)
+                ? sanitizePlayers(syncPayload.players)
+                : state.players;
+
             if (syncPayload.treaties === undefined || syncPayload.treaties === null) {
                 syncPayload.treaties = state.treaties;
             }
@@ -582,6 +604,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             return {
                 ...state,
                 ...syncPayload,
+                players: sanitizedPlayers,
                 gameDate: action.payload.gameDate ? new Date(action.payload.gameDate) : state.gameDate,
                 winner: action.payload.winner !== undefined ? action.payload.winner : state.winner,
                 endgameChoice: action.payload.endgameChoice !== undefined ? action.payload.endgameChoice : state.endgameChoice,
@@ -590,10 +613,14 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             };
         }
 
-        case 'PROCESS_TURN_CHANGE':
+        case 'PROCESS_TURN_CHANGE': {
+            const sanitizedPlayers = (action.payload.players !== undefined && action.payload.players !== null)
+                ? sanitizePlayers(action.payload.players)
+                : state.players;
+
             return {
                 ...state,
-                players: sanitizePlayers(action.payload.players),
+                players: sanitizedPlayers,
                 gameDate: new Date(action.payload.gameDate),
                 turnOrderIndex: action.payload.turnOrderIndex,
                 currentPlayerIndex: action.payload.currentPlayerIndex,
@@ -605,6 +632,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
                 usedAttackSources: action.payload.usedAttackSources ?? [],
                 treaties: action.payload.treaties ?? state.treaties
             };
+        }
 
         case 'CREATE_TREATY_OFFER':
             return {
