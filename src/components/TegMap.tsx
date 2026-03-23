@@ -463,9 +463,20 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
         dispatch({
             type: 'UPDATE_PRODUCTION_DECK_FN', payload: (prev: ProductionDeck | null) => {
                 if (!prev) return null;
+                
+                // Defensive: ensure we are dealing with arrays before mapping
+                const safeTech = Array.isArray(prev.technologies) 
+                    ? prev.technologies.map(card => ({ ...card, usedThisTurn: false }))
+                    : prev.technologies;
+
+                const safeRaw = Array.isArray(prev.rawMaterials)
+                    ? prev.rawMaterials.map(card => ({ ...card, usedThisTurn: false }))
+                    : prev.rawMaterials;
+
                 return {
-                    technologies: prev.technologies.map(card => ({ ...card, usedThisTurn: false })),
-                    rawMaterials: prev.rawMaterials.map(card => ({ ...card, usedThisTurn: false })),
+                    ...prev,
+                    technologies: safeTech,
+                    rawMaterials: safeRaw,
                 };
             }
         });
@@ -871,13 +882,19 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
             backgroundImage: 'linear-gradient(rgba(0, 50, 0, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 50, 0, 0.1) 1px, transparent 1px)',
             backgroundSize: '40px 40px'
         }}>
-            {/* ... Turn Overlay ... */}
-            {/* ... Turn Overlay ... */}
+            {/* Turn Overlay and related logic */}
             {!spectator && gameStarted && showTurnOverlay && players[currentPlayerIndex] && (
                 <TurnOverlay
                     player={players[currentPlayerIndex]}
                     onClose={() => {
-                        resetCardUsageForTurn();
+                        console.log('[TegMap] Closing TurnOverlay');
+                        try {
+                            if (typeof resetCardUsageForTurn === 'function') {
+                                resetCardUsageForTurn();
+                            }
+                        } catch (err) {
+                            console.error('[TegMap] Error in resetCardUsageForTurn:', err);
+                        }
                         setShowTurnOverlay(false);
                     }}
                 />

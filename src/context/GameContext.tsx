@@ -618,12 +618,14 @@ function gameReducer(state: GameState, action: GameAction): GameState {
                 ? sanitizePlayers(action.payload.players)
                 : state.players;
 
+            console.log(`[GameContext] 🔄 Processing Turn Change to Index: ${action.payload.currentPlayerIndex}`);
+
             return {
                 ...state,
                 players: sanitizedPlayers,
                 gameDate: new Date(action.payload.gameDate),
-                turnOrderIndex: action.payload.turnOrderIndex,
-                currentPlayerIndex: action.payload.currentPlayerIndex,
+                turnOrderIndex: Number(action.payload.turnOrderIndex),
+                currentPlayerIndex: Number(action.payload.currentPlayerIndex),
                 turnOrder: action.payload.turnOrder ?? state.turnOrder,
                 owners: action.payload.owners ?? state.owners,
                 notification: action.payload.notification ?? state.notification,
@@ -1085,12 +1087,20 @@ export const GameProvider: React.FC<GameProviderProps> = ({
         if (stateString !== lastSyncedStateRef.current) {
             lastSyncedStateRef.current = stateString;
 
-            // Push to Supabase after a small delay (debouncing)
-            const timeout = setTimeout(() => {
+            // CRITICAL: If this was a local action (like ending a turn), sync IMMEDIATELY
+            // to prevent race conditions and ensure next player gets the state.
+            if (wasLocallyTriggered) {
+                console.log('[GameContext] ⚡ SYNCING IMMEDIATELY (Local Action)');
                 multiplayer.syncGameState(syncableState);
-            }, 300);
+            } else {
+                // Push to Supabase after a small delay (debouncing) for background changes
+                const timeout = setTimeout(() => {
+                    console.log('[GameContext] 📦 Triggering debounced sync...');
+                    multiplayer.syncGameState(syncableState);
+                }, 100);
 
-            return () => clearTimeout(timeout);
+                return () => clearTimeout(timeout);
+            }
         }
     }, [state, multiplayer.gameId, multiplayer.connectionStatus, state.gameStarted, multiplayer.playerId]);
 

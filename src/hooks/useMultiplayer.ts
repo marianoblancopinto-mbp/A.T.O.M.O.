@@ -425,6 +425,8 @@ export const useMultiplayer = () => {
         // Real-time sync function
         syncGameState: async (newState: any) => {
             if (!gameId) return;
+            console.log(`[useMultiplayer] ⬆️ Syncing full state... (Active Player: ${newState.players[newState.currentPlayerIndex]?.name || '?'})`);
+            
             // Use update instead of upsert to avoid conflicts
             const { error } = await supabase
                 .from('game_states')
@@ -434,7 +436,11 @@ export const useMultiplayer = () => {
                 })
                 .eq('game_id', gameId);
 
-            if (error) console.error("[useMultiplayer] Error syncing state:", error);
+            if (error) {
+                console.error("[useMultiplayer] ❌ Sync Error:", error);
+            } else {
+                console.log("[useMultiplayer] ✅ Sync Complete.");
+            }
         },
         broadcastAction: async (action: any) => {
             if (!gameId) {
