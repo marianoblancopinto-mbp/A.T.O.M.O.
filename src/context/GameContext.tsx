@@ -588,51 +588,76 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             return { ...state, endgameChoice: action.payload };
 
         case 'SYNC_STATE': {
-            const syncPayload = { ...action.payload };
-            
-            // Critical: Ensure players is always an array
-            const sanitizedPlayers = (syncPayload.players !== undefined && syncPayload.players !== null)
-                ? sanitizePlayers(syncPayload.players)
+            const p = action.payload;
+            if (!p) return state;
+
+            // Strict sanitization for critical fields
+            const sanitizedPlayers = (p.players !== undefined && p.players !== null)
+                ? sanitizePlayers(p.players)
                 : state.players;
 
-            if (syncPayload.treaties === undefined || syncPayload.treaties === null) {
-                syncPayload.treaties = state.treaties;
+            const nextPlayerIndex = (p.currentPlayerIndex !== undefined && p.currentPlayerIndex !== null)
+                ? Number(p.currentPlayerIndex)
+                : state.currentPlayerIndex;
+
+            const nextTurnOrderIndex = (p.turnOrderIndex !== undefined && p.turnOrderIndex !== null)
+                ? Number(p.turnOrderIndex)
+                : state.turnOrderIndex;
+
+            if (isNaN(nextPlayerIndex)) {
+                console.error("[GameContext] CRITICAL: Received NaN for currentPlayerIndex in SYNC_STATE. Payload:", p);
             }
-            if (syncPayload.usedAttackSources === undefined || syncPayload.usedAttackSources === null) {
-                syncPayload.usedAttackSources = state.usedAttackSources;
-            }
+
             return {
                 ...state,
-                ...syncPayload,
                 players: sanitizedPlayers,
-                gameDate: action.payload.gameDate ? new Date(action.payload.gameDate) : state.gameDate,
-                winner: action.payload.winner !== undefined ? action.payload.winner : state.winner,
-                endgameChoice: action.payload.endgameChoice !== undefined ? action.payload.endgameChoice : state.endgameChoice,
-                usedAttackSources: syncPayload.usedAttackSources,
-                treaties: syncPayload.treaties
+                owners: p.owners ?? state.owners,
+                currentPlayerIndex: isNaN(nextPlayerIndex) ? state.currentPlayerIndex : nextPlayerIndex,
+                turnOrder: p.turnOrder ?? state.turnOrder,
+                turnOrderIndex: isNaN(nextTurnOrderIndex) ? state.turnOrderIndex : nextTurnOrderIndex,
+                gameDate: p.gameDate ? new Date(p.gameDate) : state.gameDate,
+                productionDeck: p.productionDeck ?? state.productionDeck,
+                regionResources: p.regionResources ?? state.regionResources,
+                battleState: p.battleState !== undefined ? p.battleState : state.battleState,
+                notification: p.notification !== undefined ? p.notification : state.notification,
+                winner: p.winner !== undefined ? p.winner : state.winner,
+                endgameChoice: p.endgameChoice !== undefined ? p.endgameChoice : state.endgameChoice,
+                treaties: p.treaties ?? state.treaties,
+                proxyWarCountry: p.proxyWarCountry ?? state.proxyWarCountry,
+                usedAttackSources: p.usedAttackSources ?? state.usedAttackSources,
+                settings: p.settings ?? state.settings
             };
         }
 
         case 'PROCESS_TURN_CHANGE': {
-            const sanitizedPlayers = (action.payload.players !== undefined && action.payload.players !== null)
-                ? sanitizePlayers(action.payload.players)
+            const p = action.payload;
+            const sanitizedPlayers = (p.players !== undefined && p.players !== null)
+                ? sanitizePlayers(p.players)
                 : state.players;
 
-            console.log(`[GameContext] 🔄 Processing Turn Change to Index: ${action.payload.currentPlayerIndex}`);
+            const nextPlayerIndex = (p.currentPlayerIndex !== undefined && p.currentPlayerIndex !== null)
+                ? Number(p.currentPlayerIndex)
+                : state.currentPlayerIndex;
+
+            const nextTurnOrderIndex = (p.turnOrderIndex !== undefined && p.turnOrderIndex !== null)
+                ? Number(p.turnOrderIndex)
+                : state.turnOrderIndex;
+
+            console.log(`[GameContext] 🔄 Processing Turn Change to Index: ${nextPlayerIndex} (from payload: ${p.currentPlayerIndex})`);
 
             return {
                 ...state,
                 players: sanitizedPlayers,
-                gameDate: new Date(action.payload.gameDate),
-                turnOrderIndex: Number(action.payload.turnOrderIndex),
-                currentPlayerIndex: Number(action.payload.currentPlayerIndex),
-                turnOrder: action.payload.turnOrder ?? state.turnOrder,
-                owners: action.payload.owners ?? state.owners,
-                notification: action.payload.notification ?? state.notification,
-                winner: action.payload.winner ?? state.winner,
-                endgameChoice: action.payload.endgameChoice ?? state.endgameChoice,
-                usedAttackSources: action.payload.usedAttackSources ?? [],
-                treaties: action.payload.treaties ?? state.treaties
+                gameDate: p.gameDate ? new Date(p.gameDate) : state.gameDate,
+                turnOrderIndex: isNaN(nextTurnOrderIndex) ? state.turnOrderIndex : nextTurnOrderIndex,
+                currentPlayerIndex: isNaN(nextPlayerIndex) ? state.currentPlayerIndex : nextPlayerIndex,
+                turnOrder: p.turnOrder ?? state.turnOrder,
+                owners: p.owners ?? state.owners,
+                notification: p.notification ?? state.notification,
+                winner: p.winner ?? state.winner,
+                endgameChoice: p.endgameChoice ?? state.endgameChoice,
+                usedAttackSources: p.usedAttackSources ?? [],
+                treaties: p.treaties ?? state.treaties
             };
         }
 
@@ -994,6 +1019,30 @@ export const GameProvider: React.FC<GameProviderProps> = ({
     // REAL-TIME SYNC: Push local changes to remote
     const lastSyncedStateRef = React.useRef<string>("");
 
+    const validateSyncState = (stateObj: any) => {
+        const validated = { ...stateObj };
+        // Ensure indices are numbers
+        if (validated.currentPlayerIndex === null || validated.currentPlayerIndex === undefined || isNaN(Number(validated.currentPlayerIndex))) {
+            console.warn("[GameContext] 🛡️ Fixed null/invalid currentPlayerIndex before sync");
+            validated.currentPlayerIndex = 0;
+        } else {
+            validated.currentPlayerIndex = Number(validated.currentPlayerIndex);
+        }
+
+        if (validated.turnOrderIndex === null || validated.turnOrderIndex === undefined || isNaN(Number(validated.turnOrderIndex))) {
+            validated.turnOrderIndex = 0;
+        } else {
+            validated.turnOrderIndex = Number(validated.turnOrderIndex);
+        }
+
+        // Ensure date is a number (timestamp)
+        if (validated.gameDate && typeof validated.gameDate !== 'number') {
+            validated.gameDate = new Date(validated.gameDate).getTime();
+        }
+
+        return validated;
+    };
+
     React.useEffect(() => {
         if (!multiplayer.gameId || multiplayer.connectionStatus !== 'PLAYING' || !state.gameStarted) return;
 
@@ -1027,7 +1076,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({
         }
 
         // Serialize relevant parts of state to check for changes
-        const syncableState = {
+        const syncableState = validateSyncState({
             players: state.players,
             owners: state.owners,
             currentPlayerIndex: state.currentPlayerIndex,
@@ -1044,7 +1093,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({
             usedAttackSources: state.usedAttackSources,
             treaties: state.treaties,
             settings: state.settings
-        };
+        });
 
         const stateString = JSON.stringify(syncableState);
         

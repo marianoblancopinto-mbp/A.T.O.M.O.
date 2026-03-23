@@ -568,7 +568,8 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
         let nextGameDate = dateWithMonths;
         let nextTurnOrder = [...turnOrder];
         let nextTurnOrderIndex = nextOrderIndex;
-        let nextPlayerIdx = turnOrder[nextOrderIndex];
+        // Strict fallback: ensure we don't dispatch an undefined index if turnOrder is corrupted or out of bounds
+        let nextPlayerIdx = (turnOrder && turnOrder[nextOrderIndex] !== undefined) ? turnOrder[nextOrderIndex] : (turnOrder[0] ?? 0);
         let nextWinner: PlayerData | null = null;
         let nextNotification: any = null;
 
