@@ -769,6 +769,9 @@ export const GameProvider: React.FC<GameProviderProps> = ({
 
     const [takeoverRequest, setTakeoverRequest] = React.useState<string | null>(null);
 
+    // Track actions initiated locally vs received from remote
+    const localActionTriggeredRef = React.useRef(false);
+
     const forceSyncFromDatabase = React.useCallback(async (isInitialStartup: boolean = false, attempts = 0) => {
         const { supabase } = await import('../supabaseClient');
         if (!multiplayer.gameId) return;
@@ -966,6 +969,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({
         }
 
         // 2. Dispatch locally
+        localActionTriggeredRef.current = true;
         dispatch(action);
 
         // 3. Broadcast if syncable
@@ -1008,9 +1012,12 @@ export const GameProvider: React.FC<GameProviderProps> = ({
     React.useEffect(() => {
         if (!multiplayer.gameId || multiplayer.connectionStatus !== 'PLAYING' || !state.gameStarted) return;
 
-        // Only the "Active Player" (whose turn it is) should push state updates
-        // to avoid race conditions and redundant writes.
-        // Exception: During active battle, both participants need to push their actions.
+        // CRITICAL SYNC LOGIC:
+        // We only push state updates to the database if:
+        // 1. It is our turn (Active Player).
+        // 2. We are in an active battle (Both participants push).
+        // 3. We JUST finished our turn (The localActionTriggeredRef was set on dispatch,
+        //    but isMyTurn is now false because the turn transitioned locally first).
 
         const currentPlayer = state.players[state.currentPlayerIndex];
         const isMyTurn = currentPlayer && String(currentPlayer.id) === String(multiplayer.playerId);
@@ -1018,7 +1025,13 @@ export const GameProvider: React.FC<GameProviderProps> = ({
             String(state.battleState.attacker?.id) === String(multiplayer.playerId) ||
             String(state.battleState.defender?.id) === String(multiplayer.playerId)
         );
-        if (!isMyTurn && !isBattleParticipant) return;
+
+        const wasLocallyTriggered = localActionTriggeredRef.current;
+        localActionTriggeredRef.current = false; // Reset for next run
+
+        if (!isMyTurn && !isBattleParticipant && !wasLocallyTriggered) {
+            return;
+        }
 
         // Serialize relevant parts of state to check for changes
         const syncableState = {
