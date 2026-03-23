@@ -25,21 +25,11 @@ export const Lobby: React.FC<LobbyProps> = ({ onGameStart, muted, onMuteToggle }
         gameSettings,
         createGame,
         joinGame,
-        rejoinGame,
         startGame,
         updateInitialState
     } = useMultiplayerContext();
 
-    // Auto-rejoin if session exists
-    useEffect(() => {
-        const savedGameId = localStorage.getItem('teg_gameId');
-        const savedPlayerId = localStorage.getItem('teg_playerId');
-        if (savedGameId && savedPlayerId && connectionStatus === 'IDLE') {
-            const savedIsHost = localStorage.getItem('teg_isHost') === 'true';
-            console.log('[Lobby] 🔄 Attempting auto-rejoin...');
-            rejoinGame(savedGameId, savedPlayerId, savedIsHost);
-        }
-    }, [connectionStatus, rejoinGame]);
+
 
     const [playerName, setPlayerName] = useState('');
     const [joinGameId, setJoinGameId] = useState('');
