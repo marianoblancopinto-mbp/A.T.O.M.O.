@@ -187,6 +187,48 @@ const initialState: GameState = {
 };
 
 // ============================================================================
+// Player Sanitization (Defensive layer for Supabase sync)
+// ============================================================================
+
+/**
+ * Ensures all array/object fields on PlayerData have safe defaults.
+ * Prevents "Cannot read properties of undefined (reading 'filter')" errors
+ * when data arrives from Supabase with null/missing fields.
+ */
+function sanitizePlayer(p: any): PlayerData {
+    if (!p) return p;
+    return {
+        ...p,
+        specialCards: p.specialCards ?? [],
+        silos: p.silos ?? [],
+        siloStatus: p.siloStatus ?? {},
+        siloFuelCards: p.siloFuelCards ?? {},
+        usedEspionageHqs: p.usedEspionageHqs ?? [],
+        usedNuclearSilos: p.usedNuclearSilos ?? [],
+        activeSpecialMissions: p.activeSpecialMissions ?? [],
+        secretWarData: p.secretWarData ?? [],
+        supplies: {
+            manufacture: p.supplies?.manufacture ?? [],
+            food: p.supplies?.food ?? [],
+            energy: p.supplies?.energy ?? [],
+        },
+        resources: {
+            rawMaterials: p.resources?.rawMaterials ?? 0,
+            technology: p.resources?.technology ?? 0,
+        },
+        inventory: {
+            rawMaterials: p.inventory?.rawMaterials ?? [],
+            technologies: p.inventory?.technologies ?? [],
+        },
+    };
+}
+
+function sanitizePlayers(players: any[]): PlayerData[] {
+    if (!Array.isArray(players)) return [];
+    return players.map(sanitizePlayer);
+}
+
+// ============================================================================
 // Reducer
 // ============================================================================
 
@@ -526,20 +568,32 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         case 'SET_ENDGAME_CHOICE':
             return { ...state, endgameChoice: action.payload };
 
-        case 'SYNC_STATE':
+        case 'SYNC_STATE': {
+            const syncPayload = { ...action.payload };
+            if (syncPayload.players) {
+                syncPayload.players = sanitizePlayers(syncPayload.players);
+            }
+            if (syncPayload.treaties === undefined || syncPayload.treaties === null) {
+                syncPayload.treaties = state.treaties;
+            }
+            if (syncPayload.usedAttackSources === undefined || syncPayload.usedAttackSources === null) {
+                syncPayload.usedAttackSources = state.usedAttackSources;
+            }
             return {
                 ...state,
-                ...action.payload,
+                ...syncPayload,
                 gameDate: action.payload.gameDate ? new Date(action.payload.gameDate) : state.gameDate,
                 winner: action.payload.winner !== undefined ? action.payload.winner : state.winner,
                 endgameChoice: action.payload.endgameChoice !== undefined ? action.payload.endgameChoice : state.endgameChoice,
-                usedAttackSources: action.payload.usedAttackSources !== undefined ? action.payload.usedAttackSources : state.usedAttackSources
+                usedAttackSources: syncPayload.usedAttackSources,
+                treaties: syncPayload.treaties
             };
+        }
 
         case 'PROCESS_TURN_CHANGE':
             return {
                 ...state,
-                players: action.payload.players,
+                players: sanitizePlayers(action.payload.players),
                 gameDate: new Date(action.payload.gameDate),
                 turnOrderIndex: action.payload.turnOrderIndex,
                 currentPlayerIndex: action.payload.currentPlayerIndex,
@@ -740,7 +794,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({
                 dispatch({
                     type: 'START_GAME',
                     payload: {
-                        players: remoteState.players,
+                        players: sanitizePlayers(remoteState.players),
                         owners: remoteState.owners,
                         settings: remoteState.settings || {
                             proxyWarCountry: remoteState.proxyWarCountry || 'País Desconocido',
