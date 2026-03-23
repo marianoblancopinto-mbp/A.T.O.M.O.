@@ -801,6 +801,8 @@ export const GameProvider: React.FC<GameProviderProps> = ({
 
     // Track actions initiated locally vs received from remote
     const localActionTriggeredRef = React.useRef(false);
+    const remoteActionTriggeredRef = React.useRef(false);
+    const isSyncingRef = React.useRef(false);
 
     const forceSyncFromDatabase = React.useCallback(async (isInitialStartup: boolean = false, attempts = 0) => {
         const { supabase } = await import('../supabaseClient');
@@ -821,6 +823,8 @@ export const GameProvider: React.FC<GameProviderProps> = ({
         if (data && data.full_state && Object.keys(data.full_state).length > 0) {
             const remoteState = data.full_state;
             console.log("[GameContext] Full state received.");
+            remoteActionTriggeredRef.current = true; // authoritative source
+            localActionTriggeredRef.current = false;
 
             if (isInitialStartup) {
                 // 1. Enter the "Playing" state
@@ -892,70 +896,44 @@ export const GameProvider: React.FC<GameProviderProps> = ({
         return () => window.removeEventListener('visibilitychange', handleVisibilityChange);
     }, [multiplayer.connectionStatus, state.gameStarted, forceSyncFromDatabase]);
 
-    // REAL-TIME SYNC: Subscribe to remote changes
+    const handleBroadcastAction = React.useCallback((action: any) => {
+        console.log(`[GameContext] 📥 Handling Remote Action: ${action.type}`);
+        remoteActionTriggeredRef.current = true;
+        localActionTriggeredRef.current = false;
+        dispatch(action);
+    }, []);
+
+    const handleRemoteState = React.useCallback((remoteState: any) => {
+        const players = state.players;
+        const currentPlayerIndex = state.currentPlayerIndex;
+        if (!players || players.length === 0) return;
+
+        const currentPlayer = players[currentPlayerIndex];
+        const isMyTurn = currentPlayer && String(currentPlayer.id) === String(multiplayer.playerId);
+        
+        const remoteBattle = remoteState.battleState;
+        const isBattleParticipant = remoteBattle && (
+            String(remoteBattle.attacker?.id) === String(multiplayer.playerId) ||
+            String(remoteBattle.defender?.id) === String(multiplayer.playerId)
+        );
+
+        // Autoritative Check: If it's my turn, I ONLY accept the remote state if I'm NOT currently syncing.
+        if (isMyTurn && !isBattleParticipant && !isSyncingRef.current && state.gameStarted) {
+            console.log('[GameContext] 🛡️ Ignoring remote sync because it is MY turn.');
+            return;
+        }
+
+        console.log('[GameContext] 📥 Handling Remote DB Sync');
+        remoteActionTriggeredRef.current = true;
+        localActionTriggeredRef.current = false;
+        dispatch({ type: 'SYNC_STATE', payload: remoteState });
+    }, [state.players, state.currentPlayerIndex, multiplayer.playerId, state.gameStarted]);
+
+    // Connect handlers
     React.useEffect(() => {
-        if (!multiplayer.gameId || multiplayer.connectionStatus !== 'PLAYING') return;
-
-
-
-        let channel: any;
-
-        const setupSync = async () => {
-            const { supabase } = await import('../supabaseClient');
-            channel = supabase
-                .channel(`game_state:${multiplayer.gameId}`)
-                .on(
-                    'postgres_changes',
-                    {
-                        event: 'UPDATE',
-                        schema: 'public',
-                        table: 'game_states',
-                        filter: `game_id=eq.${multiplayer.gameId}`
-                    },
-                    (payload: any) => {
-                        const remoteState = payload.new.full_state;
-                        if (!remoteState) return;
-
-                        // Prevent feedback loop: only sync if we are NOT the active player
-                        // Exception: during battle, both participants must receive updates
-                        const currentPlayer = state.players[state.currentPlayerIndex];
-                        const isMyTurn = currentPlayer && String(currentPlayer.id) === String(multiplayer.playerId);
-                        const remoteBattle = remoteState.battleState;
-                        const isBattleParticipant = remoteBattle && (
-                            String(remoteBattle.attacker?.id) === String(multiplayer.playerId) ||
-                            String(remoteBattle.defender?.id) === String(multiplayer.playerId)
-                        );
-                        if (isMyTurn && !isBattleParticipant) return;
-
-                        dispatch({
-                            type: 'SYNC_STATE',
-                            payload: {
-                                players: remoteState.players, // Trace this
-                                owners: remoteState.owners,
-                                currentPlayerIndex: remoteState.currentPlayerIndex,
-                                gameDate: remoteState.gameDate ? new Date(remoteState.gameDate) : state.gameDate,
-                                turnOrder: remoteState.turnOrder,
-                                turnOrderIndex: remoteState.turnOrderIndex,
-                                productionDeck: remoteState.productionDeck,
-                                regionResources: remoteState.regionResources,
-                                battleState: remoteState.battleState,
-                                notification: remoteState.notification,
-                                winner: remoteState.winner,
-                                endgameChoice: remoteState.endgameChoice,
-                                treaties: remoteState.treaties
-                            }
-                        });
-                    }
-                )
-                .subscribe();
-        };
-
-        setupSync();
-
-        return () => {
-            if (channel) channel.unsubscribe();
-        };
-    }, [multiplayer.gameId, multiplayer.connectionStatus, state.currentPlayerIndex, multiplayer.playerId]);
+        multiplayer.setOnBroadcastReceived(handleBroadcastAction);
+        multiplayer.setOnStateReceived(handleRemoteState);
+    }, [multiplayer.setOnBroadcastReceived, multiplayer.setOnStateReceived, handleBroadcastAction, handleRemoteState]);
 
     // ============================================================================
     // Action Sync Middleware
@@ -1000,6 +978,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({
 
         // 2. Dispatch locally
         localActionTriggeredRef.current = true;
+        remoteActionTriggeredRef.current = false; // This is a local action
         dispatch(action);
 
         // 3. Broadcast if syncable
@@ -1010,30 +989,6 @@ export const GameProvider: React.FC<GameProviderProps> = ({
             }
         }
     };
-
-    React.useEffect(() => {
-        // Register the fast-path broadcast receiver to avoid React batching dropped actions
-        multiplayer.setOnBroadcastReceived((action) => {
-            console.log('[GameContext] Received Remote Action (Fast Path):', action.type);
-            
-            // Handle takeover requests outside reducer (if affecting THIS client)
-            if (action.type === ('TAKEOVER_REQUEST' as any) && action.payload.playerId === multiplayer.playerId) {
-                setTakeoverRequest(multiplayer.playerId);
-                return;
-            }
-            if (action.type === ('TAKEOVER_GRANTED' as any) && action.payload.playerId === multiplayer.playerId) {
-                // Someone else successfully took over our player ID. We must disconnect locally.
-                setTakeoverRequest(null);
-                alert("Tu sesión ha sido transferida a otro dispositivo.");
-                localStorage.removeItem('teg_gameId');
-                localStorage.removeItem('teg_playerId');
-                window.location.reload();
-                return;
-            }
-
-            dispatch(action);
-        });
-    }, [multiplayer]);
 
 
     // REAL-TIME SYNC: Push local changes to remote
@@ -1058,6 +1013,14 @@ export const GameProvider: React.FC<GameProviderProps> = ({
 
         const wasLocallyTriggered = localActionTriggeredRef.current;
         localActionTriggeredRef.current = false; // Reset for next run
+
+        // Authority Check: If this was a remote change, SKIP SYNCING BACK
+        if (remoteActionTriggeredRef.current) {
+            console.log('[GameContext] 🛡️ Ignoring remote change for sync sync (Prevent Loop)');
+            remoteActionTriggeredRef.current = false;
+            // Catch up lastSyncedStateRef to avoid redundant syncs later
+            // But we must serialize the current state first.
+        }
 
         if (!isMyTurn && !isBattleParticipant && !wasLocallyTriggered) {
             return;
@@ -1084,19 +1047,38 @@ export const GameProvider: React.FC<GameProviderProps> = ({
         };
 
         const stateString = JSON.stringify(syncableState);
+        
+        // If it was a remote change, we just update the ref and return
+        if (!wasLocallyTriggered && !isMyTurn && !isBattleParticipant) {
+             lastSyncedStateRef.current = stateString;
+             return;
+        }
+
         if (stateString !== lastSyncedStateRef.current) {
+            // Prevent parallel syncs
+            if (isSyncingRef.current) {
+                console.warn('[GameContext] ⏳ Already syncing, skipping this tick...');
+                return;
+            }
+
             lastSyncedStateRef.current = stateString;
 
             // CRITICAL: If this was a local action (like ending a turn), sync IMMEDIATELY
             // to prevent race conditions and ensure next player gets the state.
             if (wasLocallyTriggered) {
                 console.log('[GameContext] ⚡ SYNCING IMMEDIATELY (Local Action)');
-                multiplayer.syncGameState(syncableState);
+                isSyncingRef.current = true;
+                multiplayer.syncGameState(syncableState).finally(() => {
+                    isSyncingRef.current = false;
+                });
             } else {
                 // Push to Supabase after a small delay (debouncing) for background changes
                 const timeout = setTimeout(() => {
                     console.log('[GameContext] 📦 Triggering debounced sync...');
-                    multiplayer.syncGameState(syncableState);
+                    isSyncingRef.current = true;
+                    multiplayer.syncGameState(syncableState).finally(() => {
+                        isSyncingRef.current = false;
+                    });
                 }, 100);
 
                 return () => clearTimeout(timeout);

@@ -10,6 +10,7 @@ export const useMultiplayer = () => {
     const [error, setError] = useState<string | null>(null);
     const [lobbyPlayers, setLobbyPlayers] = useState<any[]>([]); // Temporary type until we define PlayerRow
     const onBroadcastReceivedRef = useRef<((action: any) => void) | null>(null);
+    const onStateReceivedRef = useRef<((state: any) => void) | null>(null);
 
     // Persist Session details to localStorage whenever they change
     useEffect(() => {
@@ -367,9 +368,33 @@ export const useMultiplayer = () => {
                 }
             });
 
+        // Channel 3: Full State updates (Postgres)
+        const gameStateSub = supabase
+            .channel(`game_state_sync:${gameId}`)
+            .on(
+                'postgres_changes',
+                { event: 'UPDATE', schema: 'public', table: 'game_states', filter: `game_id=eq.${gameId}` },
+                (payload) => {
+                    if (payload.new && payload.new.full_state) {
+                        console.log('[useMultiplayer] 📥 Received Full State from DB');
+                        if (onBroadcastReceivedRef.current) {
+                            // Re-use same handler for raw syncs, 
+                            // but wrapped in a SYNC_STATE action if needed?
+                            // Actually, GameContext handles SYNC_STATE.
+                            // I'll add a new callback for raw state sync.
+                            if (onStateReceivedRef.current) {
+                                onStateReceivedRef.current(payload.new.full_state);
+                            }
+                        }
+                    }
+                }
+            )
+            .subscribe();
+
         return () => {
             gameStatusSub.unsubscribe();
             actionSub.unsubscribe();
+            gameStateSub.unsubscribe();
         };
     }, [gameId]);
 
@@ -464,6 +489,9 @@ export const useMultiplayer = () => {
         },
         setOnBroadcastReceived: useCallback((callback: (action: any) => void) => {
             onBroadcastReceivedRef.current = callback;
+        }, []),
+        setOnStateReceived: useCallback((callback: (state: any) => void) => {
+            onStateReceivedRef.current = callback;
         }, []),
     };
 };
