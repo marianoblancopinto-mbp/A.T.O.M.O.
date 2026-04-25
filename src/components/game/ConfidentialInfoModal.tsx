@@ -393,16 +393,15 @@ export const ConfidentialInfoModal: React.FC<ConfidentialInfoModalProps> = ({
                                                                 </span>
                                                             )}
                                                             <button
-                                                                disabled={!hasFuel}
                                                                 onClick={(e) => { e.stopPropagation(); setFuelModal({ show: true, regionId }); }}
                                                                 style={{
-                                                                    backgroundColor: (hasFuel) ? targetPlayer.color : `${targetPlayer.color}40`,
+                                                                    backgroundColor: targetPlayer.color,
                                                                     color: '#000',
                                                                     border: 'none',
                                                                     padding: '4px 8px',
                                                                     fontSize: '0.7rem',
                                                                     fontWeight: 'bold',
-                                                                    cursor: (hasFuel) ? 'pointer' : 'not-allowed',
+                                                                    cursor: 'pointer',
                                                                     borderRadius: '2px',
                                                                     transition: 'all 0.2s'
                                                                 }}
