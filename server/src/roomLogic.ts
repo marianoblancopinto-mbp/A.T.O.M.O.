@@ -22,8 +22,23 @@ export function toWire(state: GameState) {
 }
 
 /**
- * Rehidrata un estado inicial recibido del anfitrión (gameDate puede venir como
- * timestamp) a un GameState completo y saneado, listo para ser autoritativo.
+ * Coacciona un valor de fecha recibido por la red a un Date válido.
+ * OJO: msgpack (Colyseus) codifica los enteros grandes como BigInt, y
+ * `new Date(bigint)` lanza excepción — por eso se pasa por Number() primero.
+ */
+function toGameDate(v: any): Date {
+    const fallback = new Date(2100, 0, 1);
+    if (v == null) return fallback;
+    if (v instanceof Date) return v;
+    const n = Number(v); // BigInt o number -> number
+    if (Number.isFinite(n) && n > 0) return new Date(n);
+    const d = new Date(v); // último intento: string ISO
+    return Number.isNaN(d.getTime()) ? fallback : d;
+}
+
+/**
+ * Rehidrata un estado inicial recibido del anfitrión a un GameState completo y
+ * saneado, listo para ser autoritativo.
  */
 export function adoptInitialState(payload: any): GameState {
     return {
@@ -33,7 +48,7 @@ export function adoptInitialState(payload: any): GameState {
         gamePhase: 'playing',
         players: sanitizePlayers(payload?.players ?? []),
         owners: payload?.owners ?? {},
-        gameDate: payload?.gameDate ? new Date(payload.gameDate) : new Date(2100, 0, 1),
+        gameDate: toGameDate(payload?.gameDate),
     };
 }
 

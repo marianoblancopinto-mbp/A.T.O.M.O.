@@ -65,6 +65,12 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children, initialPha
     const handleRemoteState = useCallback((remoteState: any) => {
         if (!remoteState) return;
 
+        // msgpack (Colyseus) entrega los timestamps grandes como BigInt; normalizar
+        // gameDate a número para que el reducer pueda hacer new Date() sin romper.
+        if (typeof remoteState.gameDate === 'bigint') {
+            remoteState.gameDate = Number(remoteState.gameDate);
+        }
+
         // Primera vez que llega un estado ya iniciado: entrar en "playing".
         if (!gameStartedRef.current && remoteState.gameStarted) {
             dispatch({

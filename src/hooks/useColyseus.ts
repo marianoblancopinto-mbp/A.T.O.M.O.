@@ -132,8 +132,12 @@ export const useColyseus = () => {
     }, [playerId, wireRoom]);
 
     // El anfitrión inicia la partida mandando el estado inicial que generó localmente.
-    const startGame = useCallback(async (initialState: unknown) => {
-        roomRef.current?.send('start', { state: initialState });
+    const startGame = useCallback(async (initialState: any) => {
+        // gameDate va como timestamp (número) para no mandar un Date por msgpack.
+        const wire = (initialState && initialState.gameDate instanceof Date)
+            ? { ...initialState, gameDate: initialState.gameDate.getTime() }
+            : initialState;
+        roomRef.current?.send('start', { state: wire });
     }, []);
 
     // Envía una acción (ya serializable) como Intent al servidor autoritativo.

@@ -42,32 +42,42 @@ export class GameRoom extends Room {
 
         // El anfitrión inicia la partida con el estado inicial que generó localmente.
         this.onMessage('start', (client: Client, payload: { state: unknown }) => {
-            const playerId = this.playerBySession.get(client.sessionId);
-            if (playerId == null || !isHost(this.lobby, playerId)) {
-                client.send('rejected', { reason: 'Sólo el anfitrión puede iniciar la partida.' });
-                return;
+            try {
+                const playerId = this.playerBySession.get(client.sessionId);
+                if (playerId == null || !isHost(this.lobby, playerId)) {
+                    client.send('rejected', { reason: 'Sólo el anfitrión puede iniciar la partida.' });
+                    return;
+                }
+                this.gameState = adoptInitialState(payload?.state);
+                this.phase = 'playing';
+                this.broadcast('lobby', { players: this.lobby, phase: this.phase });
+                this.broadcast('state', toWire(this.gameState));
+                console.log(`[GameRoom] Partida iniciada en ${this.roomId}`);
+            } catch (e) {
+                console.error('[GameRoom] Error al iniciar la partida:', e);
+                client.send('rejected', { reason: 'Error al iniciar la partida en el servidor.' });
             }
-            this.gameState = adoptInitialState(payload?.state);
-            this.phase = 'playing';
-            this.broadcast('lobby', { players: this.lobby, phase: this.phase });
-            this.broadcast('state', toWire(this.gameState));
-            console.log(`[GameRoom] Partida iniciada en ${this.roomId}`);
         });
 
         // El cliente manda un intent; el servidor lo valida, lo aplica y difunde.
         this.onMessage('intent', (client: Client, intent: Intent) => {
-            const playerId = this.playerBySession.get(client.sessionId);
-            if (playerId == null) {
-                client.send('rejected', { reason: 'Conexión sin jugador identificado.' });
-                return;
-            }
-            const result = applyIntent(this.gameState, playerId, intent);
-            if (result.ok) {
-                this.gameState = result.state;
-                this.broadcast('state', toWire(this.gameState));
-            } else {
-                console.log(`[GameRoom] Intent rechazado de ${playerId}: ${result.reason}`);
-                client.send('rejected', { reason: result.reason });
+            try {
+                const playerId = this.playerBySession.get(client.sessionId);
+                if (playerId == null) {
+                    client.send('rejected', { reason: 'Conexión sin jugador identificado.' });
+                    return;
+                }
+                const result = applyIntent(this.gameState, playerId, intent);
+                if (result.ok) {
+                    this.gameState = result.state;
+                    this.broadcast('state', toWire(this.gameState));
+                } else {
+                    console.log(`[GameRoom] Intent rechazado de ${playerId}: ${result.reason}`);
+                    client.send('rejected', { reason: result.reason });
+                }
+            } catch (e) {
+                console.error('[GameRoom] Error procesando intent:', e);
+                client.send('rejected', { reason: 'Error procesando la acción en el servidor.' });
             }
         });
     }
