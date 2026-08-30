@@ -619,9 +619,16 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
 
                 updatedPlayers = updatedPlayers.map(p => {
                     if (p.nuclearDeploymentActive) {
+                        // D4: sólo el/los silo(s) USADOS en este despliegue entran en cooldown,
+                        // por 1 ronda. Los demás silos operativos siguen disponibles → habilita la
+                        // estrategia de construir 2 silos y desplegar el segundo durante el cooldown
+                        // del primero. (Antes se enfriaban TODOS los silos, lo que la hacía imposible.)
+                        const usedSilos = p.usedNuclearSilos || [];
                         const newSiloStatus = { ...p.siloStatus };
-                        Object.keys(newSiloStatus).forEach(sid => {
-                            newSiloStatus[sid] = { status: 'cooldown', turnsRemaining: 2 };
+                        usedSilos.forEach(sid => {
+                            if (newSiloStatus[sid]) {
+                                newSiloStatus[sid] = { status: 'cooldown', turnsRemaining: 1 };
+                            }
                         });
                         return { ...p, nuclearDeploymentActive: false, siloStatus: newSiloStatus };
                     }
