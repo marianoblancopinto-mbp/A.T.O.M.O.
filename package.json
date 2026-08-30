@@ -4,7 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "workspaces": [
-    "shared"
+    "shared",
+    "server"
   ],
   "scripts": {
     "dev": "vite",
