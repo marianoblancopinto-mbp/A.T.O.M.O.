@@ -618,6 +618,15 @@ export const useGameActions = (): GameActions & {
     const processTreatyStatus = () => {
         const currentYear = state.gameDate.getFullYear();
 
+        // Acumuladores locales: se van transformando en secuencia y se despacha UNA
+        // sola acción serializable al final (SET_PLAYERS / SET_PRODUCTION_DECK).
+        // Antes esto usaba UPDATE_PLAYERS_FN/UPDATE_PRODUCTION_DECK_FN (payload-función,
+        // no serializable) y dependía del orden de reducción para no pisar cambios.
+        let accPlayers = state.players;
+        let accDeck = state.productionDeck;
+        let playersChanged = false;
+        let deckChanged = false;
+
         state.treaties.forEach(treaty => {
             // 1. Activation Check
             if (treaty.status === 'PENDING_START' && currentYear >= treaty.createdAtYear) {
@@ -642,108 +651,92 @@ export const useGameActions = (): GameActions & {
                     } else if (clause.type === 'RAW_MATERIAL_CESSION' || clause.type === 'TECH_LOAN') {
                         // Transfer Logic (Copy-Pasted and adapted from previous acceptTreaty)
                         if (clause.data.cardId) {
-                            const sourcePlayer = state.players.find(p => p.id === clause.sourcePlayerId);
+                            const sourcePlayer = accPlayers.find(p => p.id === clause.sourcePlayerId);
                             let cardInInventory = sourcePlayer?.inventory.rawMaterials.find(c => c.id == clause.data.cardId);
                             if (!cardInInventory) {
                                 cardInInventory = sourcePlayer?.inventory.technologies.find(c => c.id == clause.data.cardId);
                             }
 
                             if (cardInInventory) {
-                                dispatch({
-                                    type: 'UPDATE_PLAYERS_FN',
-                                    payload: (currentPlayers) => {
-                                        const spIndex = currentPlayers.findIndex(p => p.id === clause.sourcePlayerId);
-                                        const tpIndex = currentPlayers.findIndex(p => p.id === clause.targetPlayerId);
-                                        if (spIndex === -1 || tpIndex === -1) return currentPlayers;
-
-                                        return currentPlayers.map((p, idx) => {
-                                            if (idx === spIndex) {
-                                                const newInv = { ...p.inventory };
-                                                if (clause.type === 'RAW_MATERIAL_CESSION') {
-                                                    newInv.rawMaterials = p.inventory.rawMaterials.filter(c => c.id != clause.data.cardId);
-                                                } else {
-                                                    newInv.technologies = p.inventory.technologies.filter(c => c.id != clause.data.cardId);
-                                                }
-                                                return { ...p, inventory: newInv };
+                                const spIndex = accPlayers.findIndex(p => p.id === clause.sourcePlayerId);
+                                const tpIndex = accPlayers.findIndex(p => p.id === clause.targetPlayerId);
+                                if (spIndex !== -1 && tpIndex !== -1) {
+                                    accPlayers = accPlayers.map((p, idx) => {
+                                        if (idx === spIndex) {
+                                            const newInv = { ...p.inventory };
+                                            if (clause.type === 'RAW_MATERIAL_CESSION') {
+                                                newInv.rawMaterials = p.inventory.rawMaterials.filter(c => c.id != clause.data.cardId);
+                                            } else {
+                                                newInv.technologies = p.inventory.technologies.filter(c => c.id != clause.data.cardId);
                                             }
+                                            return { ...p, inventory: newInv };
+                                        }
+                                        if (idx === tpIndex) {
+                                            const newInv = { ...p.inventory };
+                                            if (clause.type === 'RAW_MATERIAL_CESSION') {
+                                                newInv.rawMaterials = [...p.inventory.rawMaterials, cardInInventory!];
+                                            } else {
+                                                newInv.technologies = [...p.inventory.technologies, cardInInventory!];
+                                            }
+                                            return { ...p, inventory: newInv };
+                                        }
+                                        return p;
+                                    });
+                                    playersChanged = true;
+                                }
+                            } else {
+                                // Passive/Deck Check
+                                const cardInDeckRaw = accDeck?.rawMaterials.find(c => c.id == clause.data.cardId);
+                                const cardInDeckTech = accDeck?.technologies.find(c => c.id == clause.data.cardId);
+                                const cardInDeck = cardInDeckRaw || cardInDeckTech;
+
+                                if (cardInDeck && accDeck) {
+                                    accDeck = {
+                                        ...accDeck,
+                                        rawMaterials: accDeck.rawMaterials.filter(c => c.id != clause.data.cardId),
+                                        technologies: accDeck.technologies.filter(c => c.id != clause.data.cardId)
+                                    };
+                                    deckChanged = true;
+
+                                    const tpIndex = accPlayers.findIndex(p => p.id === clause.targetPlayerId);
+                                    if (tpIndex !== -1) {
+                                        accPlayers = accPlayers.map((p, idx) => {
                                             if (idx === tpIndex) {
                                                 const newInv = { ...p.inventory };
                                                 if (clause.type === 'RAW_MATERIAL_CESSION') {
-                                                    newInv.rawMaterials = [...p.inventory.rawMaterials, cardInInventory!];
+                                                    newInv.rawMaterials = [...p.inventory.rawMaterials, cardInDeck];
                                                 } else {
-                                                    newInv.technologies = [...p.inventory.technologies, cardInInventory!];
+                                                    newInv.technologies = [...p.inventory.technologies, cardInDeck];
                                                 }
                                                 return { ...p, inventory: newInv };
                                             }
                                             return p;
                                         });
+                                        playersChanged = true;
                                     }
-                                });
-                            } else {
-                                // Passive/Deck Check
-                                const cardInDeckRaw = state.productionDeck?.rawMaterials.find(c => c.id == clause.data.cardId);
-                                const cardInDeckTech = state.productionDeck?.technologies.find(c => c.id == clause.data.cardId);
-                                const cardInDeck = cardInDeckRaw || cardInDeckTech;
-
-                                if (cardInDeck) {
-                                    dispatch({
-                                        type: 'UPDATE_PRODUCTION_DECK_FN',
-                                        payload: (deck) => {
-                                            if (!deck) return null;
-                                            return {
-                                                ...deck,
-                                                rawMaterials: deck.rawMaterials.filter(c => c.id != clause.data.cardId),
-                                                technologies: deck.technologies.filter(c => c.id != clause.data.cardId)
-                                            };
-                                        }
-                                    });
-                                    dispatch({
-                                        type: 'UPDATE_PLAYERS_FN',
-                                        payload: (currentPlayers) => {
-                                            const tpIndex = currentPlayers.findIndex(p => p.id === clause.targetPlayerId);
-                                            if (tpIndex === -1) return currentPlayers;
-                                            return currentPlayers.map((p, idx) => {
-                                                if (idx === tpIndex) {
-                                                    const newInv = { ...p.inventory };
-                                                    if (clause.type === 'RAW_MATERIAL_CESSION') {
-                                                        newInv.rawMaterials = [...p.inventory.rawMaterials, cardInDeck];
-                                                    } else {
-                                                        newInv.technologies = [...p.inventory.technologies, cardInDeck];
-                                                    }
-                                                    return { ...p, inventory: newInv };
-                                                }
-                                                return p;
-                                            });
-                                        }
-                                    });
                                 }
                             }
                         }
                     } else if (clause.type === 'TECH_DUPLICATE') {
                         if (clause.data.cardId) {
-                            dispatch({
-                                type: 'UPDATE_PLAYERS_FN',
-                                payload: (currentPlayers) => {
-                                    const sourcePlayer = currentPlayers.find(p => p.id === clause.sourcePlayerId);
-                                    if (!sourcePlayer) return currentPlayers;
-                                    let originalCard = sourcePlayer.inventory.technologies.find(c => c.id == clause.data.cardId);
-                                    if (!originalCard) {
-                                        originalCard = state.productionDeck?.technologies.find(c => c.id == clause.data.cardId);
+                            const sourcePlayer = accPlayers.find(p => p.id === clause.sourcePlayerId);
+                            let originalCard = sourcePlayer?.inventory.technologies.find(c => c.id == clause.data.cardId);
+                            if (!originalCard) {
+                                originalCard = accDeck?.technologies.find(c => c.id == clause.data.cardId);
+                            }
+                            if (originalCard) {
+                                const dupCard = { ...originalCard, id: `dup-${Date.now()}-${originalCard.id}` };
+                                accPlayers = accPlayers.map(p => {
+                                    if (p.id === clause.targetPlayerId) {
+                                        return {
+                                            ...p,
+                                            inventory: { ...p.inventory, technologies: [...p.inventory.technologies, dupCard] }
+                                        };
                                     }
-                                    if (!originalCard) return currentPlayers;
-
-                                    const newCard = { ...originalCard, id: `dup-${Date.now()}-${originalCard.id}` };
-                                    return currentPlayers.map(p => {
-                                        if (p.id === clause.targetPlayerId) {
-                                            return {
-                                                ...p,
-                                                inventory: { ...p.inventory, technologies: [...p.inventory.technologies, newCard] }
-                                            };
-                                        }
-                                        return p;
-                                    });
-                                }
-                            });
+                                    return p;
+                                });
+                                playersChanged = true;
+                            }
                         }
                     }
                 });
@@ -764,26 +757,18 @@ export const useGameActions = (): GameActions & {
 
                             if (clause.type === 'RAW_MATERIAL_CESSION' || clause.type === 'TECH_LOAN') {
                                 // Revert Transfer
-                                dispatch({
-                                    type: 'UPDATE_PLAYERS_FN',
-                                    payload: (currentPlayers) => {
-                                        const tpIndex = currentPlayers.findIndex(p => p.id === clause.targetPlayerId);
-                                        const spIndex = currentPlayers.findIndex(p => p.id === clause.sourcePlayerId);
-                                        if (tpIndex === -1) return currentPlayers;
+                                const tpIndex = accPlayers.findIndex(p => p.id === clause.targetPlayerId);
+                                const spIndex = accPlayers.findIndex(p => p.id === clause.sourcePlayerId);
+                                if (tpIndex !== -1) {
+                                    const targetPlayer = accPlayers[tpIndex];
+                                    const tech = targetPlayer.inventory.technologies.find(c => c.id == clause.data.cardId);
+                                    const raw = targetPlayer.inventory.rawMaterials.find(c => c.id == clause.data.cardId);
+                                    const cardToReturn = tech || raw;
 
-                                        // 1. Find Card in Target
-                                        const targetPlayer = currentPlayers[tpIndex];
-                                        const tech = targetPlayer.inventory.technologies.find(c => c.id == clause.data.cardId);
-                                        const raw = targetPlayer.inventory.rawMaterials.find(c => c.id == clause.data.cardId);
-                                        const cardToReturn = tech || raw;
-
-                                        if (!cardToReturn) {
-                                            console.warn(`[Treaty] Card ${clause.data.cardId} not found in Target ${clause.targetPlayerId} inventory during reversion.`);
-                                            return currentPlayers;
-                                        }
-
-                                        // 2. Remove from Target & Add to Source (if Source exists)
-                                        return currentPlayers.map((p, idx) => {
+                                    if (!cardToReturn) {
+                                        console.warn(`[Treaty] Card ${clause.data.cardId} not found in Target ${clause.targetPlayerId} inventory during reversion.`);
+                                    } else {
+                                        accPlayers = accPlayers.map((p, idx) => {
                                             if (idx === tpIndex) {
                                                 const newInv = { ...p.inventory };
                                                 newInv.rawMaterials = p.inventory.rawMaterials.filter(c => c.id != clause.data.cardId);
@@ -801,8 +786,9 @@ export const useGameActions = (): GameActions & {
                                             }
                                             return p;
                                         });
+                                        playersChanged = true;
                                     }
-                                });
+                                }
                             } else if (clause.type === 'REGION_CESSION') {
                                 if (clause.data.regionId) {
                                     dispatch({
@@ -825,6 +811,14 @@ export const useGameActions = (): GameActions & {
                 }
             }
         });
+
+        // Despacho único de los cambios acumulados (serializable).
+        if (playersChanged) {
+            dispatch({ type: 'SET_PLAYERS', payload: accPlayers });
+        }
+        if (deckChanged) {
+            dispatch({ type: 'SET_PRODUCTION_DECK', payload: accDeck });
+        }
     };
 
     const actions = useMemo(() => ({

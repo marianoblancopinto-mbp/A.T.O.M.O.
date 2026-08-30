@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { applyIntent } from './intents';
+import { applyIntent, toSerializableAction, isSerializableAction } from './intents';
 import { validateAction } from './rules';
 import { initialState, sanitizePlayer, type GameState } from './reducer';
 import type { BattleState } from '../gameTypes';
@@ -65,5 +65,44 @@ describe('intents.applyIntent', () => {
         expect(res.ok).toBe(false);
         expect(res.state).toBe(s); // mismo objeto, sin cambios
         expect(res.reason).toBeDefined();
+    });
+});
+
+describe('toSerializableAction / isSerializableAction', () => {
+    it('convierte UPDATE_PLAYERS_FN en SET_PLAYERS evaluando contra el estado', () => {
+        const s = baseState();
+        const action = toSerializableAction(
+            { type: 'UPDATE_PLAYERS_FN', payload: (players) => players.map(p => ({ ...p, name: 'X' })) },
+            s
+        );
+        expect(action.type).toBe('SET_PLAYERS');
+        // El resultado ya es data, no una función:
+        expect(JSON.stringify(action)).toContain('SET_PLAYERS');
+        if (action.type === 'SET_PLAYERS') {
+            expect(action.payload.every(p => p.name === 'X')).toBe(true);
+        }
+    });
+
+    it('convierte UPDATE_OWNERS_FN en SET_OWNERS', () => {
+        const s = baseState({ owners: { brasil: 'p0' } });
+        const action = toSerializableAction(
+            { type: 'UPDATE_OWNERS_FN', payload: (owners) => ({ ...owners, chile: 'p1' }) },
+            s
+        );
+        expect(action.type).toBe('SET_OWNERS');
+        if (action.type === 'SET_OWNERS') {
+            expect(action.payload).toEqual({ brasil: 'p0', chile: 'p1' });
+        }
+    });
+
+    it('deja las acciones ya serializables sin cambios', () => {
+        const s = baseState();
+        const original = { type: 'NEXT_TURN' } as const;
+        expect(toSerializableAction(original, s)).toBe(original);
+    });
+
+    it('isSerializableAction detecta las acciones con payload-función', () => {
+        expect(isSerializableAction({ type: 'NEXT_TURN' })).toBe(true);
+        expect(isSerializableAction({ type: 'UPDATE_PLAYERS_FN', payload: (p) => p })).toBe(false);
     });
 });

@@ -25,8 +25,7 @@ export const Lobby: React.FC<LobbyProps> = ({ onGameStart, muted, onMuteToggle }
         gameSettings,
         createGame,
         joinGame,
-        startGame,
-        updateInitialState
+        startGame
     } = useMultiplayerContext();
 
 
@@ -203,18 +202,18 @@ export const Lobby: React.FC<LobbyProps> = ({ onGameStart, muted, onMuteToggle }
                         overflowY: 'auto'
                     }}>
                         {lobbyPlayers.map((p: any, idx: number) => (
-                            <li key={p.id} style={{
+                            <li key={p.playerId} style={{
                                 padding: '15px 10px',
-                                backgroundColor: p.id === playerId ? 'rgba(0, 50, 0, 0.5)' : 'transparent',
+                                backgroundColor: String(p.playerId) === String(playerId) ? 'rgba(0, 50, 0, 0.5)' : 'transparent',
                                 borderBottom: '1px solid #002200',
                                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                                 animation: 'fadeIn 0.5s ease-in'
                             }}>
                                 <span>
                                     <span style={{ color: '#006600', marginRight: '10px' }}>{String(idx + 1).padStart(2, '0')}</span>
-                                    {p.name} {p.id === playerId ? '(TÚ)' : ''}
+                                    {p.name} {String(p.playerId) === String(playerId) ? '(TÚ)' : ''}
                                 </span>
-                                {idx === 0 && <span style={{
+                                {p.isHost && <span style={{
                                     fontSize: '0.7rem', padding: '2px 6px', border: '1px solid #ffff00', color: '#ffff00'
                                 }}>ANFITRIÓN</span>}
                             </li>
@@ -287,15 +286,15 @@ export const Lobby: React.FC<LobbyProps> = ({ onGameStart, muted, onMuteToggle }
                             {isHost ? (
                                 <button
                                     onClick={async () => {
-                                        // 1. Generate synchronized initial state
+                                        // 1. Generar el estado inicial sincronizado con los IDs del lobby.
                                         const playerNames = lobbyPlayers.map((p: any) => p.name);
-                                        const playerIds = lobbyPlayers.map((p: any) => p.id);
+                                        const playerIds = lobbyPlayers.map((p: any) => p.playerId);
                                         const initialState = generateInitialGameState(
                                             lobbyPlayers.length,
                                             playerNames,
                                             playerIds,
-                                            gameSettings || {
-                                                proxyWarCountry: 'País Desconocido',
+                                            {
+                                                proxyWarCountry: gameSettings?.proxyWarCountry || 'País Desconocido',
                                                 abandonmentMode: 'redistribute',
                                                 aiActive: false,
                                                 aiDifficulty: 50,
@@ -303,11 +302,9 @@ export const Lobby: React.FC<LobbyProps> = ({ onGameStart, muted, onMuteToggle }
                                             }
                                         );
 
-                                        // 2. Save state to Supabase
-                                        await updateInitialState(initialState);
-
-                                        // 3. Signal start (flags PLAYING status and triggers phase change)
-                                        await startGame();
+                                        // 2. El anfitrión manda el estado inicial al servidor autoritativo,
+                                        //    que lo adopta y difunde a todos (transiciona a "playing").
+                                        await startGame(initialState);
                                     }}
                                     style={{
                                         padding: '20px 40px', fontSize: '1.5rem', fontWeight: 'bold',
@@ -405,13 +402,13 @@ export const Lobby: React.FC<LobbyProps> = ({ onGameStart, muted, onMuteToggle }
                         />
                         <button
                             onClick={handleJoin}
-                            disabled={connectionStatus === 'CONNECTING' || connectionStatus === 'TAKEOVER_PENDING'}
+                            disabled={connectionStatus === 'CONNECTING'}
                             style={{
                                 padding: '15px', backgroundColor: '#002244', color: '#00ffff', border: '1px solid #00ffff',
-                                fontSize: '1.1rem', cursor: (connectionStatus === 'CONNECTING' || connectionStatus === 'TAKEOVER_PENDING') ? 'wait' : 'pointer', fontWeight: 'bold'
+                                fontSize: '1.1rem', cursor: connectionStatus === 'CONNECTING' ? 'wait' : 'pointer', fontWeight: 'bold'
                             }}
                         >
-                            {connectionStatus === 'TAKEOVER_PENDING' ? 'VERIFICANDO...' : 'UNIRSE'}
+                            {connectionStatus === 'CONNECTING' ? 'CONECTANDO...' : 'UNIRSE'}
                         </button>
                     </div>
                 </div>

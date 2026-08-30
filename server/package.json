@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@atomo/shared": "*",
+    "@colyseus/ws-transport": "^0.15.0",
     "colyseus": "^0.15.0"
   },
   "devDependencies": {
