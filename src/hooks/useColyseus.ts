@@ -30,6 +30,13 @@ type ConnStatus = 'IDLE' | 'CONNECTING' | 'CONNECTED' | 'PLAYING' | 'ERROR';
 // playerId persistente por dispositivo (necesario para reconexión futura).
 function getOrCreatePlayerId(): string {
     try {
+        // Override por URL (?player=X o ?p=X) para testear VARIOS jugadores en el
+        // mismo navegador (dos pestañas comparten localStorage). En producción no
+        // se usa: cada dispositivo tiene su propio id persistente.
+        const override = new URLSearchParams(window.location.search).get('player')
+            || new URLSearchParams(window.location.search).get('p');
+        if (override) return override;
+
         let id = localStorage.getItem('atomo_playerId');
         if (!id) {
             id = (typeof crypto !== 'undefined' && crypto.randomUUID)
