@@ -182,21 +182,19 @@ export const BattleOverlay: React.FC<BattleOverlayProps> = ({
                 if (deck.length > 0) newCards.push(deck.pop()!);
             }
 
-            dispatch({
-                type: 'UPDATE_PLAYERS_FN',
-                payload: (currentPlayers) => {
-                    return currentPlayers.map(p => {
-                        if (p.id === (supplyRole === 'attacker' ? attacker.id : defender.id)) {
-                            const s = { ...p.supplies };
-                            s.manufacture = s.manufacture.filter(item => !selectedIds.has(item.id));
-                            s.food = s.food.filter(item => !selectedIds.has(item.id));
-                            s.energy = s.energy.filter(item => !selectedIds.has(item.id));
-                            return { ...p, supplies: s };
-                        }
-                        return p;
-                    });
-                }
-            });
+            const playerToUpdate = supplyRole === 'attacker' ? attacker : defender;
+            const playerIndex = players.findIndex(p => String(p.id) === String(playerToUpdate.id));
+            if (playerIndex !== -1) {
+                const s = { ...playerToUpdate.supplies };
+                s.manufacture = s.manufacture.filter(item => !selectedIds.has(item.id));
+                s.food = s.food.filter(item => !selectedIds.has(item.id));
+                s.energy = s.energy.filter(item => !selectedIds.has(item.id));
+                
+                dispatch({
+                    type: 'UPDATE_PLAYER',
+                    payload: { index: playerIndex, data: { supplies: s } }
+                });
+            }
 
             // Update Battle State via Global Action
             const updatedAttackerHand = supplyRole === 'attacker' ? [...attackerHand, ...newCards] : attackerHand;

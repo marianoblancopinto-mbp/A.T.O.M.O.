@@ -13,11 +13,14 @@ export const useSupplyRoute = () => {
         // Resolve Player
         if (playerIdx === undefined) {
             player = players[state.currentPlayerIndex];
-        } else if (typeof playerIdx === 'number') {
-            player = players[playerIdx];
         } else {
-            // It's a string ID
-            player = players.find(p => p.id === playerIdx);
+            // Check if playerIdx is an index (e.g. 0, 1) or an ID.
+            // myPlayerIndex is passed from InventoryModal, but attacker.id from BattleSupplyModal.
+            // Let's try to find by ID first (robust). If not found, fall back to index.
+            player = players.find(p => String(p.id) === String(playerIdx));
+            if (!player && typeof playerIdx === 'number') {
+                player = players[playerIdx];
+            }
         }
 
         if (!player) return false;

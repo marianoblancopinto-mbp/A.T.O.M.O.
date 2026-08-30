@@ -1000,7 +1000,8 @@ export const GameProvider: React.FC<GameProviderProps> = ({
         'CREATE_TREATY_OFFER',
         'UPDATE_TREATY',
         'CANCEL_TREATY',
-        'KICK_PLAYER'
+        'KICK_PLAYER',
+        'UPDATE_PLAYER'
     ]);
 
     const dispatchWithSync = (action: GameAction) => {
@@ -1079,6 +1080,14 @@ export const GameProvider: React.FC<GameProviderProps> = ({
 
         const wasLocallyTriggered = localActionTriggeredRef.current;
         localActionTriggeredRef.current = false; // Reset for next run
+
+        // Anti-Flicker Fix: In a battle, multiple participants might broadcast actions.
+        // We MUST rely on broadcastAction for real-time battle updates, and ONLY the Active Player
+        // (whose turn it actually is) should persist the final resolved state to Supabase.
+        // If we let the defender also push SYNC_STATE, they might overwrite the DB with an older state snapshot.
+        if (state.battleState?.isActive && !isMyTurn) {
+            return;
+        }
 
         // Authority Check: If this was a remote change, SKIP SYNCING BACK
         if (remoteActionTriggeredRef.current) {
