@@ -1,0 +1,18 @@
+{
+  "name": "@atomo/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@atomo/shared": "*",
+    "colyseus": "^0.15.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.0.0"
+  }
+}
