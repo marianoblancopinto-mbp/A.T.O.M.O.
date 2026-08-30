@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "workspaces": [
+    "shared"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -10,6 +13,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@atomo/shared": "*",
     "@supabase/auth-helpers-react": "^0.15.0",
     "@supabase/supabase-js": "^2.94.1",
     "@types/uuid": "^10.0.0",
