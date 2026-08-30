@@ -9,8 +9,8 @@ export interface Card {
 }
 
 export const REGIMENT_NAMES: Record<Regiment, string> = {
-    'A': 'Infantería',
-    'B': 'Caballería',
+    'A': 'Aéreo',
+    'B': 'Infantería',
     'C': 'Artillería'
 };
 
@@ -28,7 +28,6 @@ export const TIER_NAMES: Record<Tier, string> = {
 // but let's assume standard imports work.
 
 import type { PlayerData } from './playerTypes';
-import type { Treaty } from './treatyTypes';
 
 export interface BattleState {
     isActive: boolean;
@@ -72,12 +71,4 @@ export interface BattleState {
     attackerWins: number;
     defenderWins: number;
     isAiCheating?: boolean;
-}
-
-export interface GameState {
-    phase: 'LOBBY' | 'DEPLOYMENT' | 'ATTACK' | 'FORTIFICATION' | 'REGROUP' | 'END';
-    turnIndex: number;
-    year: number;
-    treaties: Treaty[];
-    // Add other global state properties here as needed
 }

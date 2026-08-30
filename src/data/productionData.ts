@@ -1,4 +1,8 @@
-import type { RawMaterialType, TechnologyType, SupplyType, ProductionInventory, TerritoryCard, ProductionDeck } from '../types/productionTypes';
+import type { RawMaterialType, TechnologyType, SupplyType, ProductionInventory, TerritoryCard, ProductionDeck, ActiveProviders } from '../types/productionTypes';
+
+// ActiveProviders vive ahora en @atomo/shared (productionTypes). Se re-exporta acá
+// para no romper los imports existentes que lo tomaban de este módulo.
+export type { ActiveProviders } from '../types/productionTypes';
 
 export const WAR_SECRETS_RESOURCES: { type: RawMaterialType; label: string }[] = [
     { type: 'ALUMINIO', label: 'ALUMINIO' },
@@ -57,12 +61,6 @@ const shuffle = <T>(array: T[]): T[] => {
     }
     return newArray;
 };
-
-export interface ActiveProviders {
-    rawMaterials: Record<RawMaterialType, string[]>;
-    technologies: Record<TechnologyType, string[]>;
-    nuclearWarCapable: string[]; // Countries with nuclear tech that can be used for war
-}
 
 export const assignRegionResources = (numPlayers: number): ActiveProviders => {
     const assignedRawMaterials: Partial<Record<RawMaterialType, string[]>> = {};
