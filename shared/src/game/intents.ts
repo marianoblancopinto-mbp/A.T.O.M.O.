@@ -19,6 +19,49 @@ export type Intent = { kind: 'ACTION'; action: GameAction };
 export type ApplyResult = { state: GameState; ok: boolean; reason?: string };
 
 /**
+ * Convierte una acción con payload-función (no serializable) en su equivalente
+ * serializable, evaluando la función contra `state`. Las demás acciones pasan
+ * sin cambios.
+ *
+ * Sirve para que el cliente pueda MANDAR sus acciones al servidor: las de tipo
+ * `*_FN` llevan una función que no viaja por la red. Se resuelven acá contra el
+ * estado actual y se mandan como SET_* (que sí es serializable).
+ *
+ * OJO: para handlers que despachan VARIAS `*_FN` de forma secuencial e
+ * interdependiente en un mismo tick, convertir cada una contra el mismo `state`
+ * pierde los cambios previos. Esos handlers deben acumular y despachar una sola
+ * acción serializable (ver processTreatyStatus). El resto (una sola *_FN por
+ * handler) es seguro.
+ */
+export function toSerializableAction(action: GameAction, state: GameState): GameAction {
+    switch (action.type) {
+        case 'UPDATE_PLAYERS_FN':
+            return { type: 'SET_PLAYERS', payload: action.payload(state.players) };
+        case 'UPDATE_OWNERS_FN':
+            return { type: 'SET_OWNERS', payload: action.payload(state.owners) };
+        case 'UPDATE_PRODUCTION_DECK_FN':
+            return { type: 'SET_PRODUCTION_DECK', payload: action.payload(state.productionDeck) };
+        case 'UPDATE_GAME_DATE_FN':
+            return { type: 'SET_GAME_DATE', payload: action.payload(state.gameDate) };
+        default:
+            return action;
+    }
+}
+
+/**
+ * Una acción es serializable si no lleva payload-función (no viaja por la red
+ * tal cual). Útil para validar en el borde de envío.
+ */
+export function isSerializableAction(action: GameAction): boolean {
+    return (
+        action.type !== 'UPDATE_PLAYERS_FN' &&
+        action.type !== 'UPDATE_OWNERS_FN' &&
+        action.type !== 'UPDATE_PRODUCTION_DECK_FN' &&
+        action.type !== 'UPDATE_GAME_DATE_FN'
+    );
+}
+
+/**
  * Punto ÚNICO de autoridad: valida y aplica un intent contra el estado.
  * Si la validación falla, devuelve el estado sin cambios y el motivo.
  */
