@@ -1,10 +1,10 @@
 /**
  * Tests de la lógica del servidor autoritativo.
- * Verifican que el servidor corre el MISMO reducer puro que el cliente (shared).
+ * Verifican que el servidor corre la MISMA autoridad (applyIntent) de shared.
  */
 
 import { describe, it, expect } from 'vitest';
-import { createInitialState, applyAction, toWire } from './roomLogic';
+import { createInitialState, applyIntent, toWire } from './roomLogic';
 
 describe('roomLogic (servidor autoritativo)', () => {
     it('createInitialState devuelve el estado inicial del juego', () => {
@@ -13,14 +13,15 @@ describe('roomLogic (servidor autoritativo)', () => {
         expect(s.players).toEqual([]);
     });
 
-    it('applyAction corre el reducer de shared (START_GAME arranca la partida)', () => {
+    it('applyIntent valida y aplica (START_GAME arranca la partida)', () => {
         const s0 = createInitialState();
-        const s1 = applyAction(s0, {
-            type: 'START_GAME',
-            payload: { players: [], owners: {}, settings: s0.settings },
+        const res = applyIntent(s0, 'host', {
+            kind: 'ACTION',
+            action: { type: 'START_GAME', payload: { players: [], owners: {}, settings: s0.settings } },
         });
-        expect(s1.gameStarted).toBe(true);
-        expect(s1.gamePhase).toBe('playing');
+        expect(res.ok).toBe(true);
+        expect(res.state.gameStarted).toBe(true);
+        expect(res.state.gamePhase).toBe('playing');
     });
 
     it('toWire serializa gameDate como timestamp', () => {

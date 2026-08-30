@@ -1,23 +1,16 @@
 /**
- * Lógica pura del servidor autoritativo, separada de Colyseus para poder testearla.
+ * Lógica pura del servidor autoritativo, separada de Colyseus para testearla.
  *
- * Por ahora aplica las acciones directamente con el reducer de @atomo/shared.
- * En la Fase 2b, `applyAction` será el ÚNICO punto donde se valida turno + reglas
- * (a partir de Intents del cliente) antes de correr el reducer.
+ * La autoridad real vive en @atomo/shared (`applyIntent` valida turno + reglas y
+ * corre el reducer). Acá sólo se re-exporta y se agregan helpers del servidor.
  */
 
-import { gameReducer, initialState, type GameState, type GameAction } from '@atomo/shared';
+import { initialState, applyIntent, type GameState } from '@atomo/shared';
+
+export { applyIntent };
 
 export function createInitialState(): GameState {
     return initialState;
-}
-
-/**
- * Aplica una acción al estado autoritativo. Punto único de autoridad del servidor.
- * TODO (Fase 2b): recibir Intents, validar turno + legalidad, y recién ahí reducir.
- */
-export function applyAction(state: GameState, action: GameAction): GameState {
-    return gameReducer(state, action);
 }
 
 /**
