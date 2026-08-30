@@ -18,7 +18,7 @@ export const NuclearWarInfoModal: React.FC<NuclearWarInfoModalProps> = ({
     onActivate
 }) => {
     const { state } = useGameContext();
-    const { currentPlayerIndex, owners } = state;
+    const { currentPlayerIndex, owners, players } = state;
     const { technologies, rawMaterials } = usePlayerResources(currentPlayerIndex);
     const { checkRoute } = useSupplyRoute();
 
@@ -30,7 +30,7 @@ export const NuclearWarInfoModal: React.FC<NuclearWarInfoModalProps> = ({
         checkRoute(r.country, regionId, currentPlayerIndex)
     ).length > 0;
 
-    const isOwner = owners[regionId] === currentPlayerIndex;
+    const isOwner = String(owners[regionId]) === String(players[currentPlayerIndex]?.id);
 
     const canActivate = isOwner && hasElectronica && validConductores;
 

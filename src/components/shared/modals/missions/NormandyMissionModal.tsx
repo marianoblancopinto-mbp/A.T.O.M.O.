@@ -25,13 +25,14 @@ export const NormandyMissionModal: React.FC<NormandyMissionModalProps> = ({
 
     if (!show) return null;
 
-    const hasUK = owners['reino_unido'] === currentPlayerIndex;
+    const currentPlayerId = players[currentPlayerIndex]?.id;
+    const hasUK = String(owners['reino_unido']) === String(currentPlayerId);
     const franceOwner = owners['francia'];
     const germanyOwner = owners['alemania'];
 
     // Check if France and Germany are owned by the SAME enemy (someone else)
     const sameEnemyOwner = franceOwner === germanyOwner &&
-        franceOwner !== currentPlayerIndex &&
+        String(franceOwner) !== String(currentPlayerId) &&
         franceOwner !== null &&
         franceOwner !== undefined;
 

@@ -15,14 +15,13 @@ export const AndesMissionModal: React.FC<AndesMissionModalProps> = ({
     show,
     onClose,
     player,
-    currentPlayerIndex,
     owners,
     onComplete,
     onOpenInventory
 }) => {
     const [selectedAndesFoodId, setSelectedAndesFoodId] = useState<string | null>(null);
 
-    const hasControl = owners['argentina'] === currentPlayerIndex;
+    const hasControl = String(owners['argentina']) === String(player.id);
     const foodSupplies = player.supplies.food || [];
     const canComplete = hasControl && selectedAndesFoodId !== null;
 

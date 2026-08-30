@@ -30,7 +30,7 @@ export const BolivarMissionModal: React.FC<BolivarMissionModalProps> = ({
     const player = players[playerIndex];
     if (!player) return null;
 
-    const hasVenezuela = owners['venezuela'] === player.id || owners['venezuela'] === playerIndex;
+    const hasVenezuela = String(owners['venezuela']) === String(player.id);
     const foodSupplies = player.supplies.food || [];
     const manufactureSupplies = player.supplies.manufacture || [];
     const energySupplies = player.supplies.energy || [];

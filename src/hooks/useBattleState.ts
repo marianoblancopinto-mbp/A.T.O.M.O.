@@ -81,17 +81,12 @@ export const useBattleState = ({
         if (!selectedRegionId) return;
         if (!gameStarted || showTurnOverlay || conquestData) return;
 
-        // Validation: Cannot attack own territory
-        // Check ownership robustly (owners map can store index (number) or ID (string))
+        // Validation: Cannot attack own territory.
+        // owners guarda SIEMPRE el ID del jugador dueño (canónico). Comparamos por String.
         const ownerValue = owners[selectedRegionId];
         const currentPlayer = players[currentPlayerIndex];
 
-        let isOwnedByCurrentPlayer = false;
-        if (typeof ownerValue === 'number') {
-            isOwnedByCurrentPlayer = ownerValue === currentPlayerIndex;
-        } else if (typeof ownerValue === 'string') {
-            isOwnedByCurrentPlayer = ownerValue === currentPlayer.id;
-        }
+        const isOwnedByCurrentPlayer = ownerValue != null && String(ownerValue) === String(currentPlayer?.id);
 
         if (isOwnedByCurrentPlayer) {
             alert("No puedes atacar tu propio territorio.");
