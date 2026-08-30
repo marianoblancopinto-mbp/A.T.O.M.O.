@@ -3,7 +3,6 @@ import { BattleOverlay } from './BattleOverlay';
 
 
 import { TurnOverlay } from './shared/overlays/TurnOverlay';
-import { TakeoverPromptModal } from './shared/modals/TakeoverPromptModal';
 import { MapRender } from './game/MapRender';
 import { SidebarPanel } from './game/SidebarPanel';
 import { RegionInfoPanel } from './game/RegionInfoPanel';
@@ -933,7 +932,6 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                 />
             )}
 
-            {!spectator && <TakeoverPromptModal />}
 
             {/* Conquest Overlay */}
             {/* Conquest Overlay */}
