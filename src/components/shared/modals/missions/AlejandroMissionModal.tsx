@@ -30,7 +30,7 @@ export const AlejandroMissionModal: React.FC<AlejandroMissionModalProps> = ({
     const player = players[playerIndex];
     if (!player) return null;
 
-    const hasGreece = owners['grecia'] === player.id || owners['grecia'] === playerIndex;
+    const hasGreece = String(owners['grecia']) === String(player.id);
     const foodSupplies = player.supplies.food || [];
     const manufactureSupplies = player.supplies.manufacture || [];
     const energySupplies = player.supplies.energy || [];

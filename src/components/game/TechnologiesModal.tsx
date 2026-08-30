@@ -127,12 +127,7 @@ export const TechnologiesModal: React.FC<TechnologiesModalProps> = ({
                                         {countries.map((countryId: string) => {
                                             const regionData = REGIONS.find(r => r.id === countryId);
                                             const owner = owners[countryId];
-                                            let ownerPlayer = null;
-                                            if (typeof owner === 'number') {
-                                                ownerPlayer = players[owner];
-                                            } else if (typeof owner === 'string') {
-                                                ownerPlayer = players.find(p => p.id === owner) || null;
-                                            }
+                                            const ownerPlayer = owner == null ? null : (players.find(p => String(p.id) === String(owner)) || null);
                                             const isNuclearWar = tech === 'CENTRALES_NUCLEARES' && regionResources?.nuclearWarCapable.includes(countryId);
 
                                             return (

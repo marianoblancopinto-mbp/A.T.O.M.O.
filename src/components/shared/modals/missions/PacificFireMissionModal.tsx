@@ -30,7 +30,7 @@ export const PacificFireMissionModal: React.FC<PacificFireMissionModalProps> = (
     const player = players[playerIndex];
     if (!player) return null;
 
-    const hasJapan = owners['japon'] === player.id || owners['japon'] === playerIndex;
+    const hasJapan = String(owners['japon']) === String(player.id);
     const energySupplies = player.supplies.energy || [];
     const manufactureSupplies = player.supplies.manufacture || [];
     const foodSupplies = player.supplies.food || [];

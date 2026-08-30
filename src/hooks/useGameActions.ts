@@ -635,7 +635,7 @@ export const useGameActions = (): GameActions & {
                                 type: 'UPDATE_OWNER',
                                 payload: {
                                     regionId: clause.data.regionId,
-                                    ownerIndex: players.findIndex(p => p.id === clause.targetPlayerId)
+                                    ownerIndex: clause.targetPlayerId
                                 }
                             });
                         }
@@ -809,7 +809,7 @@ export const useGameActions = (): GameActions & {
                                         type: 'UPDATE_OWNER',
                                         payload: {
                                             regionId: clause.data.regionId,
-                                            ownerIndex: players.findIndex(p => p.id === clause.sourcePlayerId)
+                                            ownerIndex: clause.sourcePlayerId
                                         }
                                     });
                                 }

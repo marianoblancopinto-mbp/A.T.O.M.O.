@@ -33,14 +33,14 @@ export const GeothermalMissionModal: React.FC<GeothermalMissionModalProps> = ({
     const countryName = REGIONS.find(r => r.id === targetCountry)?.title || targetCountry;
 
     // Requirements
-    const hasControl = owners[targetCountry] === currentPlayerIndex;
+    const hasControl = String(owners[targetCountry]) === String(players[currentPlayerIndex]?.id);
     const player = players[currentPlayerIndex];
 
     // Filter available resources
     // Logic moved from TegMap.tsx
     // 1. Get cards from ProductionDeck that belong to owned territories + Inventory cards
     const ownedTerritories = Object.entries(owners)
-        .filter(([_, ownerIdx]) => ownerIdx === currentPlayerIndex)
+        .filter(([_, ownerId]) => String(ownerId) === String(players[currentPlayerIndex]?.id))
         .map(([regionId]) => regionId);
 
     const territoryTechs = productionDeck?.technologies.filter(card =>

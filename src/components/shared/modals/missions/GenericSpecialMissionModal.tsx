@@ -32,7 +32,7 @@ export const GenericSpecialMissionModal: React.FC<GenericSpecialMissionModalProp
     const [selectedRawIds, setSelectedRawIds] = useState<string[]>([]);
 
     // Eligible bases from control requirements
-    const eligibleBases = mission.requirements.control.filter(id => owners[id] === currentPlayerIndex);
+    const eligibleBases = mission.requirements.control.filter(id => String(owners[id]) === String(players[currentPlayerIndex]?.id));
 
     const handleActivate = () => {
         if (!selectedBaseId) return;
@@ -83,7 +83,7 @@ export const GenericSpecialMissionModal: React.FC<GenericSpecialMissionModalProp
     // Specific control requirement check for Antarctic (though Generic might not be used for Antarctic if specialized exists)
     const isAntartic = mission.id === 'ruta_antartica';
     const requiredControl = mission.requirements.control || [];
-    const hasFullControl = requiredControl.every(id => owners[id] === currentPlayerIndex);
+    const hasFullControl = requiredControl.every(id => String(owners[id]) === String(players[currentPlayerIndex]?.id));
 
     const canActivate = baseSelected && techSlotsFilled && rawSlotsFilled && (!isAntartic || hasFullControl);
 
