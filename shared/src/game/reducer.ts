@@ -1,19 +1,18 @@
 /**
  * gameReducer — Núcleo puro del estado de juego.
  *
- * Extraído de GameContext.tsx (Fase 1 de la migración a servidor autoritativo).
- * Este módulo NO depende de React: son tipos + estado inicial + reducer puro,
- * de modo que la misma lógica pueda correr en el cliente y (en fases futuras)
- * en el servidor. No cambia ningún comportamiento respecto de la versión previa.
+ * Extraído de GameContext.tsx y movido a @atomo/shared (Fases 1a/1b de la
+ * migración a servidor autoritativo). Este módulo NO depende de React: son tipos
+ * + estado inicial + reducer puro, de modo que la misma lógica corra en el
+ * cliente y (en fases futuras) en el servidor. No cambia el comportamiento.
  *
- * TODO (Fase 1b): mover este módulo a @atomo/shared junto con sus datos
- * (mapRegions) y hacerlo determinista (quitar Math.random).
+ * TODO (fase de reglas): hacerlo determinista (quitar Math.random de KICK_PLAYER,
+ * pasar un rng inyectado) cuando se arme el servidor.
  */
 
-import type { PlayerData, SpecialCard } from '../types/playerTypes';
-import type { ProductionDeck, SupplyItem } from '../types/productionTypes';
-import type { ActiveProviders } from '../data/productionData';
-import type { Treaty } from '../types/treatyTypes';
+import type { PlayerData, SpecialCard } from '../playerTypes';
+import type { ProductionDeck, SupplyItem, ActiveProviders } from '../productionTypes';
+import type { Treaty } from '../treatyTypes';
 import { REGIONS } from '../data/mapRegions';
 
 // ============================================================================
@@ -66,7 +65,7 @@ export interface GameState {
     notification: MissionNotification | null;
 
     // Active Battle State (Global)
-    battleState: import('../types/gameTypes').BattleState | null;
+    battleState: import('../gameTypes').BattleState | null;
 
     // Lore / Narrative
     proxyWarCountry: string;
@@ -118,8 +117,8 @@ export type GameAction =
     | { type: 'UPDATE_GAME_DATE_FN'; payload: (date: Date) => Date }
     | { type: 'SET_NOTIFICATION'; payload: MissionNotification | null }
     // Battle Actions
-    | { type: 'INIT_BATTLE'; payload: import('../types/gameTypes').BattleState }
-    | { type: 'UPDATE_BATTLE'; payload: Partial<import('../types/gameTypes').BattleState> }
+    | { type: 'INIT_BATTLE'; payload: import('../gameTypes').BattleState }
+    | { type: 'UPDATE_BATTLE'; payload: Partial<import('../gameTypes').BattleState> }
     | { type: 'END_BATTLE' }
     | { type: 'BATTLE_ATTACKER_SELECT'; payload: { cardId: string } }
     | { type: 'BATTLE_DEFENDER_SELECT'; payload: { cardId: string } }

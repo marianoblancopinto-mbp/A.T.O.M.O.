@@ -8,9 +8,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { gameReducer, initialState, sanitizePlayer, type GameState } from './gameReducer';
-import type { PlayerData } from '../types/playerTypes';
-import type { BattleState } from '../types/gameTypes';
+import { gameReducer, initialState, sanitizePlayer, type GameState } from './reducer';
+import type { PlayerData } from '../playerTypes';
+import type { BattleState } from '../gameTypes';
 
 // Helper: construye un PlayerData válido con defaults sanos.
 const mkPlayer = (id: string, over: Partial<PlayerData> = {}): PlayerData =>

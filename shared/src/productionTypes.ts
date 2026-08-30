@@ -120,3 +120,11 @@ export interface PlayerSupplies {
     food: SupplyItem[];
     energy: SupplyItem[];
 }
+
+// Recursos activos por región (qué país provee cada materia prima / tecnología).
+// Movido desde data/productionData.ts para que el reducer (en @atomo/shared) lo use.
+export interface ActiveProviders {
+    rawMaterials: Record<RawMaterialType, string[]>;
+    technologies: Record<TechnologyType, string[]>;
+    nuclearWarCapable: string[]; // Countries with nuclear tech that can be used for war
+}

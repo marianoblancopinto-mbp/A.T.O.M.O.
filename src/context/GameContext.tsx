@@ -10,11 +10,11 @@
 
 import React, { createContext, useContext, useReducer, type ReactNode } from 'react';
 import type { PlayerData } from '../types/playerTypes';
-import { gameReducer, initialState, sanitizePlayers } from './gameReducer';
-import type { GamePhase, GameState, GameAction } from './gameReducer';
+import { gameReducer, initialState, sanitizePlayers } from '@atomo/shared';
+import type { GamePhase, GameState, GameAction } from '@atomo/shared';
 
 // Re-export de tipos de estado para compatibilidad con imports existentes.
-export type { GamePhase, MissionNotification, GameSettings, GameState, GameAction } from './gameReducer';
+export type { GamePhase, MissionNotification, GameSettings, GameState, GameAction } from '@atomo/shared';
 
 // ============================================================================
 // Context
