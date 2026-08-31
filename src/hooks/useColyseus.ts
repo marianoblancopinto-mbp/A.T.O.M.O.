@@ -16,7 +16,18 @@ import { useCallback, useRef, useState } from 'react';
 import { Client, type Room } from 'colyseus.js';
 import type { GameAction } from '@atomo/shared';
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'ws://localhost:2567';
+// Resuelve la URL del servidor. VITE_SERVER_URL puede ser:
+//  - una URL completa: "ws://localhost:2567" o "wss://atomo-server.onrender.com"
+//  - sólo un host: "atomo-server.onrender.com" -> se asume "wss://" (producción)
+//  - vacío -> localhost para desarrollo.
+function resolveServerUrl(): string {
+    const raw = (import.meta.env.VITE_SERVER_URL || '').trim();
+    if (!raw) return 'ws://localhost:2567';
+    if (raw.startsWith('ws://') || raw.startsWith('wss://')) return raw;
+    return `wss://${raw}`;
+}
+
+const SERVER_URL = resolveServerUrl();
 const ROOM_NAME = 'atomo';
 
 export interface LobbyPlayer {
