@@ -14,6 +14,7 @@ import { SpecialMissionModal } from './shared/modals/missions/SpecialMissionModa
 import { getSpecialMissions, type SpecialMission } from '../data/missionData';
 import { EspionageGenerationModal } from './shared/modals/espionage/EspionageGenerationModal';
 import { EspionageTargetSelectionModal } from './shared/modals/espionage/EspionageTargetSelectionModal';
+import { EspionageActivationModal } from './shared/modals/espionage/EspionageActivationModal';
 import { EspionageNetworkInfoModal } from './shared/modals/espionage/EspionageNetworkInfoModal';
 import { NuclearActivationModal } from './shared/modals/nuclear/NuclearActivationModal';
 import { NuclearDesignGenerationModal } from './shared/modals/nuclear/NuclearDesignGenerationModal';
@@ -62,6 +63,15 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
         turnOrder,
         turnOrderIndex
     } = state;
+
+    // Index of the player operating locally (the one whose confidential file is theirs).
+    // In multiplayer we always act as the local player; in hotseat it's the active player.
+    const localPlayerIndex = (multiplayer.connectionStatus === 'PLAYING' && multiplayer.playerId)
+        ? (() => {
+            const idx = players.findIndex(p => p.id === multiplayer.playerId);
+            return idx !== -1 ? idx : currentPlayerIndex;
+        })()
+        : currentPlayerIndex;
 
     // Helper wrappers for backward compatibility during migration
     const setPlayers = (action: React.SetStateAction<PlayerData[]>) => {
@@ -233,6 +243,7 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
     // Espionage State
     const [showEspionageModal, setShowEspionageModal] = useState<string | null>(null);
     const [showEspionageGenSelection, setShowEspionageGenSelection] = useState(false);
+    const [showEspionageActivationModal, setShowEspionageActivationModal] = useState(false);
     const [showEspionageNetworkInfo, setShowEspionageNetworkInfo] = useState<string | null>(null);
 
     // Nuclear Design State
@@ -1134,10 +1145,25 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                         specialMissions={SPECIAL_MISSIONS}
                         onClose={() => setSelectedRegionId(null)}
                         onAttack={handleAttackClick}
-                        onShowNuclearDesignInfo={setShowNuclearDesignInfo}
-                        onShowMineralExtraction={setShowMineralExtractionModal}
-                        onShowEspionageNetworkInfo={setShowEspionageNetworkInfo}
-                        onShowSpecialMissionInfo={setShowSpecialMissionInfo}
+                        // Los botones "Especiales" abren EXACTAMENTE los mismos paneles de
+                        // accion que el Expediente Confidencial (no los paneles de solo lectura).
+                        onOpenNuclearDesign={(regionId) => {
+                            // Pre-seleccionamos la region clickeada solo si el jugador la controla;
+                            // si no, dejamos que el modal exija elegir una propia (igual que el Confidencial).
+                            const ownsRegion = owners[regionId] === players[localPlayerIndex]?.id;
+                            setNuclearGenLocation(ownsRegion ? regionId : 'SELECTION_NEEDED');
+                            setMissionPlayerIndex(localPlayerIndex);
+                            setShowNuclearGenSelection(true);
+                        }}
+                        onOpenMineralExtraction={(regionId) => {
+                            setMissionPlayerIndex(localPlayerIndex);
+                            setShowMineralExtractionModal(regionId);
+                        }}
+                        onOpenEspionage={() => {
+                            setMissionPlayerIndex(localPlayerIndex);
+                            setShowEspionageActivationModal(true);
+                        }}
+                        onOpenSpecialMission={setShowSpecialMissionModal}
                     />
                 )}
 
@@ -1313,6 +1339,18 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                         />
                     )
                 }
+
+                {/* Espionage Activation Modal (same action panel as the Confidential file) */}
+                {!spectator && showEspionageActivationModal && (
+                    <EspionageActivationModal
+                        show={showEspionageActivationModal}
+                        onClose={() => {
+                            setShowEspionageActivationModal(false);
+                            setMissionPlayerIndex(null);
+                        }}
+                        playerIndex={missionPlayerIndex ?? undefined}
+                    />
+                )}
 
                 {/* Espionage Network Info Modal */}
                 <EspionageNetworkInfoModal
