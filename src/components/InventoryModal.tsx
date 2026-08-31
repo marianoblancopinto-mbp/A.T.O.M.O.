@@ -3,7 +3,6 @@ import { type SupplyType, TECHNOLOGY_PRODUCES, type SupplyItem } from '../types/
 import { TECHNOLOGY_DATA, RAW_MATERIAL_DATA, TECHNOLOGY_REQUIREMENTS } from '../data/productionData';
 import { useGameContext } from '../context/GameContext';
 import { useMyPlayer } from '../hooks/useMyPlayer';
-import { useGameActions } from '../hooks/useGameActions';
 
 interface InventoryModalProps {
     isOpen: boolean;
@@ -29,10 +28,13 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
     battleTargetId,
     filterTargetCountry
 }) => {
-    const { state } = useGameContext();
-    const { productionDeck } = state;
+    const { state, dispatch } = useGameContext();
+    const { productionDeck, roundPhase } = state;
     const { myPlayer, myPlayerIndex, resources, checkRoute } = useMyPlayer();
-    const actions = useGameActions();
+
+    // La producción de suministros SOLO está habilitada durante la fase de producción
+    // (preturno) al inicio de la ronda. Durante la ronda de acciones queda bloqueada.
+    const isProductionPhase = roundPhase === 'PRODUCTION';
 
     const [selectedTech, setSelectedTech] = useState<string | null>(null);
     const [selectedRaw, setSelectedRaw] = useState<string | null>(null);
@@ -289,6 +291,12 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
     const handleProduce = () => {
         if (!selectedTech || !selectedRaw) return;
 
+        // Sólo se puede producir durante la fase de producción (preturno).
+        if (!isProductionPhase) {
+            alert('Los suministros solo pueden producirse durante la fase de producción, al inicio de la ronda.');
+            return;
+        }
+
         // Find the actual card objects
         const techCard = technologies.find(t => t.id === selectedTech);
         const rawCard = rawMaterials.find(r => r.id === selectedRaw);
@@ -308,49 +316,31 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
 
         const supplyType = TECHNOLOGY_PRODUCES[techType];
 
-        // --- Production Logic ---
-
-        // 1. Mark cards as used (Global Deck update)
-        // This is important because Passive Production relies on Global Deck state
-        if (actions.markCardAsUsed) {
-            actions.markCardAsUsed(techCard.id, 'technology');
-            actions.markCardAsUsed(rawCard.id, 'rawMaterial');
-        }
-
-        // 2. Mark cards as used (Player Inventory update - for Secret cards)
-        // We update the whole inventory reference to ensure reactivity
-        const newInventory = {
-            technologies: myPlayer.inventory.technologies.map(c => c.id === techCard.id ? { ...c, usedThisTurn: true } : c),
-            rawMaterials: myPlayer.inventory.rawMaterials.map(c => c.id === rawCard.id ? { ...c, usedThisTurn: true } : c)
-        };
-        actions.updatePlayerField(myPlayerIndex, 'inventory', newInventory);
-
-        // 3. Find Origin Country
+        // Find Origin Country (global deck first, then inventory override)
         let originCountry = 'Desconocido';
-
-        // Try Global Deck first
         if (productionDeck) {
             const globalRawCard = productionDeck.rawMaterials.find(c => c.id === rawCard.id);
             if (globalRawCard) originCountry = globalRawCard.country;
         }
-
-        // Try Inventory if still unknown (or to confirm if it has overrides)
         if (originCountry === 'Desconocido') {
             const invRawCard = myPlayer.inventory.rawMaterials.find(c => c.id === rawCard.id);
             if (invRawCard) {
-                // Use type assertion if properties are not strictly typed in all interfaces
                 originCountry = (invRawCard as any).country || (invRawCard as any).originCountry || 'Desconocido';
             }
         }
 
-        // 4. Add Supply
-        const newSupply: SupplyItem = {
-            id: `supply-${Date.now()}-${Math.random()}`,
-            type: supplyType,
-            originCountry
-        };
-
-        actions.addSupplyToPlayer(myPlayerIndex, newSupply);
+        // Producción atómica y sincronizada: consume ambas cartas (mazo global + inventario)
+        // y agrega el suministro. El reducer valida que estemos en fase de producción.
+        dispatch({
+            type: 'PRODUCE_SUPPLY',
+            payload: {
+                playerIndex: myPlayerIndex,
+                techId: techCard.id,
+                rawId: rawCard.id,
+                supplyType: supplyType as SupplyItem['type'],
+                originCountry
+            }
+        });
 
         // Deselect after production
         setSelectedTech(null);
@@ -377,7 +367,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
     };
 
     const compatibility = getCompatibilityMessage();
-    const canProduce = selectedTech && selectedRaw && compatibility.valid;
+    const canProduce = selectedTech && selectedRaw && compatibility.valid && isProductionPhase;
 
     const isMobile = window.innerWidth <= 768;
 
@@ -583,14 +573,16 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                     zIndex: 20
                 }}>
                     <div style={{
-                        color: canProduce ? '#4caf50' : compatibility.text ? '#ff5252' : '#fff',
+                        color: !isProductionPhase ? '#ff9100' : (canProduce ? '#4caf50' : compatibility.text ? '#ff5252' : '#fff'),
                         fontWeight: 'bold',
                         fontSize: isMobile ? '0.75rem' : '1rem',
                         textAlign: 'center'
                     }}>
-                        {compatibility.text || (
-                            `Seleccionado: ${selectedTech ? '✅ Tec.' : '❌ Tec.'} + ${selectedRaw ? '✅ Mat.' : '❌ Mat.'}`
-                        )}
+                        {!isProductionPhase
+                            ? '⛔ Producción cerrada — solo en el preturno (inicio de ronda)'
+                            : (compatibility.text || (
+                                `Seleccionado: ${selectedTech ? '✅ Tec.' : '❌ Tec.'} + ${selectedRaw ? '✅ Mat.' : '❌ Mat.'}`
+                            ))}
                     </div>
                     <button
                         disabled={!canProduce}

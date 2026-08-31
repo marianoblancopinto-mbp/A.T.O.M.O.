@@ -54,6 +54,14 @@ export function validateAction(
     playerId: string | number,
     action: GameAction
 ): ValidationResult {
+    // Fase de producción (preturno): sólo se puede producir en esta fase; no se puede atacar.
+    if (action.type === 'PRODUCE_SUPPLY' && state.roundPhase !== 'PRODUCTION') {
+        return { ok: false, reason: 'Sólo se pueden producir suministros durante la fase de producción (preturno).' };
+    }
+    if (action.type === 'INIT_BATTLE' && state.roundPhase === 'PRODUCTION') {
+        return { ok: false, reason: 'No se puede atacar durante la fase de producción (preturno).' };
+    }
+
     if (TURN_RESTRICTED.has(action.type) && !isPlayersTurn(state, playerId)) {
         return { ok: false, reason: `La acción ${action.type} sólo se permite en tu turno.` };
     }

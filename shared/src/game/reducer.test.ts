@@ -147,3 +147,101 @@ describe('SYNC_STATE (guardas defensivas)', () => {
         expect(next.players[0].supplies.food).toEqual([]);
     });
 });
+
+describe('Fase de producción (preturno)', () => {
+    // productionDeck mínimo con una tecnología y una materia prima en 'argentina'.
+    const mkDeck = () => ({
+        technologies: [{ id: 't1', type: 'AGROINDUSTRIA_MASIVA', country: 'argentina', usedThisTurn: false } as any],
+        rawMaterials: [{ id: 'r1', type: 'CEREALES', country: 'argentina', usedThisTurn: false } as any],
+    });
+
+    const mkProdPlayer = (id: string) => mkPlayer(id, {
+        inventory: {
+            technologies: [{ id: 't1', type: 'AGROINDUSTRIA_MASIVA', country: 'argentina', usedThisTurn: false } as any],
+            rawMaterials: [{ id: 'r1', type: 'CEREALES', country: 'argentina', usedThisTurn: false } as any],
+        }
+    });
+
+    it('PRODUCE_SUPPLY agrega el suministro y consume ambas cartas (deck + inventario)', () => {
+        const s = baseState([mkProdPlayer('p0')], { roundPhase: 'PRODUCTION', productionDeck: mkDeck() as any });
+        const next = gameReducer(s, {
+            type: 'PRODUCE_SUPPLY',
+            payload: { playerIndex: 0, techId: 't1', rawId: 'r1', supplyType: 'food', originCountry: 'argentina' }
+        });
+        expect(next.players[0].supplies.food).toHaveLength(1);
+        expect(next.players[0].supplies.food[0].originCountry).toBe('argentina');
+        expect(next.productionDeck!.rawMaterials[0].usedThisTurn).toBe(true);
+        expect(next.productionDeck!.technologies[0].usedThisTurn).toBe(true);
+        expect(next.players[0].inventory.rawMaterials[0].usedThisTurn).toBe(true);
+    });
+
+    it('PRODUCE_SUPPLY es no-op fuera de la fase de producción', () => {
+        const s = baseState([mkProdPlayer('p0')], { roundPhase: 'ACTION', productionDeck: mkDeck() as any });
+        const next = gameReducer(s, {
+            type: 'PRODUCE_SUPPLY',
+            payload: { playerIndex: 0, techId: 't1', rawId: 'r1', supplyType: 'food', originCountry: 'argentina' }
+        });
+        expect(next).toBe(s); // sin cambios
+    });
+
+    it('SET_PRODUCTION_READY pasa a ACTION cuando todos los activos están listos', () => {
+        const s = baseState([mkPlayer('p0'), mkPlayer('p1')], { roundPhase: 'PRODUCTION' });
+        const afterP0 = gameReducer(s, { type: 'SET_PRODUCTION_READY', payload: { playerId: 'p0', ready: true } });
+        expect(afterP0.roundPhase).toBe('PRODUCTION');
+        expect(afterP0.productionReadyIds).toEqual(['p0']);
+        const afterP1 = gameReducer(afterP0, { type: 'SET_PRODUCTION_READY', payload: { playerId: 'p1', ready: true } });
+        expect(afterP1.roundPhase).toBe('ACTION');
+        expect(afterP1.productionReadyIds).toEqual([]);
+    });
+
+    it('SET_PRODUCTION_READY ignora a los eliminados para el gate', () => {
+        const s = baseState([mkPlayer('p0'), mkPlayer('p1', { isEliminated: true })], { roundPhase: 'PRODUCTION' });
+        const next = gameReducer(s, { type: 'SET_PRODUCTION_READY', payload: { playerId: 'p0', ready: true } });
+        expect(next.roundPhase).toBe('ACTION'); // p1 eliminado no cuenta
+    });
+
+    it('START_ACTION_PHASE fuerza la ronda de acciones', () => {
+        const s = baseState([mkPlayer('p0')], { roundPhase: 'PRODUCTION', productionReadyIds: ['x'] });
+        const next = gameReducer(s, { type: 'START_ACTION_PHASE' });
+        expect(next.roundPhase).toBe('ACTION');
+        expect(next.productionReadyIds).toEqual([]);
+    });
+
+    it('PROCESS_TURN_CHANGE de nueva ronda reabre PRODUCTION y desbloquea el consumo', () => {
+        const usedDeck = {
+            technologies: [{ id: 't1', type: 'AGROINDUSTRIA_MASIVA', country: 'argentina', usedThisTurn: true } as any],
+            rawMaterials: [{ id: 'r1', type: 'CEREALES', country: 'argentina', usedThisTurn: true } as any],
+        };
+        const s = baseState([mkPlayer('p0')], {
+            roundPhase: 'ACTION',
+            productionDeck: usedDeck as any,
+            gameDate: new Date(2100, 0, 1),
+        });
+        const next = gameReducer(s, {
+            type: 'PROCESS_TURN_CHANGE',
+            payload: { players: s.players, gameDate: new Date(2101, 0, 1), turnOrderIndex: 0, currentPlayerIndex: 0 }
+        });
+        expect(next.roundPhase).toBe('PRODUCTION');
+        expect(next.productionReadyIds).toEqual([]);
+        expect(next.productionDeck!.rawMaterials[0].usedThisTurn).toBe(false);
+        expect(next.productionDeck!.technologies[0].usedThisTurn).toBe(false);
+    });
+
+    it('PROCESS_TURN_CHANGE dentro de la misma ronda NO reabre producción ni desbloquea', () => {
+        const usedDeck = {
+            technologies: [{ id: 't1', type: 'AGROINDUSTRIA_MASIVA', country: 'argentina', usedThisTurn: true } as any],
+            rawMaterials: [{ id: 'r1', type: 'CEREALES', country: 'argentina', usedThisTurn: true } as any],
+        };
+        const s = baseState([mkPlayer('p0'), mkPlayer('p1')], {
+            roundPhase: 'ACTION',
+            productionDeck: usedDeck as any,
+            gameDate: new Date(2100, 0, 1),
+        });
+        const next = gameReducer(s, {
+            type: 'PROCESS_TURN_CHANGE',
+            payload: { players: s.players, gameDate: new Date(2100, 0, 1), turnOrderIndex: 1, currentPlayerIndex: 1 }
+        });
+        expect(next.roundPhase).toBe('ACTION');
+        expect(next.productionDeck!.rawMaterials[0].usedThisTurn).toBe(true); // sigue consumida
+    });
+});

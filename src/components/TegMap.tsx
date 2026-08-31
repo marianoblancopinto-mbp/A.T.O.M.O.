@@ -24,6 +24,7 @@ import { NuclearDeploymentModal } from './shared/modals/nuclear/NuclearDeploymen
 import { NuclearAlertModal } from './shared/modals/nuclear/NuclearAlertModal';
 import { NuclearWarInfoModal } from './shared/modals/nuclear/NuclearWarInfoModal';
 import { YearStartOverlay } from './shared/overlays/YearStartOverlay';
+import { ProductionPhaseOverlay } from './shared/overlays/ProductionPhaseOverlay';
 import { EndgameOverlay } from './shared/overlays/EndgameOverlay';
 import { MissionNotificationOverlay } from './shared/overlays/MissionNotificationOverlay';
 import { MADOverlay } from './shared/overlays/MADOverlay';
@@ -32,7 +33,6 @@ import {
     checkSupplyRoute
 } from '../data/mapData';
 import type {
-    ProductionDeck,
     SupplyItem
 } from '../types/productionTypes';
 import { InventoryModal } from './InventoryModal';
@@ -56,10 +56,10 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
         players,
         currentPlayerIndex,
         owners,
-        productionDeck,
         gameDate,
         turnOrder,
-        turnOrderIndex
+        turnOrderIndex,
+        roundPhase
     } = state;
 
     // Index of the player operating locally (the one whose confidential file is theirs).
@@ -462,30 +462,10 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
 
     // Espionage logic moved to useGameActions and EspionageTargetSelectionModal
 
-    // Reset card usage at turn start
-    const resetCardUsageForTurn = () => {
-        if (!productionDeck) return;
-        dispatch({
-            type: 'UPDATE_PRODUCTION_DECK_FN', payload: (prev: ProductionDeck | null) => {
-                if (!prev) return null;
-                
-                // Defensive: ensure we are dealing with arrays before mapping
-                const safeTech = Array.isArray(prev.technologies) 
-                    ? prev.technologies.map(card => ({ ...card, usedThisTurn: false }))
-                    : prev.technologies;
-
-                const safeRaw = Array.isArray(prev.rawMaterials)
-                    ? prev.rawMaterials.map(card => ({ ...card, usedThisTurn: false }))
-                    : prev.rawMaterials;
-
-                return {
-                    ...prev,
-                    technologies: safeTech,
-                    rawMaterials: safeRaw,
-                };
-            }
-        });
-    };
+    // NOTA: El "desbloqueo" de cartas (usedThisTurn -> false) ya NO ocurre por turno.
+    // Ahora el consumo de materias primas/tecnologías persiste durante TODA la ronda y se
+    // resetea únicamente al inicio de la ronda siguiente (fase de producción), dentro del
+    // reducer en PROCESS_TURN_CHANGE. Así el consumo por país se mantiene aun tras conquistas.
 
     // Global synchronization for Turn and Year Overlays
     const prevTurnPlayerRef = useRef<number>(currentPlayerIndex);
@@ -512,7 +492,6 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                 setShowTurnOverlay(true);
             }
             prevTurnPlayerRef.current = currentPlayerIndex;
-            resetCardUsageForTurn();
         }
     }, [currentPlayerIndex, gameDate, gameStarted, players.length]);
 
@@ -921,19 +900,23 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
             backgroundSize: '40px 40px'
         }}>
             {/* Turn Overlay and related logic */}
-            {!spectator && gameStarted && showTurnOverlay && players[currentPlayerIndex] && (
+            {!spectator && gameStarted && roundPhase !== 'PRODUCTION' && showTurnOverlay && players[currentPlayerIndex] && (
                 <TurnOverlay
                     player={players[currentPlayerIndex]}
                     onClose={() => {
                         console.log('[TegMap] Closing TurnOverlay');
-                        try {
-                            if (typeof resetCardUsageForTurn === 'function') {
-                                resetCardUsageForTurn();
-                            }
-                        } catch (err) {
-                            console.error('[TegMap] Error in resetCardUsageForTurn:', err);
-                        }
                         setShowTurnOverlay(false);
+                    }}
+                />
+            )}
+
+            {/* PRETURNO — Fase de producción simultánea (inicio de ronda) */}
+            {gameStarted && roundPhase === 'PRODUCTION' && !state.winner && (
+                <ProductionPhaseOverlay
+                    isSpectator={spectator}
+                    onOpenInventory={() => {
+                        setInventoryPlayerIndex(localPlayerIndex);
+                        setShowInventory(true);
                     }}
                 />
             )}
@@ -1383,7 +1366,9 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                     />
                 ) : (
                     <YearStartOverlay
-                        year={showYearStartLocal}
+                        // Durante el preturno mostramos la fase de producción; la cinemática de
+                        // año queda en cola y aparece recién cuando arranca la ronda de acciones.
+                        year={roundPhase === 'PRODUCTION' ? null : showYearStartLocal}
                         onStart={() => {
                             setShowYearStart(null);
                             setShowTurnOverlay(true);

@@ -78,6 +78,13 @@ export interface GameState {
     usedAttackSources: string[];
     treaties: Treaty[];
     settings: GameSettings;
+
+    // Round production phase (pre-turn):
+    // 'PRODUCTION' = ventana simultánea al inicio de la ronda donde los jugadores
+    //   producen suministros. 'ACTION' = ronda normal de turnos (no se puede producir).
+    roundPhase: 'PRODUCTION' | 'ACTION';
+    // IDs de los jugadores que ya marcaron "LISTO" durante la fase de producción actual.
+    productionReadyIds: string[];
 }
 
 // ============================================================================
@@ -146,7 +153,11 @@ export type GameAction =
     | { type: 'CREATE_TREATY_OFFER'; payload: Treaty }
     | { type: 'UPDATE_TREATY'; payload: Treaty }
     | { type: 'CANCEL_TREATY'; payload: { treatyId: string } }
-    | { type: 'KICK_PLAYER'; payload: { playerId: string | number } };
+    | { type: 'KICK_PLAYER'; payload: { playerId: string | number } }
+    // Round production phase (pre-turn)
+    | { type: 'PRODUCE_SUPPLY'; payload: { playerIndex: number; techId: string; rawId: string; supplyType: SupplyItem['type']; originCountry: string } }
+    | { type: 'SET_PRODUCTION_READY'; payload: { playerId: string | number; ready: boolean } }
+    | { type: 'START_ACTION_PHASE' };
 
 // ============================================================================
 // Initial State
@@ -177,7 +188,10 @@ export const initialState: GameState = {
         aiActive: false,
         aiDifficulty: 50,
         gameMode: 'classic'
-    }
+    },
+    // La partida arranca en la fase de producción de la primera ronda.
+    roundPhase: 'PRODUCTION',
+    productionReadyIds: []
 };
 
 // ============================================================================
@@ -422,6 +436,79 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
             return { ...state, players: newPlayers };
         }
 
+        case 'PRODUCE_SUPPLY': {
+            // Producir suministros SOLO se permite durante la fase de producción (preturno).
+            if (state.roundPhase !== 'PRODUCTION') return state;
+
+            const { playerIndex, techId, rawId, supplyType, originCountry } = action.payload;
+            const player = state.players[playerIndex];
+            if (!player) return state;
+
+            const markUsed = (cards: any[] | undefined, id: string) =>
+                (cards || []).map(c => (c.id === id ? { ...c, usedThisTurn: true } : c));
+
+            // 1. Consumir las cartas en el mazo global (indexado por país) para que un
+            //    conquistador de ese país en la misma ronda NO reciba la carta disponible.
+            let newProductionDeck = state.productionDeck;
+            if (state.productionDeck) {
+                newProductionDeck = {
+                    ...state.productionDeck,
+                    technologies: markUsed(state.productionDeck.technologies, techId),
+                    rawMaterials: markUsed(state.productionDeck.rawMaterials, rawId)
+                };
+            }
+
+            // 2. Consumir también las copias del inventario del jugador (cartas no territoriales).
+            const newSupply: SupplyItem = {
+                id: `supply-${Date.now()}-${Math.floor(Math.random() * 1e9)}`,
+                type: supplyType,
+                originCountry
+            };
+
+            const newPlayers = state.players.map((p, idx) => {
+                if (idx !== playerIndex) return p;
+                return {
+                    ...p,
+                    inventory: {
+                        ...p.inventory,
+                        technologies: markUsed(p.inventory?.technologies, techId),
+                        rawMaterials: markUsed(p.inventory?.rawMaterials, rawId)
+                    },
+                    supplies: {
+                        ...p.supplies,
+                        [supplyType]: [...p.supplies[supplyType], newSupply]
+                    }
+                };
+            });
+
+            return { ...state, players: newPlayers, productionDeck: newProductionDeck };
+        }
+
+        case 'SET_PRODUCTION_READY': {
+            if (state.roundPhase !== 'PRODUCTION') return state;
+
+            const pid = String(action.payload.playerId);
+            const current = new Set(state.productionReadyIds.map(String));
+            if (action.payload.ready) current.add(pid);
+            else current.delete(pid);
+
+            const readyIds = Array.from(current);
+
+            // Si TODOS los jugadores no eliminados están listos, arranca la ronda de acciones.
+            const activeIds = state.players.filter(p => !p.isEliminated).map(p => String(p.id));
+            const allReady = activeIds.length > 0 && activeIds.every(id => current.has(id));
+
+            if (allReady) {
+                return { ...state, roundPhase: 'ACTION', productionReadyIds: [] };
+            }
+            return { ...state, productionReadyIds: readyIds };
+        }
+
+        case 'START_ACTION_PHASE': {
+            // Arranque forzado de la ronda (salvaguarda del anfitrión ante AFK).
+            return { ...state, roundPhase: 'ACTION', productionReadyIds: [] };
+        }
+
         case 'SET_NOTIFICATION':
             return { ...state, notification: action.payload };
 
@@ -619,7 +706,9 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
                 treaties: p.treaties ?? state.treaties,
                 proxyWarCountry: p.proxyWarCountry ?? state.proxyWarCountry,
                 usedAttackSources: p.usedAttackSources ?? state.usedAttackSources,
-                settings: p.settings ?? state.settings
+                settings: p.settings ?? state.settings,
+                roundPhase: p.roundPhase ?? state.roundPhase,
+                productionReadyIds: p.productionReadyIds ?? state.productionReadyIds
             };
         }
 
@@ -639,10 +728,48 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
             console.log(`[GameContext] 🔄 Processing Turn Change to Index: ${nextPlayerIndex} (from payload: ${p.currentPlayerIndex})`);
 
+            const nextGameDate = p.gameDate ? new Date(p.gameDate) : state.gameDate;
+
+            // Detección de NUEVA RONDA (cambio de año): abre la fase de producción
+            // (preturno) y "desbloquea" el consumo de cartas — que ahora persiste durante
+            // toda la ronda, no por turno. Así el consumo de materias primas por país se
+            // mantiene mientras dure la ronda (incluido tras una conquista).
+            const isNewRound = nextGameDate.getFullYear() > state.gameDate.getFullYear();
+
+            let nextRoundPhase = state.roundPhase;
+            let nextProductionReadyIds = state.productionReadyIds;
+            let nextPlayers = sanitizedPlayers;
+            let nextProductionDeck = state.productionDeck;
+
+            if (isNewRound) {
+                nextRoundPhase = 'PRODUCTION';
+                nextProductionReadyIds = [];
+
+                const unlock = <T,>(cards: T[] | undefined): T[] =>
+                    Array.isArray(cards) ? cards.map(c => ({ ...c, usedThisTurn: false })) : [];
+
+                if (state.productionDeck) {
+                    nextProductionDeck = {
+                        ...state.productionDeck,
+                        technologies: unlock(state.productionDeck.technologies),
+                        rawMaterials: unlock(state.productionDeck.rawMaterials)
+                    };
+                }
+
+                nextPlayers = nextPlayers.map(pl => ({
+                    ...pl,
+                    inventory: {
+                        ...pl.inventory,
+                        technologies: unlock(pl.inventory?.technologies),
+                        rawMaterials: unlock(pl.inventory?.rawMaterials)
+                    }
+                }));
+            }
+
             return {
                 ...state,
-                players: sanitizedPlayers,
-                gameDate: p.gameDate ? new Date(p.gameDate) : state.gameDate,
+                players: nextPlayers,
+                gameDate: nextGameDate,
                 turnOrderIndex: isNaN(nextTurnOrderIndex) ? state.turnOrderIndex : nextTurnOrderIndex,
                 currentPlayerIndex: isNaN(nextPlayerIndex) ? state.currentPlayerIndex : nextPlayerIndex,
                 turnOrder: p.turnOrder ?? state.turnOrder,
@@ -651,7 +778,10 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
                 winner: p.winner ?? state.winner,
                 endgameChoice: p.endgameChoice ?? state.endgameChoice,
                 usedAttackSources: p.usedAttackSources ?? [],
-                treaties: p.treaties ?? state.treaties
+                treaties: p.treaties ?? state.treaties,
+                productionDeck: nextProductionDeck,
+                roundPhase: nextRoundPhase,
+                productionReadyIds: nextProductionReadyIds
             };
         }
 
