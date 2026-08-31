@@ -97,14 +97,29 @@ export class GameRoom extends Room {
         }
     }
 
-    onLeave(client: Client) {
+    async onLeave(client: Client, consented?: boolean) {
         const playerId = this.playerBySession.get(client.sessionId);
         this.playerBySession.delete(client.sessionId);
+        console.log(`[GameRoom] ${client.sessionId} se fue de ${this.roomId} (consented=${consented})`);
+
+        // Durante la partida, dar un margen de reconexión (Fase 4): mantiene la sala
+        // VIVA ~60s aunque quede sin nadie, así el que se cayó puede volver y retomar
+        // (incluida una batalla en curso). El cliente se re-une por roomId + playerId.
+        if (this.phase === 'playing' && !consented) {
+            try {
+                await this.allowReconnection(client, 60);
+                if (playerId != null) this.playerBySession.set(client.sessionId, playerId);
+                console.log(`[GameRoom] ${client.sessionId} reconectó a ${this.roomId}`);
+                return;
+            } catch {
+                console.log(`[GameRoom] ${client.sessionId} no reconectó a tiempo`);
+            }
+        }
+
+        // Salida definitiva (en lobby, o venció el margen): sacarlo del lobby.
         if (playerId != null) {
             this.lobby = removeLobbyPlayer(this.lobby, playerId);
             this.broadcast('lobby', { players: this.lobby, phase: this.phase });
         }
-        console.log(`[GameRoom] ${client.sessionId} salió de ${this.roomId}`);
-        // TODO (Fase 4): allowReconnection para que retome su lugar sin perder el turno.
     }
 }
