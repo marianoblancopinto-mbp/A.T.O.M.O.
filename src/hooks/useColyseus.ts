@@ -1,18 +1,19 @@
 /**
  * useColyseus — cliente del servidor autoritativo (reemplaza useMultiplayer/Supabase).
  *
- * Conecta a la sala Colyseus, maneja el lobby y el juego:
+ * Conecta a la sala Colyseus, maneja el lobby, el juego y la RECONEXIÓN:
  *  - createGame / joinGame: crea o se une a una sala (matchmaking de Colyseus).
  *  - startGame(initialState): el anfitrión manda el estado inicial que generó.
- *  - sendAction(action): manda un Intent { kind: 'ACTION', action } al servidor
- *    (la acción ya debe venir serializable; GameContext la convierte).
+ *  - sendAction(action): manda un Intent { kind: 'ACTION', action } al servidor.
  *  - setOnStateReceived(cb): se llama con cada estado autoritativo difundido.
  *
- * El servidor es la única fuente de verdad; este hook sólo envía intenciones y
- * entrega el estado que llega.
+ * Reconexión (Fase 4): se guarda la sala actual en localStorage. Si se recarga la
+ * página o se pierde la conexión (celular que se apaga/duerme), el cliente se
+ * re-une solo a la misma sala con su playerId; el servidor le reenvía el estado
+ * actual (incluida una batalla en curso), así no queda en limbo.
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Client, type Room } from 'colyseus.js';
 import type { GameAction } from '@atomo/shared';
 
@@ -38,7 +39,7 @@ export interface LobbyPlayer {
 
 type ConnStatus = 'IDLE' | 'CONNECTING' | 'CONNECTED' | 'PLAYING' | 'ERROR';
 
-// playerId persistente por dispositivo (necesario para reconexión futura).
+// playerId persistente por dispositivo (para reconexión).
 function getOrCreatePlayerId(): string {
     try {
         // Override por URL (?player=X o ?p=X) para testear VARIOS jugadores en el
@@ -61,6 +62,30 @@ function getOrCreatePlayerId(): string {
     }
 }
 
+// --- Sesión (para reconexión): recordar en qué sala estábamos ---
+function saveSession(roomId: string, playerName: string) {
+    try {
+        localStorage.setItem('atomo_roomId', roomId);
+        localStorage.setItem('atomo_playerName', playerName);
+    } catch { /* ignore */ }
+}
+function clearSession() {
+    try {
+        localStorage.removeItem('atomo_roomId');
+        localStorage.removeItem('atomo_playerName');
+    } catch { /* ignore */ }
+}
+function getSession(): { roomId: string | null; playerName: string } {
+    try {
+        return {
+            roomId: localStorage.getItem('atomo_roomId'),
+            playerName: localStorage.getItem('atomo_playerName') || 'Comandante',
+        };
+    } catch {
+        return { roomId: null, playerName: 'Comandante' };
+    }
+}
+
 export const useColyseus = () => {
     const [gameId, setGameId] = useState<string | null>(null);
     const [playerId] = useState<string>(getOrCreatePlayerId);
@@ -72,10 +97,16 @@ export const useColyseus = () => {
 
     const roomRef = useRef<Room | null>(null);
     const onStateRef = useRef<((state: any) => void) | null>(null);
+    const reconnectingRef = useRef(false);
+    const intentionalLeaveRef = useRef(false);
 
-    const wireRoom = useCallback((room: Room) => {
+    // attemptReconnect se define abajo pero wireRoom lo necesita en onLeave.
+    const attemptReconnectRef = useRef<() => void>(() => {});
+
+    const wireRoom = useCallback((room: Room, playerName: string) => {
         roomRef.current = room;
         setGameId(room.roomId);
+        saveSession(room.roomId, playerName);
 
         room.onMessage('lobby', (payload: { players: LobbyPlayer[]; phase: string; settings?: any }) => {
             setLobbyPlayers(payload.players || []);
@@ -98,9 +129,76 @@ export const useColyseus = () => {
         room.onError((code: number, message?: string) => {
             console.error('[useColyseus] Error de sala:', code, message);
             setError(message || `Error de conexión (${code})`);
-            setConnectionStatus('ERROR');
+        });
+
+        // Conexión perdida: si no fue una salida intencional, reconectar.
+        room.onLeave((code: number) => {
+            roomRef.current = null;
+            if (intentionalLeaveRef.current) {
+                intentionalLeaveRef.current = false;
+                return;
+            }
+            console.warn(`[useColyseus] Conexión perdida (code ${code}); intentando reconectar…`);
+            attemptReconnectRef.current();
         });
     }, [playerId]);
+
+    // Re-unirse a la sala guardada (recarga de página o conexión caída).
+    const attemptReconnect = useCallback(async () => {
+        if (reconnectingRef.current) return;
+        const { roomId, playerName } = getSession();
+        if (!roomId) return;
+
+        reconnectingRef.current = true;
+        setConnectionStatus('CONNECTING');
+        setError(null);
+
+        // Reintentos con backoff: el server free de Render puede tardar en despertar.
+        for (let attempt = 0; attempt < 6; attempt++) {
+            try {
+                const client = new Client(SERVER_URL);
+                const room = await client.joinById(roomId, { playerId, playerName });
+                wireRoom(room, playerName);
+                setConnectionStatus('CONNECTED');
+                reconnectingRef.current = false;
+                console.log('[useColyseus] Reconectado a la sala', roomId);
+                return;
+            } catch (e) {
+                console.warn(`[useColyseus] Reintento de reconexión ${attempt + 1} falló`, e);
+                await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+            }
+        }
+
+        // No se pudo reconectar: la sala ya no existe. Volver al lobby.
+        reconnectingRef.current = false;
+        clearSession();
+        setConnectionStatus('ERROR');
+        setError('No se pudo reconectar a la partida (quizás ya terminó).');
+    }, [playerId, wireRoom]);
+
+    attemptReconnectRef.current = attemptReconnect;
+
+    // Al montar: si había una sala guardada, re-unirse (caso recarga de página).
+    useEffect(() => {
+        const { roomId } = getSession();
+        if (roomId && !roomRef.current) {
+            attemptReconnect();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Al volver a primer plano (celular que despierta): si la conexión murió, reconectar.
+    useEffect(() => {
+        const onVisible = () => {
+            if (document.visibilityState !== 'visible') return;
+            const room = roomRef.current;
+            const isOpen = !!room && !!(room as any).connection?.isOpen;
+            const { roomId } = getSession();
+            if (!isOpen && roomId) attemptReconnect();
+        };
+        document.addEventListener('visibilitychange', onVisible);
+        return () => document.removeEventListener('visibilitychange', onVisible);
+    }, [attemptReconnect]);
 
     const createGame = useCallback(async (hostName: string) => {
         setConnectionStatus('CONNECTING');
@@ -112,7 +210,7 @@ export const useColyseus = () => {
             const proxy = getProxyWarCountry();
             const settings = { proxyWarCountry: proxy?.title ?? 'País Desconocido' };
             const room = await client.create(ROOM_NAME, { playerId, playerName: hostName, settings });
-            wireRoom(room);
+            wireRoom(room, hostName);
             setGameSettings(settings);
             setIsHost(true);
             setConnectionStatus('CONNECTED');
@@ -131,7 +229,7 @@ export const useColyseus = () => {
         try {
             const client = new Client(SERVER_URL);
             const room = await client.joinById(roomId.trim(), { playerId, playerName });
-            wireRoom(room);
+            wireRoom(room, playerName);
             setConnectionStatus('CONNECTED');
             return true;
         } catch (e: any) {
