@@ -1,0 +1,23 @@
+# Config de Netlify para el CLIENTE de A.T.O.M.O (web estática de Vite).
+#
+# El SERVIDOR de juego NO va acá: Netlify no corre WebSockets persistentes.
+# El server vive en Render (ver render.yaml).
+#
+# IMPORTANTE — antes de que funcione, en Netlify:
+#   Site settings > Environment variables > agregar
+#     VITE_SERVER_URL = <host del server de Render>   (ej: atomo-server.onrender.com)
+#   El cliente le antepone wss:// solo. Sin esta variable, el cliente intenta
+#   conectarse a localhost y no anda en producción.
+
+[build]
+  command = "npm install && npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# SPA: cualquier ruta cae en index.html.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

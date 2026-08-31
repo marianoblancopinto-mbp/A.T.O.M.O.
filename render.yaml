@@ -1,17 +1,16 @@
-# Blueprint de Render para A.T.O.M.O — despliega el servidor de juego (Node) y
-# el cliente (sitio estático), ambos en el plan gratuito.
+# Blueprint de Render para el SERVIDOR de juego de A.T.O.M.O (Colyseus, Node).
+# El CLIENTE (web estática) va en Netlify — ver netlify.toml.
 #
 # Cómo usarlo:
-#   1. En Render: New > Blueprint, conectá este repo. Render lee este archivo.
-#   2. Crea "atomo-server" (WebSocket/wss automático) y "atomo-client".
-#   3. El cliente recibe el host del server en VITE_SERVER_URL automáticamente
-#      (el hook le antepone wss://).
+#   1. En Render: New > Blueprint, conectá este repo (rama main).
+#   2. Render crea "atomo-server" con wss:// automático.
+#   3. Copiá el host del server (ej: atomo-server.onrender.com) y ponelo en
+#      Netlify como VITE_SERVER_URL (el cliente le antepone wss://).
 #
-# Nota: el plan free del servidor se DUERME tras ~15 min sin uso; la primera
-# conexión lo despierta (~50s). Para una partida casual está bien.
+# Nota: el plan free se DUERME tras ~15 min sin uso; la primera conexión lo
+# despierta (~50s).
 
 services:
-  # --- Servidor de juego autoritativo (Colyseus) ---
   - type: web
     name: atomo-server
     runtime: node
@@ -20,23 +19,3 @@ services:
     startCommand: npm run server:start
     healthCheckPath: /health
     autoDeploy: true
-
-  # --- Cliente (build estático de Vite) ---
-  - type: web
-    name: atomo-client
-    runtime: static
-    buildCommand: npm install && npm run build
-    staticPublishPath: ./dist
-    autoDeploy: true
-    envVars:
-      # Host del servidor de juego; el cliente le antepone wss://.
-      - key: VITE_SERVER_URL
-        fromService:
-          type: web
-          name: atomo-server
-          property: host
-    routes:
-      # SPA: todo cae en index.html.
-      - type: rewrite
-        source: /*
-        destination: /index.html
