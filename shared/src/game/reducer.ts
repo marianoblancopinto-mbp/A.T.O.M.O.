@@ -85,6 +85,10 @@ export interface GameState {
     roundPhase: 'PRODUCTION' | 'ACTION';
     // IDs de los jugadores que ya marcaron "LISTO" durante la fase de producción actual.
     productionReadyIds: string[];
+
+    // Partida finalizada manualmente por el anfitrión (sin ganador). Corta la partida
+    // para todos y muestra la pantalla de cierre.
+    gameOver: boolean;
 }
 
 // ============================================================================
@@ -157,7 +161,9 @@ export type GameAction =
     // Round production phase (pre-turn)
     | { type: 'PRODUCE_SUPPLY'; payload: { playerIndex: number; techId: string; rawId: string; supplyType: SupplyItem['type']; originCountry: string } }
     | { type: 'SET_PRODUCTION_READY'; payload: { playerId: string | number; ready: boolean } }
-    | { type: 'START_ACTION_PHASE' };
+    | { type: 'START_ACTION_PHASE' }
+    // Finalización manual de la partida (anfitrión)
+    | { type: 'END_GAME' };
 
 // ============================================================================
 // Initial State
@@ -191,7 +197,8 @@ export const initialState: GameState = {
     },
     // La partida arranca en la fase de producción de la primera ronda.
     roundPhase: 'PRODUCTION',
-    productionReadyIds: []
+    productionReadyIds: [],
+    gameOver: false
 };
 
 // ============================================================================
@@ -509,6 +516,11 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
             return { ...state, roundPhase: 'ACTION', productionReadyIds: [] };
         }
 
+        case 'END_GAME': {
+            // El anfitrión finaliza la partida para todos (sin ganador).
+            return { ...state, gameOver: true };
+        }
+
         case 'SET_NOTIFICATION':
             return { ...state, notification: action.payload };
 
@@ -708,7 +720,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
                 usedAttackSources: p.usedAttackSources ?? state.usedAttackSources,
                 settings: p.settings ?? state.settings,
                 roundPhase: p.roundPhase ?? state.roundPhase,
-                productionReadyIds: p.productionReadyIds ?? state.productionReadyIds
+                productionReadyIds: p.productionReadyIds ?? state.productionReadyIds,
+                gameOver: p.gameOver ?? state.gameOver
             };
         }
 

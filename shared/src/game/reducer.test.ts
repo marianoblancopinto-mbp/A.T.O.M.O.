@@ -245,3 +245,18 @@ describe('Fase de producción (preturno)', () => {
         expect(next.productionDeck!.rawMaterials[0].usedThisTurn).toBe(true); // sigue consumida
     });
 });
+
+describe('END_GAME (finalización por el anfitrión)', () => {
+    it('marca la partida como finalizada', () => {
+        const s = baseState([mkPlayer('p0'), mkPlayer('p1')]);
+        expect(s.gameOver).toBe(false);
+        const next = gameReducer(s, { type: 'END_GAME' });
+        expect(next.gameOver).toBe(true);
+    });
+
+    it('SYNC_STATE propaga gameOver', () => {
+        const s = baseState([mkPlayer('p0')]);
+        const next = gameReducer(s, { type: 'SYNC_STATE', payload: { gameOver: true } });
+        expect(next.gameOver).toBe(true);
+    });
+});

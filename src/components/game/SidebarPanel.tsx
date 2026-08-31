@@ -26,6 +26,11 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
     const { players, currentPlayerIndex, gameDate } = state;
     const currentPlayer = players[currentPlayerIndex];
 
+    // Host-control confirmations (declarados antes de cualquier return para respetar
+    // las reglas de hooks).
+    const [showKickConfirm, setShowKickConfirm] = useState<string | null>(null);
+    const [showEndConfirm, setShowEndConfirm] = useState(false);
+
     if (!currentPlayer) return null;
 
     // Check if it is the local player's turn (Multiplayer guard)
@@ -55,9 +60,6 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
         e.currentTarget.style.backgroundColor = '#002200';
         e.currentTarget.style.color = '#00ff00';
     };
-
-    // Kick Player State
-    const [showKickConfirm, setShowKickConfirm] = useState<string | null>(null);
 
     // Mobile specific logic
     const isMobile = window.innerWidth <= 768;
@@ -264,7 +266,7 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
                                     </button>
                                     
                                     {isConfirming && (
-                                        <button 
+                                        <button
                                             onClick={() => setShowKickConfirm(null)}
                                             style={{
                                                 width: '100%', padding: '5px', marginTop: '5px',
@@ -277,6 +279,45 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
                                 </div>
                             );
                         })}
+
+                        {/* Finalizar la partida para todos (sin ganador) */}
+                        <div style={{ marginTop: '15px', borderTop: '1px dashed #ff444455', paddingTop: '12px' }}>
+                            <button
+                                onClick={() => {
+                                    if (showEndConfirm) {
+                                        dispatch({ type: 'END_GAME' });
+                                        setShowEndConfirm(false);
+                                    } else {
+                                        setShowEndConfirm(true);
+                                    }
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 'bold',
+                                    backgroundColor: showEndConfirm ? '#ff0000' : 'transparent',
+                                    color: showEndConfirm ? '#fff' : '#ff4444',
+                                    border: `1px solid ${showEndConfirm ? '#ff0000' : '#ff4444'}`,
+                                    cursor: 'pointer',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '1px'
+                                }}
+                            >
+                                {showEndConfirm ? '⚠ CONFIRMAR FIN DE PARTIDA' : 'FINALIZAR PARTIDA'}
+                            </button>
+                            {showEndConfirm && (
+                                <button
+                                    onClick={() => setShowEndConfirm(false)}
+                                    style={{
+                                        width: '100%', padding: '5px', marginTop: '5px',
+                                        backgroundColor: '#333', color: '#fff', border: 'none', fontSize: '0.7rem', cursor: 'pointer'
+                                    }}
+                                >
+                                    CANCELAR
+                                </button>
+                            )}
+                        </div>
                     </div>
                 )}
             </div>

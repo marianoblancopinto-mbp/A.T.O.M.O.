@@ -1268,6 +1268,34 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
 
                 <NuclearAlertModal />
 
+                {/* Partida finalizada por el anfitrión (sin ganador) */}
+                {state.gameOver && !state.winner && (
+                    <div style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        backgroundColor: 'rgba(0,0,0,0.97)', zIndex: 11000,
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                        fontFamily: '"Courier New", Courier, monospace', color: '#ff4444', textAlign: 'center', padding: '20px'
+                    }}>
+                        <h1 style={{ fontSize: '3rem', margin: '0 0 15px 0', letterSpacing: '4px', textShadow: '0 0 15px rgba(255,0,0,0.4)' }}>
+                            PARTIDA FINALIZADA
+                        </h1>
+                        <div style={{ color: '#ccc', fontSize: '1.1rem', marginBottom: '40px' }}>
+                            El anfitrión ha dado por terminada la operación.
+                        </div>
+                        <button
+                            onClick={() => window.location.reload()}
+                            style={{
+                                padding: '15px 40px', fontSize: '1.2rem', fontWeight: 'bold',
+                                backgroundColor: '#333', color: '#fff', border: '2px solid #fff',
+                                borderRadius: '8px', cursor: 'pointer', letterSpacing: '2px',
+                                boxShadow: '0 0 15px rgba(255,255,255,0.2)'
+                            }}
+                        >
+                            VOLVER AL INICIO
+                        </button>
+                    </div>
+                )}
+
                 {/* Confidential Info Modal */}
                 {showTreatiesPanel && (
                     <TreatiesPanel onClose={() => setShowTreatiesPanel(false)} />
