@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "vite",
     "server": "npm run dev --workspace @atomo/server",
+    "server:start": "tsx server/src/index.ts",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
