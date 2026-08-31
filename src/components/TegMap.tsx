@@ -15,12 +15,10 @@ import { getSpecialMissions, type SpecialMission } from '../data/missionData';
 import { EspionageGenerationModal } from './shared/modals/espionage/EspionageGenerationModal';
 import { EspionageTargetSelectionModal } from './shared/modals/espionage/EspionageTargetSelectionModal';
 import { EspionageActivationModal } from './shared/modals/espionage/EspionageActivationModal';
-import { EspionageNetworkInfoModal } from './shared/modals/espionage/EspionageNetworkInfoModal';
 import { NuclearActivationModal } from './shared/modals/nuclear/NuclearActivationModal';
 import { NuclearDesignGenerationModal } from './shared/modals/nuclear/NuclearDesignGenerationModal';
 import { MineralExtractionModal } from './shared/modals/nuclear/MineralExtractionModal';
 import { SiloConstructionModal } from './shared/modals/nuclear/SiloConstructionModal';
-import { NuclearDesignInfoModal } from './shared/modals/nuclear/NuclearDesignInfoModal';
 import { SiloFuelSelectionModal } from './shared/modals/nuclear/SiloFuelSelectionModal';
 import { NuclearDeploymentModal } from './shared/modals/nuclear/NuclearDeploymentModal';
 import { NuclearAlertModal } from './shared/modals/nuclear/NuclearAlertModal';
@@ -142,7 +140,6 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
 
     const [expandedTechnologies, setExpandedTechnologies] = useState<Set<string>>(new Set());
     const [showSpecialMissionModal, setShowSpecialMissionModal] = useState<string | null>(null);
-    const [showSpecialMissionInfo, setShowSpecialMissionInfo] = useState<string | null>(null);
     const [showNuclearWarInfo, setShowNuclearWarInfo] = useState<string | null>(null); // Country ID for which the info is shown
 
     // Play State (Moved Up)
@@ -244,10 +241,8 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
     const [showEspionageModal, setShowEspionageModal] = useState<string | null>(null);
     const [showEspionageGenSelection, setShowEspionageGenSelection] = useState(false);
     const [showEspionageActivationModal, setShowEspionageActivationModal] = useState(false);
-    const [showEspionageNetworkInfo, setShowEspionageNetworkInfo] = useState<string | null>(null);
 
     // Nuclear Design State
-    const [showNuclearDesignInfo, setShowNuclearDesignInfo] = useState<string | null>(null);
     const [showNuclearGenSelection, setShowNuclearGenSelection] = useState(false);
     const [nuclearGenLocation, setNuclearGenLocation] = useState<string | null>(null);
     const [missionPlayerIndex, setMissionPlayerIndex] = useState<number | null>(null);
@@ -1352,191 +1347,6 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                     />
                 )}
 
-                {/* Espionage Network Info Modal */}
-                <EspionageNetworkInfoModal
-                    hqId={showEspionageNetworkInfo}
-                    onClose={() => setShowEspionageNetworkInfo(null)}
-                />
-
-                {/* Nuclear Design Info Modal */}
-                <NuclearDesignInfoModal
-                    locationId={showNuclearDesignInfo}
-                    onClose={() => setShowNuclearDesignInfo(null)}
-                />
-
-
-                {/* Special Mission Info Modal */}
-                {
-                    showSpecialMissionInfo && (() => {
-                        const regionName = REGIONS.find(r => r.id === showSpecialMissionInfo)?.title;
-                        const player = players[currentPlayerIndex];
-                        const currentPlayerId = player?.id;
-
-                        return (
-                            <div style={{
-                                position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                                backgroundColor: 'rgba(0,0,0,0.95)',
-                                display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 8000,
-                                fontFamily: 'monospace'
-                            }}>
-                                <div style={{
-                                    backgroundColor: '#001100',
-                                    border: '3px solid #00ff00',
-                                    padding: '30px',
-                                    width: '600px',
-                                    maxHeight: '90vh',
-                                    overflowY: 'auto',
-                                    boxShadow: '0 0 50px rgba(0, 255, 0, 0.4)',
-                                    borderRadius: '8px'
-                                }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                                        <h2 style={{ color: '#00ff00', margin: 0, fontSize: '1.5rem', letterSpacing: '2px' }}>OPERACIONES ESPECIALES</h2>
-                                        <button
-                                            onClick={() => setShowSpecialMissionInfo(null)}
-                                            style={{ background: 'none', border: 'none', color: '#00ff00', fontSize: '1.5rem', cursor: 'pointer' }}
-                                        >
-                                            X
-                                        </button>
-                                    </div>
-
-                                    <div style={{ backgroundColor: '#000', padding: '15px', marginBottom: '20px', border: '1px solid #004400', borderRadius: '4px' }}>
-                                        <div style={{ color: '#00ff00', fontSize: '1rem', fontWeight: 'bold' }}>
-                                            REGIÓN: {regionName}
-                                        </div>
-                                    </div>
-
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                        {(() => {
-                                            const mission = SPECIAL_MISSIONS.find(m => m.id === showSpecialMissionInfo);
-                                            if (!mission) return null;
-
-                                            const isActive = player.activeSpecialMissions.some(m => m.id === mission.id);
-                                            const activeMissionData = player.activeSpecialMissions.find(m => m.id === mission.id);
-
-                                            // Special check for War Secrets: It can be active multiple times (once per agency)
-                                            const isWarSecrets = mission.id === 'secretos_guerra';
-                                            const warSecretsDoneCount = player.secretWarData.length;
-                                            const showActiveBlock = isActive && (!isWarSecrets || warSecretsDoneCount >= 2);
-
-                                            return (
-                                                <div key={mission.id} style={{
-                                                    border: '1px solid #00ff00',
-                                                    padding: '15px',
-                                                    backgroundColor: isActive ? '#002200' : 'rgba(0,0,0,0.3)'
-                                                }}>
-                                                    <h3 style={{ margin: '0 0 10px 0', color: '#fff' }}>{mission.title}</h3>
-                                                    <p style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '15px' }}>
-                                                        {mission.lore || mission.description}
-                                                    </p>
-
-                                                    {showActiveBlock ? (
-                                                        <div style={{
-                                                            color: '#00ff00',
-                                                            fontWeight: 'bold',
-                                                            border: '1px solid #00ff00',
-                                                            padding: '10px',
-                                                            textAlign: 'center',
-                                                            backgroundColor: '#001a00'
-                                                        }}>
-                                                            OPERACIÓN EN CURSO
-                                                            <div style={{ fontSize: '0.8rem', marginTop: '5px', color: '#ccc' }}>
-                                                                Base de Operaciones: {REGIONS.find(r => r.id === activeMissionData?.baseRegionId)?.title}
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <>
-                                                            {mission.id !== 'ruta_antartica' && (
-                                                                <button
-                                                                    disabled={mission.id === 'ruta_antartica' && !mission.requirements.control.every(id => owners[id] === currentPlayerId)}
-                                                                    onClick={() => {
-                                                                        if (mission.id === 'secretos_guerra') {
-                                                                            const countryId = REGIONS.find(r => r.title === proxyWarCountry)?.id;
-                                                                            if (!countryId) return;
-
-                                                                            // Check Control
-                                                                            if (owners[countryId] !== currentPlayerId) {
-                                                                                alert(`Debes controlar ${proxyWarCountry} primero.`);
-                                                                                return;
-                                                                            }
-
-                                                                            setShowSpecialMissionModal(mission.id);
-                                                                            setShowSpecialMissionInfo(null);
-                                                                        } else {
-                                                                            setShowSpecialMissionInfo(null);
-                                                                            setShowSpecialMissionModal(mission.id);
-                                                                        }
-                                                                    }}
-                                                                    style={{
-                                                                        width: '100%',
-                                                                        padding: '10px',
-                                                                        backgroundColor: '#00ff00',
-                                                                        color: '#000',
-                                                                        fontWeight: 'bold',
-                                                                        border: 'none',
-                                                                        cursor: 'pointer',
-                                                                        fontSize: '1rem'
-                                                                    }}
-                                                                >
-                                                                    ACTIVAR
-                                                                </button>
-                                                            )}
-                                                            {mission.id === 'ruta_antartica' && (
-                                                                <button
-                                                                    disabled={!mission.requirements.control.every(id => owners[id] === currentPlayerId)}
-                                                                    onClick={() => {
-                                                                        if (!mission.requirements.control.every(id => owners[id] === currentPlayerId)) {
-                                                                            alert('Debes controlar Chile, Argentina, Australia y Sudáfrica primero.');
-                                                                            return;
-                                                                        }
-                                                                        setShowSpecialMissionInfo(null);
-                                                                        setShowSpecialMissionModal('ruta_antartica');
-                                                                    }}
-                                                                    style={{
-                                                                        width: '100%',
-                                                                        padding: '10px',
-                                                                        backgroundColor: mission.requirements.control.every(id => owners[id] === currentPlayerId) ? '#00ffff' : '#002222',
-                                                                        color: mission.requirements.control.every(id => owners[id] === currentPlayerId) ? '#000' : '#005555',
-                                                                        border: '1px solid #00ffff',
-                                                                        cursor: mission.requirements.control.every(id => owners[id] === currentPlayerId) ? 'pointer' : 'not-allowed',
-                                                                        fontWeight: 'bold',
-                                                                        fontSize: '0.9rem',
-                                                                        textAlign: 'center'
-                                                                    }}
-                                                                >
-                                                                    {mission.requirements.control.every(id => owners[id] === currentPlayerId)
-                                                                        ? 'ACTIVAR'
-                                                                        : 'REQUIERE CONTROL AUSTRAL'}
-                                                                </button>
-                                                            )}
-                                                        </>
-                                                    )}
-                                                </div>
-                                            );
-                                        })()}
-                                    </div>
-
-                                    <button
-                                        onClick={() => setShowSpecialMissionInfo(null)}
-                                        style={{
-                                            width: '100%',
-                                            marginTop: '30px',
-                                            padding: '12px',
-                                            backgroundColor: 'transparent',
-                                            color: '#00ff00',
-                                            border: '1px solid #00ff00',
-                                            fontWeight: 'bold',
-                                            cursor: 'pointer',
-                                            fontSize: '1rem',
-                                            borderRadius: '4px'
-                                        }}
-                                    >
-                                        CERRAR
-                                    </button>
-                                </div>
-                            </div>
-                        );
-                    })()
-                }
                 <SiloFuelSelectionModal
                     show={!!showSiloFuelSelectionModal}
                     playerIndex={currentPlayerIndex}
