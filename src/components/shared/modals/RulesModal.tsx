@@ -106,12 +106,30 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
                 te consumen el combustible), el protocolo se aborta.
             </p>
 
-            <h3 style={h3Style}>FLUJO DE TURNO</h3>
-            <p>En cada turno puedes realizar las siguientes acciones (atacar es la única restringida a tu turno):</p>
+            <h3 style={h3Style}>FLUJO DE RONDA</h3>
+            <p>Cada ronda (año) se divide en <strong>dos fases</strong>:</p>
+            <ol style={{ paddingLeft: '20px' }}>
+                <li>
+                    <strong>Preturno de producción (simultáneo):</strong> al inicio de la ronda, <strong>todos
+                    los comandantes a la vez</strong> deciden qué suministros producir, combinando materias
+                    primas + tecnologías. Cada uno marca <strong>"LISTO"</strong> cuando termina; cuando el
+                    último confirma, arranca la ronda de acciones.
+                </li>
+                <li>
+                    <strong>Ronda de acciones (por turnos):</strong> los comandantes juegan su turno en orden.
+                    <strong> Durante esta fase ya no se pueden producir suministros.</strong>
+                </li>
+            </ol>
+            <div style={tipStyle}>
+                <strong>¿Por qué el preturno?</strong> Obliga a planificar con anticipación qué suministros
+                vas a necesitar y evita frenar el juego produciendo en plena batalla. Durante la ronda solo
+                usás lo que ya tenés.
+            </div>
+            <p>Durante tu turno (fase de acciones) puedes:</p>
             <ul style={{ paddingLeft: '20px' }}>
                 <li><strong>Atacar</strong> países enemigos adyacentes a los tuyos (solo en tu turno)</li>
-                <li><strong>Producir suministros</strong> combinando materias primas + tecnologías</li>
-                <li><strong>Activar misiones especiales</strong> si cumples sus requisitos</li>
+                <li><strong>Usar suministros</strong> de tu inventario (los que produjiste en el preturno)</li>
+                <li><strong>Activar misiones especiales</strong> si cumples sus requisitos (pueden gastar materias primas y tecnologías)</li>
                 <li><strong>Construir infraestructura nuclear</strong> (diseño, silos, asignación de combustible)</li>
                 <li><strong>Espiar</strong> a otros jugadores con redes de inteligencia</li>
                 <li><strong>Negociar tratados</strong> diplomáticos</li>
@@ -229,9 +247,14 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
 
             <h3 style={h3Style}>SUMINISTROS EN BATALLA</h3>
             <p>
-                Durante la batalla, ambos jugadores pueden gastar <strong>Suministros</strong> para robar cartas adicionales del mazo.
-                Esto amplía tu mano y te da más opciones tácticas. Los suministros se consumen al usarlos.
+                Durante la batalla, ambos jugadores pueden gastar <strong>Suministros de su inventario</strong> para
+                robar cartas adicionales del mazo. Esto amplía tu mano y te da más opciones tácticas. Los suministros
+                se consumen al usarlos.
             </p>
+            <div style={warningStyle}>
+                Solo podés usar los suministros que <strong>ya produjiste en el preturno</strong>:
+                <strong> no se puede producir durante la batalla</strong>. Si llegás al combate sin reservas, peleás con la mano base.
+            </div>
             <table style={tableStyle}>
                 <thead>
                     <tr>
@@ -256,21 +279,43 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
                 mejorar batallas y avanzar hacia la victoria nuclear.
             </p>
 
+            <h3 style={h3Style}>CUÁNDO SE PRODUCE — SOLO EN EL PRETURNO</h3>
+            <p>
+                Los suministros <strong>solo pueden producirse en el preturno</strong>: la fase de producción
+                simultánea al inicio de cada ronda. Ahí, todos los comandantes a la vez combinan sus
+                materias primas + tecnologías. Cada suministro generado queda <strong>radicado en el país
+                de origen</strong> de la materia prima usada.
+            </p>
+            <div style={warningStyle}>
+                <strong>Durante la ronda NO se pueden generar suministros.</strong> Sí podés <strong>usar</strong> los
+                que tengas en el inventario, y también gastar materias primas y tecnologías para <strong>misiones</strong>
+                (principales y secundarias) e infraestructura nuclear. Decidí en el preturno qué vas a necesitar.
+            </div>
+
             <h3 style={h3Style}>CÓMO FUNCIONA EL CONSUMO DE CARTAS</h3>
             <p>
                 Las cartas de Materias Primas y Tecnologías <strong>no se destruyen</strong> al usarse.
-                En cambio, se marcan como <strong>"usadas este turno"</strong>. Al inicio de tu siguiente turno,
-                todas tus cartas se desbloquean y pueden ser reutilizadas.
+                En cambio, se marcan como <strong>"consumidas esta ronda"</strong>. Se
+                <strong> desbloquean recién al inicio de la ronda siguiente</strong> (en el próximo preturno),
+                no en cada turno.
             </p>
             <div style={tipStyle}>
-                <strong>Implicación estratégica:</strong> Si usas una carta de Semiconductores para producir un suministro,
-                esa misma carta no podrá usarse en el mismo turno para generar un Diseño Nuclear.
-                Planifica cuidadosamente el orden de tus acciones.
+                <strong>Implicación estratégica:</strong> Si usás una carta de Semiconductores para producir un
+                suministro en el preturno, esa misma carta queda consumida por el resto de la ronda: no podrás
+                usarla también para generar un Diseño Nuclear en tu turno. Planificá el orden de tus acciones.
             </div>
+
+            <h3 style={h3Style}>MATERIAS PRIMAS INDEXADAS POR PAÍS</h3>
             <p>
-                Las cartas están vinculadas a <strong>países específicos</strong>. Si controlas un país que produce Hierro,
-                tienes acceso a esa carta. Si pierdes ese país en combate, <strong>pierdes la carta</strong>.
+                Las cartas están vinculadas a <strong>países específicos</strong>. Si controlás un país que produce
+                Hierro, tenés acceso a esa carta. Si perdés ese país en combate, <strong>pierdes la carta</strong>.
             </p>
+            <div style={warningStyle}>
+                <strong>El consumo viaja con el país, no con el jugador.</strong> Si un comandante agota la materia
+                prima de un país durante el preturno y <strong>otro lo conquista en esa misma ronda</strong>, el
+                conquistador <strong>no dispondrá de esa carta</strong>: ya fue consumida y no se desbloquea hasta
+                la próxima ronda. Conquistar un país cuyos recursos ya se gastaron no te da acceso inmediato a ellos.
+            </div>
 
             <h3 style={h3Style}>MATERIAS PRIMAS — 9 TIPOS</h3>
             <p>Cada materia prima se obtiene de países específicos y pertenece a una de las 3 categorías de producción:</p>

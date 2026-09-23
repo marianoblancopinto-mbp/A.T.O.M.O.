@@ -25,3 +25,8 @@ dist-ssr
 
 # Temporary files from drive upload
 .tmp.driveupload/
+
+# Build / debug artifacts
+build_errors*.txt
+build_log*.txt
+tsc_errors*.txt

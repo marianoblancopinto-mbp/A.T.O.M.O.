@@ -101,7 +101,12 @@ export const BattleOverlay: React.FC<BattleOverlayProps> = ({
                         defenderHand,
                         defenderBonuses,
                         attackerHand,
-                        battleState.isAiCheating
+                        battleState.isAiCheating,
+                        {
+                            attackerWins: battleState.attackerWins,
+                            defenderWins: battleState.defenderWins,
+                            roundCount: battleState.roundCount
+                        }
                     );
                 }
             } catch (error) {

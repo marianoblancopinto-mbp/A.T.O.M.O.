@@ -11,10 +11,10 @@ interface RegionInfoPanelProps {
     specialMissions: SpecialMission[];
     onClose: () => void;
     onAttack: () => void;
-    onShowNuclearDesignInfo: (regionId: string) => void;
-    onShowMineralExtraction: (regionId: string) => void;
-    onShowEspionageNetworkInfo: (regionId: string) => void;
-    onShowSpecialMissionInfo: (missionId: string) => void;
+    onOpenNuclearDesign: (regionId: string) => void;
+    onOpenMineralExtraction: (regionId: string) => void;
+    onOpenEspionage: (regionId: string) => void;
+    onOpenSpecialMission: (missionId: string) => void;
 }
 
 export const RegionInfoPanel: React.FC<RegionInfoPanelProps> = ({
@@ -22,10 +22,10 @@ export const RegionInfoPanel: React.FC<RegionInfoPanelProps> = ({
     specialMissions,
     onClose,
     onAttack,
-    onShowNuclearDesignInfo,
-    onShowMineralExtraction,
-    onShowEspionageNetworkInfo,
-    onShowSpecialMissionInfo,
+    onOpenNuclearDesign,
+    onOpenMineralExtraction,
+    onOpenEspionage,
+    onOpenSpecialMission,
 }) => {
     const { state, multiplayer } = useGameContext();
     const { players, currentPlayerIndex, owners, regionResources } = state;
@@ -232,7 +232,7 @@ export const RegionInfoPanel: React.FC<RegionInfoPanelProps> = ({
                                 <>
                                     {isNuclear && (
                                         <button
-                                            onClick={() => onShowNuclearDesignInfo(selectedRegionId)}
+                                            onClick={() => onOpenNuclearDesign(selectedRegionId)}
                                             style={specialBtnStyle('#1a0a00', '#ff9100', '#ff9100')}
                                         >
                                             <span style={{ fontSize: '1.2rem' }}>☢️</span>
@@ -241,7 +241,7 @@ export const RegionInfoPanel: React.FC<RegionInfoPanelProps> = ({
                                     )}
                                     {isSecret && (
                                         <button
-                                            onClick={() => onShowMineralExtraction(selectedRegionId)}
+                                            onClick={() => onOpenMineralExtraction(selectedRegionId)}
                                             style={specialBtnStyle('#001a1a', '#00ffff', '#00ffff')}
                                         >
                                             EXTRAER MINERAL SECRETO
@@ -249,7 +249,7 @@ export const RegionInfoPanel: React.FC<RegionInfoPanelProps> = ({
                                     )}
                                     {isEspionageHq && (
                                         <button
-                                            onClick={() => onShowEspionageNetworkInfo(selectedRegionId)}
+                                            onClick={() => onOpenEspionage(selectedRegionId)}
                                             style={specialBtnStyle('#001122', '#00ffff', '#00ffff')}
                                         >
                                             🕵️ RED DE ESPIONAJE
@@ -260,7 +260,7 @@ export const RegionInfoPanel: React.FC<RegionInfoPanelProps> = ({
                                         .map(mission => (
                                             <button
                                                 key={mission.id}
-                                                onClick={() => onShowSpecialMissionInfo(mission.id)}
+                                                onClick={() => onOpenSpecialMission(mission.id)}
                                                 style={specialBtnStyle('#002200', '#00ff00', '#00ff00')}
                                             >
                                                 {mission.title}

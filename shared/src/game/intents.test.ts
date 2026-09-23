@@ -51,6 +51,26 @@ describe('rules.validateAction', () => {
     });
 });
 
+describe('rules — fase de producción (preturno)', () => {
+    const prod = { type: 'PRODUCE_SUPPLY', payload: { playerIndex: 0, techId: 't1', rawId: 'r1', supplyType: 'food', originCountry: 'argentina' } } as const;
+    const attack = { type: 'INIT_BATTLE', payload: {} as any } as const;
+
+    it('permite PRODUCE_SUPPLY sólo en fase de producción', () => {
+        expect(validateAction(baseState({ roundPhase: 'PRODUCTION' }), 'p0', prod).ok).toBe(true);
+        expect(validateAction(baseState({ roundPhase: 'ACTION' }), 'p0', prod).ok).toBe(false);
+    });
+
+    it('bloquea atacar (INIT_BATTLE) durante la fase de producción', () => {
+        expect(validateAction(baseState({ roundPhase: 'PRODUCTION' }), 'p0', attack).ok).toBe(false);
+        expect(validateAction(baseState({ roundPhase: 'ACTION' }), 'p0', attack).ok).toBe(true);
+    });
+
+    it('permite marcarse LISTO a cualquier jugador', () => {
+        const s = baseState({ roundPhase: 'PRODUCTION' });
+        expect(validateAction(s, 'p1', { type: 'SET_PRODUCTION_READY', payload: { playerId: 'p1', ready: true } }).ok).toBe(true);
+    });
+});
+
 describe('intents.applyIntent', () => {
     it('aplica un intent ACTION válido y avanza el estado', () => {
         const s = baseState();
