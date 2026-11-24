@@ -1,11 +1,11 @@
 # Blueprint de Render para el SERVIDOR de juego de A.T.O.M.O (Colyseus, Node).
-# El CLIENTE (web estática) va en Netlify — ver netlify.toml.
+# El CLIENTE (web estática) va en Vercel — ver vercel.json.
 #
 # Cómo usarlo:
 #   1. En Render: New > Blueprint, conectá este repo (rama main).
 #   2. Render crea "atomo-server" con wss:// automático.
 #   3. Copiá el host del server (ej: atomo-server.onrender.com) y ponelo en
-#      Netlify como VITE_SERVER_URL (el cliente le antepone wss://).
+#      Vercel como VITE_SERVER_URL (el cliente le antepone wss://).
 #
 # Nota: el plan free se DUERME tras ~15 min sin uso; la primera conexión lo
 # despierta (~50s).
