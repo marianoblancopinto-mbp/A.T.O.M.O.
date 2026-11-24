@@ -58,5 +58,27 @@ La ruta `/map` abre una pantalla de mapa en modo espectador, que recibe únicame
 
 ## Deploy
 
-- **Cliente**: es estático (`npm run build` genera `dist/`). Se puede servir desde Netlify, Vercel o cualquier CDN. La variable `VITE_SERVER_URL` indica la dirección del servidor.
-- **Servidor**: necesita un proceso persistente que mantenga WebSockets abiertos (hoy corre en Render). Por eso no puede correr en funciones serverless. Toda la lógica de la partida vive en `GameSession` y en el motor puro de `shared`, sin depender de Colyseus, de modo que cambiar de transporte o de hosting sólo requiere reescribir el adaptador.
+El juego tiene dos piezas que se despliegan por separado:
+
+| Pieza | Dónde | Configuración |
+|---|---|---|
+| Servidor (Colyseus, WebSockets) | Render | `render.yaml` |
+| Cliente (React estático) | Vercel | `vercel.json` |
+
+El servidor necesita un proceso persistente que mantenga WebSockets abiertos, por eso no puede correr en funciones serverless de Vercel. Toda la lógica de la partida vive en `GameSession` y en el motor puro de `shared`, sin depender de Colyseus: cambiar de transporte o de hosting sólo requiere reescribir el adaptador.
+
+### Servidor en Render
+
+1. En Render: **New → Blueprint**, conectá este repo (rama `main`).
+2. Render crea el servicio `atomo-server`. Anotá su host (por ejemplo `atomo-server.onrender.com`).
+3. Verificá que responda en `https://<host>/health`.
+
+En el plan gratuito el servidor se duerme tras ~15 minutos sin uso y tarda ~50 segundos en despertar; el cliente reintenta la conexión mientras tanto.
+
+### Cliente en Vercel
+
+1. En Vercel: **Add New → Project** e importá este repo. No hace falta cambiar nada: `vercel.json` define instalación, build y salida.
+2. En **Settings → Environment Variables** agregá `VITE_SERVER_URL` con el host del servidor de Render (sólo el host; el cliente le antepone `wss://`). Aplicala a Production y Preview.
+3. Desplegá. Si agregás o cambiás la variable después, hay que volver a desplegar: Vite la incrusta al compilar.
+
+Sin `VITE_SERVER_URL` el cliente intenta conectarse a `localhost` y no funciona en producción.
