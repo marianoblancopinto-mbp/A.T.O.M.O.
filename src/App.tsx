@@ -4,7 +4,6 @@ import { Lobby } from './components/Lobby'
 import { AudioManager } from './components/AudioManager'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { GameProvider } from './context/GameContext'
-import './App.css'
 
 function App() {
   const [isPlaying, setIsPlaying] = useState(false);

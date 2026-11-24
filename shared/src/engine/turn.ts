@@ -106,7 +106,7 @@ export function advanceTurn(state: GameState, random: Random): GameState {
             next = notify(next, {
                 type: 'NEUTRALIZED',
                 title: 'DETENCIÓN MUTUA',
-                message: 'Protocolo de Destrucción Mutua Asegurada evitado por desactivación sistémica. Despliegues abortados.',
+                message: `${deploying.map(p => p.name).join(' y ')} desplegaron su arsenal al mismo tiempo: ningún lanzamiento es posible.`,
                 color: '#ffaa00',
             });
             // Sólo los silos USADOS en el despliegue entran en enfriamiento por 1 ronda.
