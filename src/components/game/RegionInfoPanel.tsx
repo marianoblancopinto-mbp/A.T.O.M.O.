@@ -5,6 +5,7 @@ import { REGION_BIOMES, BIOME_DETAILS } from '../../data/biomeData';
 import { useGameContext } from '../../context/GameContext';
 import type { TechnologyType, RawMaterialType } from '../../types/productionTypes';
 import type { SpecialMission } from '../../data/missionData';
+import { Button } from '../../ui/components';
 
 interface RegionInfoPanelProps {
     selectedRegionId: string;
@@ -35,273 +36,67 @@ export const RegionInfoPanel: React.FC<RegionInfoPanelProps> = ({
     const isMyTurn = !!multiplayer.playerId && String(players[currentPlayerIndex]?.id) === String(multiplayer.playerId);
 
 
-    const isMobile = window.innerWidth <= 768;
+    const regionId = selectedRegionId;
+    const owner = players.find(p => String(p.id) === String(owners[regionId]));
+    const iOwnIt = !!currentPlayer && String(owners[regionId]) === String(currentPlayer.id);
+    const biome = REGION_BIOMES[regionId];
+    const terrain = biome ? biome.types.reduce((acc, t) => {
+        const d = BIOME_DETAILS[t];
+        return d ? { art: acc.art + d.bonusArt, air: acc.air + d.bonusAir, inf: acc.inf + d.bonusInf } : acc;
+    }, { art: 0, air: 0, inf: 0 }) : null;
+    const supplyName = (t?: string) => t === 'food' ? 'Alimentos' : t === 'manufacture' ? 'Manufactura' : 'Energía';
+    const raws = regionResources ? Object.entries(regionResources.rawMaterials).filter(([, c]) => c.includes(regionId)) : [];
+    const techs = regionResources ? Object.entries(regionResources.technologies).filter(([, c]) => c.includes(regionId)) : [];
+    const isNuclear = !!regionResources?.nuclearWarCapable.includes(regionId);
+    const isSecret = currentPlayer?.secretMineralLocation === regionId && iOwnIt && !currentPlayer?.specialCards.some(c => c.type === 'SECRET_MINERAL');
+    const isEspionageHq = ['nueva_york', 'reino_unido', 'china', 'rusia'].includes(regionId);
+    const missions = specialMissions.filter(m => m.visibleFor.includes(regionId) || m.visibleFor.includes('GLOBAL'));
 
     return (
-        <div style={{
-            height: isMobile ? 'auto' : '200px',
-            maxHeight: isMobile ? '60vh' : '200px',
-            overflowY: 'auto',
-            backgroundColor: 'rgba(0, 20, 0, 0.98)',
-            borderTop: '2px solid #00ff00',
-            display: 'flex',
-            flexDirection: 'column',
-            padding: '10px 20px',
-            boxSizing: 'border-box',
-            color: '#00ff00',
-            fontFamily: 'monospace',
-            boxShadow: '0 -5px 20px rgba(0, 255, 0, 0.2)',
-            zIndex: 20,
-            position: isMobile ? 'fixed' : 'relative',
-            bottom: 0,
-            left: 0,
-            width: '100%'
-        }}>
-
-            <div style={{
-                fontSize: isMobile ? '1.2rem' : '1.5rem',
-                fontWeight: 'bold',
-                textTransform: 'uppercase',
-                borderBottom: '1px solid #005500',
-                paddingBottom: '5px',
-                marginBottom: '10px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-            }}>
-                <span>{REGIONS.find(r => r.id === selectedRegionId)?.title}</span>
-                <button
-                    onClick={onClose}
-                    style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: '#005500',
-                        cursor: 'pointer',
-                        fontSize: '1.5rem',
-                        fontWeight: 'bold'
-                    }}
-                >
-                    X
-                </button>
+        <section className="region-panel" aria-label="País seleccionado">
+            <div className="region-panel__head">
+                <h2 className="region-panel__title">{REGIONS.find(r => r.id === regionId)?.title}</h2>
+                <span className="ui-badge" style={{ color: owner?.color ?? 'var(--muted)' }}>{owner ? (iOwnIt ? 'Tuyo' : owner.name) : 'Neutral'}</span>
+                {isMyTurn && !iOwnIt && <Button size="sm" variant="primary" tone="danger" onClick={onAttack}>Atacar</Button>}
+                <button type="button" className="ui-close" onClick={onClose} aria-label="Cerrar panel">✕</button>
             </div>
-
-            <div style={{
-                display: 'flex',
-                flex: isMobile ? 'none' : 1,
-                flexDirection: isMobile ? 'column' : 'row',
-                gap: isMobile ? '10px' : '20px',
-                overflow: isMobile ? 'visible' : 'hidden',
-                paddingBottom: isMobile ? '20px' : '0'
-            }}>
-                {/* Geography Column */}
-                <div style={{ flex: 1, border: '1px solid #003300', padding: '10px', backgroundColor: 'rgba(0,10,0,0.5)', overflowY: isMobile ? 'visible' : 'auto' }}>
-                    <h4 style={{ margin: '0 0 10px 0', color: '#00aa00', textTransform: 'uppercase', fontSize: '0.8rem' }}>Geografía</h4>
-                    <div style={{ fontSize: '0.8rem', color: '#005500' }}>
-                        {REGION_BIOMES[selectedRegionId] ? (
-                            <>
-                                <div style={{ fontWeight: 'bold', color: '#00ff00', marginBottom: '2px' }}>
-                                    {REGION_BIOMES[selectedRegionId].types.map(t => BIOME_DETAILS[t]?.label || t).join(' / ')}
-                                </div>
-                                <div style={{ marginBottom: '5px', lineHeight: '1.1' }}>{REGION_BIOMES[selectedRegionId].description}</div>
-                                <div style={{ color: '#aaffaa', fontSize: '0.7rem' }}>
-                                    {(() => {
-                                        const data = REGION_BIOMES[selectedRegionId];
-                                        let art = 0;
-                                        let air = 0;
-                                        let inf = 0;
-                                        data.types.forEach(t => {
-                                            const details = BIOME_DETAILS[t];
-                                            if (details) {
-                                                art += details.bonusArt;
-                                                air += details.bonusAir;
-                                                inf += details.bonusInf;
-                                            }
-                                        });
-                                        const parts: string[] = [];
-                                        if (art > 0) parts.push(`+ ${art} Def.vs Artillería`);
-                                        if (air > 0) parts.push(`+ ${air} Def.vs Aéreo`);
-                                        if (inf > 0) parts.push(`+ ${inf} Def.vs Infantería`);
-                                        return parts.join(', ');
-                                    })()}
-                                </div>
-                            </>
-                        ) : (
-                            "Desconocido"
-                        )}
+            <div className="region-panel__cols">
+                <div className="region-panel__col">
+                    <h4>Geografía</h4>
+                    {biome ? <>
+                        <div className="region-panel__name">{biome.types.map(t => BIOME_DETAILS[t]?.label || t).join(' / ')}</div>
+                        <div className="region-panel__meta">{biome.description}</div>
+                        {terrain && <div>{[terrain.art && `+${terrain.art} def. vs Artillería`, terrain.air && `+${terrain.air} def. vs Aéreo`, terrain.inf && `+${terrain.inf} def. vs Infantería`].filter(Boolean).join(' · ') || 'Sin bonus defensivo'}</div>}
+                    </> : <span className="ui-muted">Desconocido</span>}
+                </div>
+                <div className="region-panel__col">
+                    <h4>Materia prima</h4>
+                    {raws.length === 0 ? <span className="ui-muted">Ninguna</span> : raws.map(([m]) => {
+                        const data = RAW_MATERIAL_DATA[m as RawMaterialType];
+                        const tech = (Object.entries(TECHNOLOGY_REQUIREMENTS) as [TechnologyType, RawMaterialType][]).find(([, r]) => r === m)?.[0];
+                        return <div key={m}><div className="region-panel__name">{data?.name ?? m}</div>
+                            <div className="region-panel__meta">{tech ? `Con ${TECHNOLOGY_DATA[tech].name} → ${supplyName(data?.category)}` : ''}</div></div>;
+                    })}
+                </div>
+                <div className="region-panel__col">
+                    <h4>Tecnología</h4>
+                    {techs.length === 0 ? <span className="ui-muted">Ninguna</span> : techs.map(([t]) => {
+                        const k = t as TechnologyType;
+                        return <div key={t}><div className="region-panel__name">{TECHNOLOGY_DATA[k]?.name ?? t}</div>
+                            <div className="region-panel__meta">Usa {RAW_MATERIAL_DATA[TECHNOLOGY_REQUIREMENTS[k]].name} → {supplyName(TECHNOLOGY_PRODUCES[k])}</div></div>;
+                    })}
+                </div>
+                <div className="region-panel__col">
+                    <h4>Operaciones</h4>
+                    <div className="ui-stack">
+                        {isNuclear && <Button size="sm" tone="nuclear" block onClick={() => onOpenNuclearDesign(regionId)}>☢ Diseño nuclear</Button>}
+                        {isSecret && <Button size="sm" tone="nuclear" block onClick={() => onOpenMineralExtraction(regionId)}>Extraer mineral secreto</Button>}
+                        {isEspionageHq && <Button size="sm" tone="intel" block onClick={() => onOpenEspionage(regionId)}>Red de espionaje</Button>}
+                        {missions.map(m => <Button key={m.id} size="sm" tone={m.id === 'secretos_guerra' ? 'intel' : 'mission'} block onClick={() => onOpenSpecialMission(m.id)}>{m.title}</Button>)}
+                        {!isNuclear && !isSecret && !isEspionageHq && missions.length === 0 && <span className="ui-muted">Sin operaciones especiales</span>}
                     </div>
                 </div>
-
-                {/* Raw Materials Column */}
-                <div style={{ flex: 1, border: '1px solid #003300', padding: '10px', backgroundColor: 'rgba(0,10,0,0.5)', overflowY: isMobile ? 'visible' : 'auto' }}>
-                    <h4 style={{ margin: '0 0 10px 0', color: '#00aa00', textTransform: 'uppercase', fontSize: '0.8rem' }}>Materia Prima</h4>
-                    <div style={{ fontSize: '0.8rem', color: '#005500' }}>
-                        {regionResources ? (() => {
-                            const materials = Object.entries(regionResources.rawMaterials)
-                                .filter(([_, countries]) => countries.includes(selectedRegionId));
-                            if (materials.length === 0) {
-                                return <div style={{ color: '#555' }}>Sin materias primas asignadas</div>;
-                            }
-                            return materials.map(([material]) => {
-                                const matKey = material as RawMaterialType;
-                                const matData = RAW_MATERIAL_DATA[matKey];
-                                const tech = (Object.entries(TECHNOLOGY_REQUIREMENTS) as [TechnologyType, RawMaterialType][])
-                                    .find(([_, req]) => req === matKey)?.[0];
-                                const techData = tech ? TECHNOLOGY_DATA[tech] : null;
-                                const supplyType = matData?.category;
-                                const supplyLabel = supplyType === 'food' ? 'Alimentos' : supplyType === 'manufacture' ? 'Manufactura' : 'Energía';
-                                return (
-                                    <div key={material} style={{ marginBottom: '8px' }}>
-                                        <div style={{ fontWeight: 'bold', color: '#00ff00', marginBottom: '2px' }}>
-                                            {matData?.name || material.replace(/_/g, ' ')}
-                                        </div>
-                                        <div style={{ lineHeight: '1.2', fontSize: '0.7rem' }}>
-                                            {techData
-                                                ? `Requiere: ${techData.name} | Produce: ${supplyLabel}`
-                                                : matData?.description}
-                                        </div>
-                                    </div>
-                                );
-                            });
-                        })() : null}
-                    </div>
-                </div>
-
-                {/* Technologies Column */}
-                <div style={{ flex: 1, border: '1px solid #003300', padding: '10px', backgroundColor: 'rgba(0,10,0,0.5)', overflowY: isMobile ? 'visible' : 'auto' }}>
-                    <h4 style={{ margin: '0 0 10px 0', color: '#00aa00', textTransform: 'uppercase', fontSize: '0.8rem' }}>Tecnología</h4>
-                    <div style={{ fontSize: '0.8rem', color: '#005500' }}>
-                        {regionResources ? (() => {
-                            const techs = Object.entries(regionResources.technologies)
-                                .filter(([_, countries]) => countries.includes(selectedRegionId));
-                            if (techs.length === 0) {
-                                return <div style={{ color: '#555' }}>Sin tecnologías asignadas</div>;
-                            }
-                            return techs.map(([tech]) => {
-                                const techKey = tech as TechnologyType;
-                                const techData = TECHNOLOGY_DATA[techKey];
-                                const produces = TECHNOLOGY_PRODUCES[techKey];
-                                const requires = TECHNOLOGY_REQUIREMENTS[techKey];
-                                const reqData = RAW_MATERIAL_DATA[requires];
-                                const supplyLabel = produces === 'food' ? 'Alimentos' : produces === 'manufacture' ? 'Manufactura' : 'Energía';
-                                return (
-                                    <div key={tech} style={{ marginBottom: '8px' }}>
-                                        <div style={{ fontWeight: 'bold', color: '#00ff00', marginBottom: '2px' }}>
-                                            {techData?.name || tech.replace(/_/g, ' ')}
-                                        </div>
-                                        <div style={{ lineHeight: '1.2', fontSize: '0.7rem' }}>
-                                            Requiere: {reqData?.name || requires.replace(/_/g, ' ')} | Produce: {supplyLabel}
-                                        </div>
-                                    </div>
-                                );
-                            });
-                        })() : null}
-                    </div>
-                </div>
-
-                {/* Specials Column */}
-                <div style={{ flex: 1, border: '1px solid #003300', padding: '10px', backgroundColor: 'rgba(0,10,0,0.5)', overflowY: isMobile ? 'visible' : 'auto' }}>
-                    <h4 style={{ margin: '0 0 10px 0', color: '#00aa00', textTransform: 'uppercase', fontSize: '0.8rem' }}>Especiales</h4>
-                    <div style={{ fontSize: '0.8rem', color: '#005500' }}>
-                        {(() => {
-                            const isNuclear = regionResources?.nuclearWarCapable.includes(selectedRegionId);
-                            const hasExtracted = currentPlayer?.specialCards.some(c => c.type === 'SECRET_MINERAL');
-                            const isSecret = currentPlayer?.secretMineralLocation === selectedRegionId && owners[selectedRegionId] === currentPlayer?.id && !hasExtracted;
-                            const espionageCountries = ['nueva_york', 'reino_unido', 'china', 'rusia'];
-                            const isEspionageHq = espionageCountries.includes(selectedRegionId);
-
-                            const specialBtnStyle = (bg: string, color: string, border: string): React.CSSProperties => ({
-                                width: '100%',
-                                padding: '8px',
-                                marginBottom: '5px',
-                                backgroundColor: bg,
-                                color: color,
-                                border: `1px solid ${border}`,
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                                fontFamily: 'monospace',
-                                fontSize: '0.75rem',
-                                textAlign: 'left',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                transition: 'all 0.2s'
-                            });
-
-                            return (
-                                <>
-                                    {isNuclear && (
-                                        <button
-                                            onClick={() => onOpenNuclearDesign(selectedRegionId)}
-                                            style={specialBtnStyle('#1a0a00', '#ff9100', '#ff9100')}
-                                        >
-                                            <span style={{ fontSize: '1.2rem' }}>☢️</span>
-                                            DISEÑO DE ARMAS NUCLEARES INTERCONTINENTALES
-                                        </button>
-                                    )}
-                                    {isSecret && (
-                                        <button
-                                            onClick={() => onOpenMineralExtraction(selectedRegionId)}
-                                            style={specialBtnStyle('#001a1a', '#00ffff', '#00ffff')}
-                                        >
-                                            EXTRAER MINERAL SECRETO
-                                        </button>
-                                    )}
-                                    {isEspionageHq && (
-                                        <button
-                                            onClick={() => onOpenEspionage(selectedRegionId)}
-                                            style={specialBtnStyle('#001122', '#00ffff', '#00ffff')}
-                                        >
-                                            🕵️ RED DE ESPIONAJE
-                                        </button>
-                                    )}
-                                    {specialMissions
-                                        .filter(m => m.visibleFor.includes(selectedRegionId) || m.visibleFor.includes('GLOBAL'))
-                                        .map(mission => (
-                                            <button
-                                                key={mission.id}
-                                                onClick={() => onOpenSpecialMission(mission.id)}
-                                                style={specialBtnStyle('#002200', '#00ff00', '#00ff00')}
-                                            >
-                                                {mission.title}
-                                            </button>
-                                        ))}
-
-                                    {!isNuclear && !isSecret && !isEspionageHq && (!specialMissions.some(m => m.visibleFor.includes(selectedRegionId) || m.visibleFor.includes('GLOBAL'))) && (
-                                        <div style={{ color: '#555' }}>Sin habilidades especiales</div>
-                                    )}
-                                </>
-                            );
-                        })()}
-                    </div>
-                </div>
-
-                {/* Actions Column */}
-                {isMyTurn && (
-                    <div style={{ flex: isMobile ? 'none' : 1, border: '1px solid #003300', padding: '10px', backgroundColor: 'rgba(0,10,0,0.5)' }}>
-                        <h4 style={{ margin: '0 0 10px 0', color: '#aa0000', textTransform: 'uppercase', fontSize: '0.8rem' }}>Acciones</h4>
-                        <button
-                            onClick={onAttack}
-                            style={{
-                                width: '100%',
-                                padding: '10px',
-                                fontSize: isMobile ? '1rem' : '1.2rem',
-                                fontWeight: 'bold',
-                                backgroundColor: '#330000',
-                                color: '#ff0000',
-                                border: '2px solid #ff0000',
-                                cursor: 'pointer',
-                                textTransform: 'uppercase',
-                                fontFamily: 'monospace',
-                                boxShadow: '0 0 10px rgba(255, 0, 0, 0.2)',
-                                animation: 'pulse 2s infinite'
-                            }}
-                        >
-                            ATACAR
-                        </button>
-                    </div>
-                )}
             </div>
-        </div >
+        </section>
     );
-
 };

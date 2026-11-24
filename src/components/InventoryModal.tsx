@@ -1,595 +1,115 @@
 import React, { useState } from 'react';
-import { type SupplyType, TECHNOLOGY_PRODUCES } from '../types/productionTypes';
-import { TECHNOLOGY_DATA, RAW_MATERIAL_DATA, TECHNOLOGY_REQUIREMENTS } from '../data/productionData';
+import {
+    TECHNOLOGY_DATA, RAW_MATERIAL_DATA, TECHNOLOGY_REQUIREMENTS, TECHNOLOGY_PRODUCES, regionTitle,
+    type SupplyType, type TechnologyType, type RawMaterialType,
+} from '@atomo/shared';
 import { useGameContext } from '../context/GameContext';
 import { useGameActions } from '../hooks/useGameActions';
 import { useMyPlayer } from '../hooks/useMyPlayer';
+import { Modal, Section, Option, Empty, Button } from '../ui/components';
 
 interface InventoryModalProps {
     isOpen: boolean;
     onClose: () => void;
-    // Context-specific transient props that are not in global state
+    /** País contra el que se chequea la ruta de las materias primas (frente de batalla). */
     battleTargetId?: string | null;
     filterTargetCountry?: string | null;
 }
 
-// Visual constants
-const COLORS = {
-    food: '#d500f9',       // Purple
-    manufacture: '#2979ff',// Blue
-    energy: '#ff9100',     // Orange
-    background: 'rgba(10, 10, 15, 0.95)',
-    cardBg: '#151520',
-    selected: '#fff',      // White highlight for selection
-};
+const SUPPLY_NAME: Record<SupplyType, string> = { food: 'Alimentos', manufacture: 'Manufactura', energy: 'Energía' };
 
-export const InventoryModal: React.FC<InventoryModalProps> = ({
-    isOpen,
-    onClose,
-    battleTargetId,
-    filterTargetCountry
-}) => {
+/**
+ * Inventario: suministros, tecnologías y materias primas del jugador. En el
+ * preturno permite producir (tecnología + materia prima compatible).
+ */
+export const InventoryModal: React.FC<InventoryModalProps> = ({ isOpen, onClose, battleTargetId, filterTargetCountry }) => {
     const { state } = useGameContext();
-    const { roundPhase } = state;
     const actions = useGameActions();
     const { myPlayer, resources, checkRoute } = useMyPlayer();
-
-    // La producción de suministros SOLO está habilitada durante la fase de producción
-    // (preturno) al inicio de la ronda. Durante la ronda de acciones queda bloqueada.
-    const isProductionPhase = roundPhase === 'PRODUCTION';
-
-    const [selectedTech, setSelectedTech] = useState<string | null>(null);
-    const [selectedRaw, setSelectedRaw] = useState<string | null>(null);
-
-    // Reset selection when modal opens/closes
-    React.useEffect(() => {
-        if (!isOpen) {
-            setSelectedTech(null);
-            setSelectedRaw(null);
-        }
-    }, [isOpen]);
+    const [tech, setTech] = useState<string | null>(null);
+    const [raw, setRaw] = useState<string | null>(null);
 
     if (!isOpen || !myPlayer) return null;
+    const producing = state.roundPhase === 'PRODUCTION';
+    const routeTarget = battleTargetId || filterTargetCountry;
+    const techCard = resources.technologies.find(t => t.id === tech);
+    const neededRaw = techCard ? TECHNOLOGY_REQUIREMENTS[techCard.type as TechnologyType] : null;
+    const totalSupplies = (['food', 'manufacture', 'energy'] as SupplyType[]).reduce((n, t) => n + myPlayer.supplies[t].length, 0);
 
-    const { technologies, rawMaterials } = resources;
-    const { supplies, color, name: playerName } = myPlayer;
-
-    // Helper to render a generic card
-    const renderCard = (
-        title: string,
-        subtitle: string,
-        typeColor: string,
-        details: React.ReactNode,
-        key: string,
-        country?: string,
-        isUsed?: boolean,
-        isSelected?: boolean,
-        onClick?: () => void,
-        hasNoRoute?: boolean
-    ) => (
-        <div
-            key={key}
-            onClick={() => !isUsed && !hasNoRoute && onClick && onClick()}
-            style={{
-                width: '140px',
-                height: '190px',
-                backgroundColor: COLORS.cardBg,
-                border: isSelected
-                    ? `3px solid ${COLORS.selected}`
-                    : (hasNoRoute ? '1px solid #600' : `2px solid ${typeColor}`),
-                borderRadius: '6px',
-                display: 'flex',
-                flexDirection: 'column',
-                margin: '3px',
-                position: 'relative',
-                boxShadow: isSelected
-                    ? `0 0 20px ${COLORS.selected}`
-                    : (hasNoRoute ? 'none' : `0 0 10px ${typeColor}40`),
-                transition: 'transform 0.2s, box-shadow 0.2s',
-                overflow: 'hidden',
-                flexShrink: 0,
-                opacity: (isUsed || hasNoRoute) ? 0.5 : 1,
-                filter: (isUsed || hasNoRoute) ? 'grayscale(50%)' : 'none',
-                cursor: (isUsed || hasNoRoute) ? 'default' : 'pointer'
-            }}
-            onMouseEnter={(e) => {
-                if (!isUsed) {
-                    e.currentTarget.style.transform = 'translateY(-5px)';
-                    if (!isSelected) e.currentTarget.style.boxShadow = `0 0 20px ${typeColor}80`;
-                }
-            }}
-            onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                if (!isSelected) e.currentTarget.style.boxShadow = `0 0 10px ${typeColor}40`;
-            }}
-        >
-            {/* Header Strip */}
-            <div style={{
-                height: '4px',
-                width: '100%',
-                backgroundColor: typeColor,
-                boxShadow: `0 0 5px ${typeColor}`
-            }} />
-
-            <div style={{ padding: '8px', display: 'flex', flexDirection: 'column', height: '100%', gap: '3px' }}>
-                {/* Title */}
-                <div style={{
-                    fontSize: '0.7rem',
-                    color: typeColor,
-                    textTransform: 'uppercase',
-                    letterSpacing: '1px',
-                    marginBottom: '2px',
-                    fontWeight: 'bold'
-                }}>
-                    {subtitle}
-                </div>
-
-                <div style={{
-                    fontSize: '1.1rem',
-                    fontWeight: 'bold',
-                    color: '#fff',
-                    borderBottom: '1px solid #333',
-                    paddingBottom: '8px',
-                    marginBottom: '5px',
-                    lineHeight: '1.2',
-                    minHeight: '40px' // Ensure title alignment
-                }}>
-                    {title}
-                </div>
-
-                {/* Body/Details */}
-                <div style={{
-                    fontSize: '0.8rem',
-                    color: '#ccc',
-                    marginTop: 'auto',
-                    flex: 1,
-                    overflowY: 'auto' // Scroll if needed
-                }}>
-                    {details}
-                </div>
-
-                {/* Country Origin */}
-                {country && (
-                    <div style={{
-                        marginTop: '8px',
-                        padding: '4px 8px',
-                        backgroundColor: 'rgba(255,255,255,0.05)',
-                        borderRadius: '4px',
-                        fontSize: '0.8rem',
-                        color: '#999',
-                        textTransform: 'uppercase',
-                        border: '1px solid #333',
-                        textAlign: 'center'
-                    }}>
-                        {country.replace(/_/g, ' ')}
-                    </div>
-                )}
-
-                {/* Used Status */}
-                {isUsed && (
-                    <div style={{
-                        position: 'absolute',
-                        top: '50%',
-                        left: '50%',
-                        transform: 'translate(-50%, -50%)',
-                        backgroundColor: 'rgba(0,0,0,0.85)',
-                        color: '#ff4444',
-                        padding: '5px 10px',
-                        borderRadius: '4px',
-                        fontSize: '0.9rem',
-                        fontWeight: 'bold',
-                        border: '1px solid #ff4444',
-                        zIndex: 10,
-                        pointerEvents: 'none'
-                    }}>
-                        AGOTADA
-                    </div>
-                )}
-
-                {hasNoRoute && !isUsed && (
-                    <div style={{
-                        position: 'absolute',
-                        top: '50%',
-                        left: '50%',
-                        transform: 'translate(-50%, -50%)',
-                        backgroundColor: 'rgba(50,0,0,0.9)',
-                        color: '#ff4444',
-                        padding: '5px 8px',
-                        borderRadius: '4px',
-                        fontSize: '0.7rem',
-                        fontWeight: 'bold',
-                        border: '1px solid #600',
-                        zIndex: 10,
-                        pointerEvents: 'none',
-                        textAlign: 'center',
-                        width: '80%'
-                    }}>
-                        SIN RUTA AL FRENTE
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-
-    // 1. Generate Supply Cards (Unselectable for production, just display)
-    const supplyCards: React.ReactNode[] = [];
-    (['manufacture', 'food', 'energy'] as SupplyType[]).forEach(type => {
-        const items = supplies[type];
-        items.forEach((item) => {
-            supplyCards.push(renderCard(
-                type === 'manufacture' ? 'MANUFACTURA' : type === 'food' ? 'ALIMENTOS' : 'ENERGÍA',
-                'SUMINISTRO',
-                COLORS[type],
-                <div>Listo para ser utilizado.</div>,
-                item.id,
-                item.originCountry
-            ));
-        });
-    });
-
-    // 2. Generate Technology Cards
-    const techCards = technologies.map((tech) => {
-        const techType = tech.type as import('../types/productionTypes').TechnologyType;
-        const techData = TECHNOLOGY_DATA[techType];
-        const supplyType = TECHNOLOGY_PRODUCES[techType];
-        const color = COLORS[supplyType]; // Match supply color
-
-        const isSelected = selectedTech === tech.id;
-
-        const requiredRawType = TECHNOLOGY_REQUIREMENTS[techType];
-        const supplyLabel = supplyType === 'food' ? 'Alimentos' : supplyType === 'manufacture' ? 'Manufactura' : 'Energía';
-
-        return renderCard(
-            techData.name,
-            'TECNOLOGÍA',
-            color,
-            <div style={{ fontSize: '0.7rem', lineHeight: '1.3' }}>
-                Requiere: {RAW_MATERIAL_DATA[requiredRawType].name}<br />
-                Produce: {supplyLabel}
-            </div>,
-            tech.id,
-            tech.country,
-            tech.usedThisTurn,
-            isSelected,
-            () => setSelectedTech(isSelected ? null : tech.id)
-        );
-    });
-
-    // 3. Generate Raw Material Cards
-    const rawMaterialCards = rawMaterials.map((rm) => {
-        const rmType = rm.type as import('../types/productionTypes').RawMaterialType;
-        const rmData = RAW_MATERIAL_DATA[rmType];
-        const color = COLORS[rmData.category]; // Match supply category color
-
-        const isSelected = selectedRaw === rm.id;
-
-        // Find technology that requires this raw material
-        const techEntry = Object.entries(TECHNOLOGY_REQUIREMENTS).find(([_, req]) => req === rmType);
-        const requiredTechType = techEntry ? (techEntry[0] as import('../types/productionTypes').TechnologyType) : null;
-        const techName = requiredTechType ? TECHNOLOGY_DATA[requiredTechType].name : 'TECNOLOGÍA';
-        const supplyLabel = rmData.category === 'food' ? 'Alimentos' : rmData.category === 'manufacture' ? 'Manufactura' : 'Energía';
-
-        const targetForRoute = battleTargetId || filterTargetCountry;
-        const hasNoRoute = targetForRoute ? !checkRoute(rm.country, targetForRoute) : false;
-
-        return renderCard(
-            rmData.name,
-            'MATERIA PRIMA',
-            color,
-            <div style={{ fontSize: '0.7rem', lineHeight: '1.3' }}>
-                Requiere: {techName}<br />
-                Produce: {supplyLabel}
-            </div>,
-            rm.id,
-            rm.country,
-            rm.usedThisTurn,
-            isSelected,
-            () => setSelectedRaw(isSelected ? null : rm.id),
-            hasNoRoute
-        );
-    });
-
-    // Production Logic Handler
-    const handleProduce = () => {
-        if (!selectedTech || !selectedRaw) return;
-
-        // Sólo se puede producir durante la fase de producción (preturno).
-        if (!isProductionPhase) {
-            alert('Los suministros solo pueden producirse durante la fase de producción, al inicio de la ronda.');
-            return;
-        }
-
-        // Find the actual card objects
-        const techCard = technologies.find(t => t.id === selectedTech);
-        const rawCard = rawMaterials.find(r => r.id === selectedRaw);
-
-        if (!techCard || !rawCard) return;
-
-        const techType = techCard.type as import('../types/productionTypes').TechnologyType;
-        const rawType = rawCard.type as import('../types/productionTypes').RawMaterialType;
-
-        // Validate compatibility
-        const requiredRaw = TECHNOLOGY_REQUIREMENTS[techType];
-
-        if (requiredRaw !== rawType) {
-            alert(`Incompatible: ${TECHNOLOGY_DATA[techType].name} requiere ${RAW_MATERIAL_DATA[requiredRaw].name}, pero seleccionaste ${RAW_MATERIAL_DATA[rawType].name}.`);
-            return;
-        }
-
-        // El servidor valida y crea el suministro (tipo y país de origen salen de las cartas).
-        actions.produceSupply(techCard.id, rawCard.id);
-
-        // Deselect after production
-        setSelectedTech(null);
-        setSelectedRaw(null);
+    const produce = () => {
+        if (!tech || !raw) return;
+        actions.produceSupply(tech, raw);
+        setTech(null);
+        setRaw(null);
     };
-
-    const getCompatibilityMessage = () => {
-        if (selectedTech && selectedRaw) {
-            const techCard = technologies.find(t => t.id === selectedTech);
-            const rawCard = rawMaterials.find(r => r.id === selectedRaw);
-
-            if (!techCard || !rawCard) return { valid: false, text: '' };
-
-            const techType = techCard.type as import('../types/productionTypes').TechnologyType;
-            const rawType = rawCard.type as import('../types/productionTypes').RawMaterialType;
-
-            if (TECHNOLOGY_REQUIREMENTS[techType] === rawType) {
-                return { valid: true, text: '✅ COMBINACIÓN CORRECTA' };
-            } else {
-                return { valid: false, text: '❌ COMBINACIÓN INCORRECTA' };
-            }
-        }
-        return { valid: false, text: '' };
-    };
-
-    const compatibility = getCompatibilityMessage();
-    const canProduce = selectedTech && selectedRaw && compatibility.valid && isProductionPhase;
-
-    const isMobile = window.innerWidth <= 768;
 
     return (
-
-        <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100vw',
-            height: '100vh',
-            backgroundColor: 'rgba(0,0,0,0.85)',
-            zIndex: 10001,
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            backdropFilter: 'blur(5px)'
-        }}
-            onClick={onClose}
+        <Modal
+            kicker={`Comandante ${myPlayer.name}`}
+            title="Inventario"
+            size="xl"
+            onClose={onClose}
+            footer={producing ? <>
+                <span className="ui-muted" style={{ flex: '2 1 260px', alignSelf: 'center' }}>
+                    {!tech ? 'Elegí una tecnología y una materia prima compatible.'
+                        : !raw ? `${TECHNOLOGY_DATA[techCard!.type as TechnologyType].name} requiere ${RAW_MATERIAL_DATA[neededRaw!].name}.`
+                        : `Produce 1 suministro de ${SUPPLY_NAME[TECHNOLOGY_PRODUCES[techCard!.type as TechnologyType]]}.`}
+                </span>
+                <Button variant="primary" disabled={!tech || !raw} onClick={produce}>Producir</Button>
+            </> : <span className="ui-muted">Los suministros sólo se producen en el preturno, al inicio de cada ronda.</span>}
         >
-            <div style={{
-                width: isMobile ? '100%' : '90%',
-                maxWidth: '1200px',
-                height: isMobile ? '100vh' : '90vh',
-                backgroundColor: COLORS.background,
-                border: isMobile ? 'none' : `2px solid ${color}`,
-                boxShadow: `0 0 30px ${color}30`,
-                display: 'flex',
-                flexDirection: 'column',
-                padding: isMobile ? '15px' : '30px',
-                overflow: 'hidden',
-                borderRadius: isMobile ? '0' : '10px',
-                animation: 'fadeIn 0.3s ease-out',
-                position: 'relative'
-            }}
-                onClick={e => e.stopPropagation()}
-            >
-                {/* Header */}
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    borderBottom: `1px solid ${color}50`,
-                    paddingBottom: isMobile ? '10px' : '20px',
-                    marginBottom: isMobile ? '10px' : '20px'
-                }}>
-                    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', gap: isMobile ? '5px' : '20px' }}>
-                        <h2 style={{
-                            margin: 0,
-                            color: color,
-                            textTransform: 'uppercase',
-                            fontSize: isMobile ? '1.2rem' : '2rem',
-                            letterSpacing: isMobile ? '2px' : '5px',
-                            textShadow: `0 0 10px ${color}`
-                        }}>
-                            INVENTARIO
-                        </h2>
-                        <span style={{
-                            color: '#fff',
-                            fontSize: isMobile ? '0.8rem' : '1.2rem',
-                            opacity: 0.7,
-                            fontFamily: 'monospace'
-                        }}>
-                            // {playerName}
-                        </span>
+            <Section title={`Suministros · ${totalSupplies}`}>
+                {totalSupplies === 0 ? <Empty>No tenés suministros.</Empty> : (
+                    <div className="ui-grid">
+                        {(['food', 'manufacture', 'energy'] as SupplyType[]).flatMap(t => myPlayer.supplies[t].map(s => (
+                            <Option key={s.id} label={SUPPLY_NAME[t]} meta={`Origen: ${regionTitle(s.originCountry)}`} />
+                        )))}
                     </div>
-                    <button
-                        onClick={onClose}
-                        style={{
-                            background: 'transparent',
-                            border: `1px solid ${color}`,
-                            color: color,
-                            padding: isMobile ? '5px 10px' : '10px 20px',
-                            cursor: 'pointer',
-                            fontSize: isMobile ? '0.9rem' : '1.2rem',
-                            fontWeight: 'bold',
-                            textTransform: 'uppercase'
-                        }}
-                    >
-                        {isMobile ? 'X' : 'CERRAR [X]'}
-                    </button>
-                </div>
+                )}
+            </Section>
 
-                {/* Content - Scrollable */}
-                <div style={{
-                    flex: 1,
-                    overflowY: 'auto',
-                    paddingRight: '5px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: isMobile ? '20px' : '40px',
-                    paddingBottom: '100px'
-                }}>
-
-                    {/* SECTION 1: SUPPLIES */}
-                    <section>
-                        <h3 style={{
-                            color: '#fff',
-                            borderLeft: '4px solid #fff',
-                            paddingLeft: '10px',
-                            marginBottom: '15px',
-                            textTransform: 'uppercase',
-                            letterSpacing: '1px',
-                            fontSize: isMobile ? '0.9rem' : '1.1rem'
-                        }}>
-                            Suministros ({supplyCards.length})
-                        </h3>
-                        <div style={{
-                            display: 'grid',
-                            gridTemplateColumns: `repeat(auto-fill, minmax(130px, 1fr))`,
-                            gap: '10px',
-                            padding: '10px',
-                            justifyItems: 'center',
-                            backgroundColor: 'rgba(255,255,255,0.03)',
-                            borderRadius: '8px'
-                        }}>
-                            {supplyCards.length > 0 ? supplyCards : (
-                                <div style={{ color: '#666', fontStyle: 'italic', padding: '10px', gridColumn: '1/-1' }}>
-                                    No hay suministros.
-                                </div>
-                            )}
+            <div className="ui-split" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                <Section title={`Tecnologías · ${resources.technologies.length}`}>
+                    {resources.technologies.length === 0 ? <Empty>Sin tecnologías.</Empty> : (
+                        <div className="ui-grid">
+                            {resources.technologies.map(c => {
+                                const type = c.type as TechnologyType;
+                                const needs = TECHNOLOGY_REQUIREMENTS[type];
+                                const hasRaw = resources.rawMaterials.some(r => r.type === needs && !r.usedThisTurn);
+                                return (
+                                    <Option key={c.id}
+                                        label={TECHNOLOGY_DATA[type]?.name ?? c.type}
+                                        meta={c.usedThisTurn ? 'Consumida esta ronda'
+                                            : hasRaw ? `${regionTitle(c.country)} · usa ${RAW_MATERIAL_DATA[needs].name}`
+                                            : `${regionTitle(c.country)} · te falta ${RAW_MATERIAL_DATA[needs].name}`}
+                                        selected={tech === c.id}
+                                        disabled={!producing || c.usedThisTurn || !hasRaw}
+                                        onSelect={() => { setTech(tech === c.id ? null : c.id); setRaw(null); }} />
+                                );
+                            })}
                         </div>
-                    </section>
-
-                    {/* DOUBLE SECTION FOR PRODUCTION */}
-                    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '20px' }}>
-                        {/* SECTION 2: TECHNOLOGIES */}
-                        <section style={{ flex: 1 }}>
-                            <h3 style={{
-                                color: '#fff',
-                                borderLeft: '4px solid #fff',
-                                paddingLeft: '10px',
-                                marginBottom: '10px',
-                                textTransform: 'uppercase',
-                                letterSpacing: '1px',
-                                fontSize: '0.8rem'
-                            }}>
-                                Tecnologías ({techCards.length})
-                            </h3>
-                            <div style={{
-                                display: 'grid',
-                                gridTemplateColumns: `repeat(auto-fill, minmax(130px, 1fr))`,
-                                gap: '5px',
-                                padding: '5px',
-                                justifyItems: 'center',
-                                backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                                borderRadius: '8px'
-                            }}>
-                                {techCards.length > 0 ? techCards : (
-                                    <div style={{ color: '#666', fontStyle: 'italic', padding: '10px', fontSize: '0.8rem', gridColumn: '1/-1' }}>
-                                        No hay tecnologías.
-                                    </div>
-                                )}
-                            </div>
-                        </section>
-
-                        {/* SECTION 3: RAW MATERIALS */}
-                        <section style={{ flex: 1 }}>
-                            <h3 style={{
-                                color: '#fff',
-                                borderLeft: '4px solid #fff',
-                                paddingLeft: '10px',
-                                marginBottom: '10px',
-                                textTransform: 'uppercase',
-                                letterSpacing: '1px',
-                                fontSize: '0.8rem'
-                            }}>
-                                Materias Primas ({rawMaterialCards.length})
-                            </h3>
-                            <div style={{
-                                display: 'grid',
-                                gridTemplateColumns: `repeat(auto-fill, minmax(130px, 1fr))`,
-                                gap: '5px',
-                                padding: '5px',
-                                justifyItems: 'center',
-                                backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                                borderRadius: '8px'
-                            }}>
-                                {rawMaterialCards.length > 0 ? rawMaterialCards : (
-                                    <div style={{ color: '#666', fontStyle: 'italic', padding: '10px', fontSize: '0.8rem', gridColumn: '1/-1' }}>
-                                        No hay materias primas.
-                                    </div>
-                                )}
-                            </div>
-                        </section>
-                    </div>
-                </div>
-
-                {/* PRODUCTION ACTION BAR */}
-                <div style={{
-                    position: 'absolute',
-                    bottom: '0',
-                    left: '0',
-                    width: '100%',
-                    padding: isMobile ? '10px' : '20px',
-                    backgroundColor: 'rgba(0,0,0,0.95)',
-                    borderTop: `1px solid ${color}50`,
-                    display: 'flex',
-                    flexDirection: isMobile ? 'column' : 'row',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    gap: isMobile ? '10px' : '20px',
-                    zIndex: 20
-                }}>
-                    <div style={{
-                        color: !isProductionPhase ? '#ff9100' : (canProduce ? '#4caf50' : compatibility.text ? '#ff5252' : '#fff'),
-                        fontWeight: 'bold',
-                        fontSize: isMobile ? '0.75rem' : '1rem',
-                        textAlign: 'center'
-                    }}>
-                        {!isProductionPhase
-                            ? '⛔ Producción cerrada — solo en el preturno (inicio de ronda)'
-                            : (compatibility.text || (
-                                `Seleccionado: ${selectedTech ? '✅ Tec.' : '❌ Tec.'} + ${selectedRaw ? '✅ Mat.' : '❌ Mat.'}`
-                            ))}
-                    </div>
-                    <button
-                        disabled={!canProduce}
-                        onClick={handleProduce}
-                        style={{
-                            padding: isMobile ? '12px 20px' : '15px 40px',
-                            backgroundColor: canProduce ? color : '#333',
-                            color: canProduce ? '#000' : '#888',
-                            border: 'none',
-                            borderRadius: '5px',
-                            fontSize: isMobile ? '1rem' : '1.2rem',
-                            fontWeight: 'bold',
-                            cursor: canProduce ? 'pointer' : 'not-allowed',
-                            textTransform: 'uppercase',
-                            boxShadow: canProduce ? `0 0 20px ${color}` : 'none',
-                            transition: 'all 0.3s',
-                            width: isMobile ? '100%' : 'auto'
-                        }}
-                    >
-                        PRODUCIR
-                    </button>
-                </div>
+                    )}
+                </Section>
+                <Section title={`Materias primas · ${resources.rawMaterials.length}`}>
+                    {resources.rawMaterials.length === 0 ? <Empty>Sin materias primas.</Empty> : (
+                        <div className="ui-grid">
+                            {resources.rawMaterials.map(c => {
+                                const type = c.type as RawMaterialType;
+                                const noRoute = !!routeTarget && !checkRoute(c.country, routeTarget);
+                                const incompatible = !!neededRaw && neededRaw !== type;
+                                return (
+                                    <Option key={c.id}
+                                        label={RAW_MATERIAL_DATA[type]?.name ?? c.type}
+                                        meta={c.usedThisTurn ? 'Consumida esta ronda' : noRoute ? `${regionTitle(c.country)} · sin ruta al frente` : regionTitle(c.country)}
+                                        selected={raw === c.id}
+                                        disabled={!producing || !tech || c.usedThisTurn || incompatible}
+                                        onSelect={() => setRaw(raw === c.id ? null : c.id)} />
+                                );
+                            })}
+                        </div>
+                    )}
+                </Section>
             </div>
-
-            <style>{`
-                @keyframes fadeIn {
-                    from { opacity: 0; transform: scale(0.95); }
-                    to { opacity: 1; transform: scale(1); }
-                }
-            `}</style>
-        </div>
+        </Modal>
     );
 };

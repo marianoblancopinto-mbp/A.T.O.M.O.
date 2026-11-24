@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { DocumentModal } from '../../../ui/DocumentModal';
+import { highlightStyle, textStyle, warningStyle } from '../../../ui/docStyles';
 
 interface MissionModalProps {
     isOpen: boolean;
@@ -18,33 +20,6 @@ export const MissionModal: React.FC<MissionModalProps> = ({ isOpen, onClose }) =
     const [activeSection, setActiveSection] = useState<MissionSection>('briefing');
 
     if (!isOpen) return null;
-
-    const textStyle: React.CSSProperties = {
-        color: '#ccc',
-        fontSize: '1.1rem',
-        lineHeight: '1.8',
-        textAlign: 'justify',
-    };
-
-    const highlightStyle: React.CSSProperties = {
-        backgroundColor: 'rgba(0, 255, 0, 0.05)',
-        border: '1px solid #00ff0044',
-        borderLeft: '3px solid #00ff00',
-        padding: '15px 20px',
-        marginTop: '20px',
-        fontSize: '0.9rem',
-        color: '#88ff88',
-    };
-
-    const warningStyle: React.CSSProperties = {
-        backgroundColor: 'rgba(255, 0, 0, 0.05)',
-        border: '1px solid #ff000044',
-        borderLeft: '3px solid #ff0000',
-        padding: '15px 20px',
-        marginTop: '20px',
-        fontSize: '0.9rem',
-        color: '#ff8888',
-    };
 
     const sections: SectionData[] = [
         {
@@ -158,16 +133,16 @@ export const MissionModal: React.FC<MissionModalProps> = ({ isOpen, onClose }) =
                                 display: 'flex',
                                 gap: '15px',
                                 padding: '12px 15px',
-                                backgroundColor: '#0a0a0a',
+                                backgroundColor: 'var(--surface-2)',
                                 border: '1px solid #222',
                             }}>
                                 <span style={{
-                                    color: '#00ff00',
+                                    color: 'var(--green)',
                                     fontWeight: 'bold',
                                     fontSize: '1.2rem',
                                     minWidth: '25px',
                                 }}>{obj.code})</span>
-                                <span style={{ color: '#ccc' }}>{obj.text}</span>
+                                <span style={{ color: 'var(--fg)' }}>{obj.text}</span>
                             </div>
                         ))}
                     </div>
@@ -211,7 +186,7 @@ export const MissionModal: React.FC<MissionModalProps> = ({ isOpen, onClose }) =
                         borderTop: '1px solid #00ff0044',
                         borderBottom: '1px solid #00ff0044',
                         textAlign: 'center',
-                        color: '#00ff00',
+                        color: 'var(--green)',
                         letterSpacing: '3px',
                         fontSize: '1rem',
                     }}>
@@ -225,143 +200,10 @@ export const MissionModal: React.FC<MissionModalProps> = ({ isOpen, onClose }) =
     const currentSection = sections.find(s => s.id === activeSection)!;
 
     return (
-        <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.95)',
-            zIndex: 10000,
-            display: 'flex',
-            fontFamily: '"Courier New", Courier, monospace',
-        }}>
-            {/* Sidebar */}
-            <div style={{
-                width: '240px',
-                minWidth: '240px',
-                backgroundColor: '#0a0a0a',
-                borderRight: '1px solid #222',
-                display: 'flex',
-                flexDirection: 'column',
-                padding: '20px 0',
-                overflowY: 'auto',
-            }}>
-                <div style={{
-                    padding: '0 20px 20px',
-                    borderBottom: '1px solid #222',
-                    marginBottom: '10px',
-                }}>
-                    <h2 style={{
-                        color: '#00ff00',
-                        fontSize: '1.1rem',
-                        margin: 0,
-                        letterSpacing: '2px',
-                    }}>
-                        INFORME DE MISIÓN
-                    </h2>
-                    <div style={{ color: '#555', fontSize: '0.7rem', marginTop: '5px' }}>
-                        Operación A.T.O.M.O. — Clasificado
-                    </div>
-                </div>
-
-                {sections.map((section, idx) => (
-                    <button
-                        key={section.id}
-                        onClick={() => setActiveSection(section.id)}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            padding: '10px 20px',
-                            border: 'none',
-                            backgroundColor: activeSection === section.id ? '#001a00' : 'transparent',
-                            color: activeSection === section.id ? '#00ff00' : '#666',
-                            cursor: 'pointer',
-                            fontSize: '0.8rem',
-                            textAlign: 'left',
-                            fontFamily: 'inherit',
-                            borderLeft: activeSection === section.id ? '3px solid #00ff00' : '3px solid transparent',
-                            transition: 'all 0.2s',
-                        }}
-                        onMouseEnter={(e) => {
-                            if (activeSection !== section.id) {
-                                e.currentTarget.style.backgroundColor = '#0d0d0d';
-                                e.currentTarget.style.color = '#aaa';
-                            }
-                        }}
-                        onMouseLeave={(e) => {
-                            if (activeSection !== section.id) {
-                                e.currentTarget.style.backgroundColor = 'transparent';
-                                e.currentTarget.style.color = '#666';
-                            }
-                        }}
-                    >
-                        <span style={{ color: '#333', fontSize: '0.7rem', minWidth: '18px' }}>{String(idx + 1).padStart(2, '0')}</span>
-                        <span>{section.label}</span>
-                    </button>
-                ))}
-            </div>
-
-            {/* Content Area */}
-            <div style={{
-                flex: 1,
-                overflowY: 'auto',
-                padding: '40px 50px',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-            }}>
-                {/* Close Button */}
-                <button
-                    onClick={onClose}
-                    style={{
-                        position: 'fixed',
-                        top: '15px',
-                        right: '20px',
-                        background: 'none',
-                        border: '1px solid #444',
-                        color: '#888',
-                        fontSize: '1.5rem',
-                        cursor: 'pointer',
-                        padding: '5px 12px',
-                        zIndex: 10001,
-                        fontFamily: 'monospace',
-                        transition: 'all 0.2s',
-                    }}
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = '#ff4444';
-                        e.currentTarget.style.color = '#ff4444';
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = '#444';
-                        e.currentTarget.style.color = '#888';
-                    }}
-                >
-                    X
-                </button>
-
-                <div style={{ maxWidth: '700px' }}>
-                    <div style={{
-                        color: '#00ff00',
-                        fontSize: '0.85rem',
-                        letterSpacing: '4px',
-                        marginBottom: '10px',
-                        opacity: 0.6,
-                    }}>
-                        DOCUMENTO CLASIFICADO
-                    </div>
-
-                    <h2 style={{
-                        color: '#00ff00',
-                        fontSize: '1.6rem',
-                        margin: '0 0 30px 0',
-                        borderBottom: '1px solid #00ff0044',
-                        paddingBottom: '15px',
-                        letterSpacing: '3px',
-                    }}>
-                        {currentSection.title}
-                    </h2>
-
-                    {currentSection.content}
-                </div>
-            </div>
-        </div>
+        <DocumentModal kicker="Operación A.T.O.M.O. — Clasificado" title="Informe de misión" numbered
+            items={sections} activeId={activeSection} onSelect={id => setActiveSection(id as MissionSection)} onClose={onClose}>
+            <h2>{currentSection.title}</h2>
+            {currentSection.content}
+        </DocumentModal>
     );
 };

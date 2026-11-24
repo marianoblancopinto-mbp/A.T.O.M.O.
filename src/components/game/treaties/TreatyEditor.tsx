@@ -1,12 +1,10 @@
-
 import React, { useState } from 'react';
 import { useGameContext } from '../../../context/GameContext';
 import { useGameActions } from '../../../hooks/useGameActions';
 import { useMyPlayer } from '../../../hooks/useMyPlayer';
 import type { Treaty, TreatyClause, TreatyType } from '../../../types/treatyTypes';
-import { REGIONS } from '../../../data/mapRegions';
-import { RAW_MATERIAL_DATA, TECHNOLOGY_DATA } from '../../../data/productionData';
-import type { PlayerData } from '../../../types/playerTypes';
+import { availableCards, regionTitle, RAW_MATERIAL_DATA, TECHNOLOGY_DATA, type RawMaterialType, type TechnologyType } from '@atomo/shared';
+import { Modal, Section, Button, Option } from '../../../ui/components';
 
 interface TreatyEditorProps {
     onClose: () => void;
@@ -14,392 +12,131 @@ interface TreatyEditorProps {
     isNew?: boolean;
 }
 
+const CLAUSES: { type: TreatyType; label: string; defaultDuration: number }[] = [
+    { type: 'REGION_CESSION', label: 'Cesión de territorio', defaultDuration: -1 },
+    { type: 'RAW_MATERIAL_CESSION', label: 'Cesión de materia prima', defaultDuration: -1 },
+    { type: 'TECH_LOAN', label: 'Préstamo de tecnología', defaultDuration: 5 },
+    { type: 'TECH_DUPLICATE', label: 'Duplicado de tecnología', defaultDuration: -1 },
+    { type: 'NON_AGGRESSION', label: 'No agresión (desde estos territorios)', defaultDuration: 3 },
+];
+
+const DURATIONS = [-1, 1, 2, 3, 4, 5];
+
+/**
+ * Editor de tratados: elegir contraparte, armar cláusulas de cada lado y
+ * enviar oferta / contraoferta, o aceptar / rechazar. El servidor valida que
+ * cada parte comprometa sólo lo que tiene.
+ */
 export const TreatyEditor: React.FC<TreatyEditorProps> = ({ onClose, initialTreaty, isNew }) => {
     const { state } = useGameContext();
-    const { players } = state;
     const { acceptTreaty, rejectTreaty, proposeTreaty } = useGameActions();
     const { myPlayer } = useMyPlayer();
+    const meId = myPlayer?.id ?? '';
+    const initialTarget = initialTreaty
+        ? (String(initialTreaty.creatorId) === String(meId) ? initialTreaty.targetPlayerId : initialTreaty.creatorId)
+        : null;
+    const [targetId, setTargetId] = useState<string | number | null>(initialTarget);
+    const [clauses, setClauses] = useState<TreatyClause[]>(initialTreaty?.clauses ?? []);
+    if (!myPlayer) return null;
 
-    // Fallback if useMyPlayer returns null (shouldn't happen in game)
-    const currentPlayer = myPlayer ?? { id: '__none__' } as PlayerData;
+    const target = state.players.find(p => String(p.id) === String(targetId));
+    const editable = !initialTreaty || initialTreaty.status === 'PENDING_APPROVAL';
+    const awaitingMe = initialTreaty?.status === 'PENDING_APPROVAL' && String(initialTreaty.targetPlayerId) === String(meId);
 
-    const [targetPlayerId, setTargetPlayerId] = useState<string | number>(
-        (initialTreaty?.targetPlayerId && initialTreaty.targetPlayerId != currentPlayer.id)
-            ? initialTreaty.targetPlayerId
-            : ((initialTreaty?.creatorId && initialTreaty.creatorId != currentPlayer.id) ? initialTreaty.creatorId : '')
-    );
-    const [clauses, setClauses] = useState<TreatyClause[]>(initialTreaty?.clauses || []);
-
-    const targetPlayer = players.find(p => p.id == targetPlayerId);
-
-    // --- Selectors State ---
-    // Instead of a generic modal, we can have inline selectors or a specific modal driven by activeCategory
-    const [activeSelector, setActiveSelector] = useState<{
-        type: TreatyType;
-        direction: 'GIVE' | 'RECEIVE';
-        subType?: string; // For two-step selection (e.g. 'IRON')
-    } | null>(null);
-
-    // Filter available items for selectors
-    const getAvailableRegions = (ownerId: string | number) => {
-        return Object.entries(state.owners)
-            .filter(([_, owner]) => owner == ownerId) // Loose equality for consistency
-            .map(([regionId]) => REGIONS.find(r => r.id === regionId))
-            .filter(r => r !== undefined) as typeof REGIONS;
-    };
-
-    const getAvailableRawMaterials = (player: PlayerData) => {
-        // 1. Inventory
-        const inventoryItems = player.inventory?.rawMaterials || [];
-
-        // 2. Passive (Owned Territories)
-        // Find cards in productionDeck that correspond to territories owned by this player
-        const ownedTerritoryIds = Object.entries(state.owners)
-            .filter(([_, ownerId]) => ownerId == player.id)
-            .map(([regionId]) => regionId);
-
-        const passiveItems = state.productionDeck?.rawMaterials.filter(card =>
-            ownedTerritoryIds.includes(card.country)
-        ) || [];
-
-        // Deduplicate by ID just in case? Usually disjoint sets.
-        return [...inventoryItems, ...passiveItems];
-    };
-
-    const getAvailableTechs = (player: PlayerData) => {
-        const inventoryItems = player.inventory?.technologies || [];
-
-        const ownedTerritoryIds = Object.entries(state.owners)
-            .filter(([_, ownerId]) => ownerId == player.id)
-            .map(([regionId]) => regionId);
-
-        const passiveItems = state.productionDeck?.technologies.filter(card =>
-            ownedTerritoryIds.includes(card.country)
-        ) || [];
-
-        return [...inventoryItems, ...passiveItems];
-    };
-
-    const handleAddClause = (type: TreatyType, direction: 'GIVE' | 'RECEIVE', data: any, duration: number = -1) => {
-        const sourceId = direction === 'GIVE' ? currentPlayer.id : targetPlayerId;
-        const targetId = direction === 'GIVE' ? targetPlayerId : currentPlayer.id;
-
-        const newClause: TreatyClause = {
-            id: `clause-${Date.now()}-${Math.random()}`,
-            type,
-            sourcePlayerId: sourceId,
-            targetPlayerId: targetId,
-            duration,
-            data
-        };
-        setClauses([...clauses, newClause]);
-        setActiveSelector(null);
-    };
-
-    const handleSubtypeSelect = (subtype: string) => {
-        if (activeSelector) {
-            setActiveSelector({ ...activeSelector, subType: subtype });
+    /** Opciones que puede comprometer un jugador para un tipo de cláusula. */
+    const optionsFor = (type: TreatyType, ownerId: string | number) => {
+        if (type === 'REGION_CESSION' || type === 'NON_AGGRESSION') {
+            return Object.keys(state.owners).filter(r => String(state.owners[r]) === String(ownerId)).map(r => ({ value: r, label: regionTitle(r) }));
         }
+        const cards = availableCards(state, ownerId);
+        const pool = type === 'RAW_MATERIAL_CESSION' ? cards.rawMaterials : cards.technologies;
+        return pool.map(c => ({
+            value: c.id,
+            label: `${(type === 'RAW_MATERIAL_CESSION' ? RAW_MATERIAL_DATA[c.type as RawMaterialType]?.name : TECHNOLOGY_DATA[c.type as TechnologyType]?.name) ?? c.type} · ${regionTitle(c.country)}`,
+        }));
     };
 
-    const removeClause = (clauseId: string) => {
-        setClauses(clauses.filter(c => c.id !== clauseId));
+    const describe = (c: TreatyClause) => {
+        if (c.type === 'NON_AGGRESSION') return (c.data.regionIds ?? []).map(regionTitle).join(', ');
+        if (c.type === 'REGION_CESSION') return regionTitle(c.data.regionId);
+        return optionsFor(c.type, c.sourcePlayerId).find(o => o.value === c.data.cardId)?.label ?? 'Carta ya no disponible';
     };
 
-    // El servidor valida que cada parte comprometa sólo lo que tiene, genera los
-    // ids y define el estado del tratado. Una contraoferta reusa el id existente.
-    const handleSendOffer = () => {
-        if (!targetPlayerId) return;
-        proposeTreaty(targetPlayerId, clauses, isNew ? undefined : initialTreaty?.id);
-        onClose();
+    const add = (type: TreatyType, giver: string | number, value: string) => {
+        const def = CLAUSES.find(x => x.type === type)!;
+        const receiver = String(giver) === String(meId) ? targetId! : meId;
+        const data = type === 'NON_AGGRESSION' ? { regionIds: [value] } : type === 'REGION_CESSION' ? { regionId: value } : { cardId: value };
+        setClauses(prev => [...prev, { id: `draft-${prev.length}-${value}`, type, duration: def.defaultDuration, sourcePlayerId: giver, targetPlayerId: receiver, data }]);
     };
 
-    const handleAccept = () => {
-        if (!initialTreaty) return;
-        acceptTreaty(initialTreaty);
-        onClose();
-    };
-
-    const updateClause = (clauseId: string, updates: Partial<TreatyClause>) => {
-        setClauses(clauses.map(c => c.id === clauseId ? { ...c, ...updates } : c));
-    };
-
-    const renderSection = (title: string, type: TreatyType, direction: 'GIVE' | 'RECEIVE', availableItems: any[], onSelect: (item: any) => void) => {
-        const relevantClauses = clauses.filter(c =>
-            c.type === type &&
-            (direction === 'GIVE' ? c.sourcePlayerId == currentPlayer.id : c.sourcePlayerId == targetPlayerId)
-        );
-
-        return (
-            <div style={{ marginBottom: '15px', border: '1px solid #444', padding: '10px', backgroundColor: 'rgba(0,0,0,0.3)' }}>
-                <h4 style={{ margin: '0 0 10px 0', color: '#ccc', fontSize: '0.9rem', textTransform: 'uppercase', borderBottom: '1px solid #444', paddingBottom: '5px' }}>
-                    {title}
-                </h4>
-
-                {/* List Existing */}
-                <div style={{ marginBottom: '10px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    {relevantClauses.length === 0 && <span style={{ color: '#666', fontSize: '0.8rem' }}>Ninguno</span>}
-                    {relevantClauses.map(c => {
-                        let label = 'Unknown';
-
-                        if (type === 'REGION_CESSION') {
-                            const r = REGIONS.find(r => r.id === c.data.regionId);
-                            label = r?.title || c.data.regionId || 'Unknown Region';
-                        } else if (type === 'RAW_MATERIAL_CESSION' || type === 'TECH_LOAN' || type === 'TECH_DUPLICATE') {
-                            // Try to find the item in availableItems first
-                            const item = availableItems.find(i => i.id === c.data.cardId);
-
-                            if (item) {
-                                const regionName = REGIONS.find(r => r.id === item.country)?.title || item.country;
-                                label = `${item.name || item.type} (${regionName})`;
-                            } else {
-                                // Search Global Deck and Inventories
-                                const deckRaw = state.productionDeck?.rawMaterials.find(d => d.id === c.data.cardId);
-                                const deckTech = state.productionDeck?.technologies.find(d => d.id === c.data.cardId);
-
-                                let foundItem = deckRaw || deckTech;
-                                if (!foundItem) {
-                                    for (const p of state.players) {
-                                        foundItem = p.inventory.rawMaterials.find(i => i.id === c.data.cardId) || p.inventory.technologies.find(i => i.id === c.data.cardId);
-                                        if (foundItem) break;
-                                    }
-                                }
-
-                                if (foundItem) {
-                                    const regionName = REGIONS.find(r => r.id === foundItem.country)?.title || foundItem.country;
-                                    label = `${(foundItem as any).name || (foundItem as any).type} (${regionName})`;
-                                } else {
-                                    label = c.data.cardId || 'Carta Desconocida';
-                                }
-                            }
-                        } else if (type === 'NON_AGGRESSION') {
-                            label = `Desde: ${(c.data.regionIds || []).map((rid: string) => REGIONS.find(r => r.id === rid)?.title).join(', ')}`;
-                        }
-
-                        return (
-                            <div key={c.id} style={{ backgroundColor: '#222', padding: '5px', borderRadius: '4px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #444' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ color: '#fff' }}>{label}</span>
-                                    {/* Duration Selector */}
-                                    <select
-                                        value={c.duration}
-                                        onChange={(e) => updateClause(c.id, { duration: parseInt(e.target.value) })}
-                                        style={{ backgroundColor: '#000', color: '#00ffff', border: '1px solid #444', fontSize: '0.7rem', padding: '2px' }}
-                                    >
-                                        <option value={1}>1 Año</option>
-                                        <option value={2}>2 Años</option>
-                                        <option value={3}>3 Años</option>
-                                        <option value={4}>4 Años</option>
-                                        <option value={5}>5 Años</option>
+    const side = (giver: string | number, title: React.ReactNode) => (
+        <Section title={title}>
+            {CLAUSES.map(def => {
+                const mine = clauses.filter(c => c.type === def.type && String(c.sourcePlayerId) === String(giver));
+                const used = new Set(mine.map(c => c.data.cardId ?? c.data.regionId ?? c.data.regionIds?.[0]));
+                const opts = optionsFor(def.type, giver).filter(o => !used.has(o.value));
+                return (
+                    <div key={def.type} className="ui-item" style={{ display: 'block' }}>
+                        <div className="ui-item__title" style={{ fontSize: '0.85rem' }}>{def.label}</div>
+                        {mine.map(c => (
+                            <div key={c.id} className="ui-kv">
+                                <span>{describe(c)}</span>
+                                <span className="ui-row">
+                                    <select className="ui-select" style={{ width: 'auto', minHeight: 30 }} disabled={!editable} value={c.duration}
+                                        onChange={e => setClauses(prev => prev.map(x => x.id === c.id ? { ...x, duration: Number(e.target.value) } : x))}
+                                        aria-label="Duración">
+                                        {DURATIONS.map(d => <option key={d} value={d}>{d === -1 ? 'Permanente' : `${d} año${d > 1 ? 's' : ''}`}</option>)}
                                     </select>
-                                </div>
-                                <button onClick={() => removeClause(c.id)} style={{ border: 'none', background: 'transparent', color: '#ff5555', cursor: 'pointer', fontWeight: 'bold', marginLeft: '10px' }}>x</button>
+                                    {editable && <Button size="sm" variant="ghost" tone="danger" onClick={() => setClauses(prev => prev.filter(x => x.id !== c.id))} aria-label="Quitar cláusula">✕</Button>}
+                                </span>
                             </div>
-                        );
-                    })}
-                </div>
-
-                {/* Add Button / Selector */}
-                {activeSelector?.type === type && activeSelector?.direction === direction ? (
-                    <div style={{ backgroundColor: '#222', padding: '5px', borderRadius: '4px' }}>
-                        {(type === 'REGION_CESSION' || type === 'NON_AGGRESSION') && availableItems.length === 0 ? (
-                            <div style={{ padding: '5px', color: '#888', fontStyle: 'italic', fontSize: '0.8rem', textAlign: 'center' }}>
-                                No hay elementos disponibles.
-                                <button onClick={() => setActiveSelector(null)} style={{ display: 'block', margin: '5px auto 0', fontSize: '0.7rem', background: 'transparent', border: 'none', color: '#00ffff', cursor: 'pointer' }}>Cerrar</button>
-                            </div>
-                        ) : (
-                            <>
-                                {type === 'REGION_CESSION' && (
-                                    <select
-                                        onChange={(e) => {
-                                            if (e.target.value) {
-                                                onSelect({ regionId: e.target.value });
-                                            }
-                                        }}
-                                        style={{ width: '100%', padding: '5px', backgroundColor: '#000', color: '#fff', border: '1px solid #555' }}
-                                        defaultValue=""
-                                    >
-                                        <option value="" disabled>Seleccionar Territorio...</option>
-                                        {availableItems.map((r: any) => (
-                                            <option key={r.id} value={r.id}>{r.title}</option>
-                                        ))}
-                                    </select>
-                                )}
-
-                                {(type === 'RAW_MATERIAL_CESSION' || type === 'TECH_LOAN' || type === 'TECH_DUPLICATE') && (
-                                    !activeSelector.subType ? (
-                                        // Step 1: Select Type
-                                        <select
-                                            onChange={(e) => handleSubtypeSelect(e.target.value)}
-                                            style={{ width: '100%', padding: '5px', backgroundColor: '#000', color: '#fff', border: '1px solid #555' }}
-                                            defaultValue=""
-                                        >
-                                            <option value="" disabled>Seleccionar Tipo...</option>
-                                            {(type === 'RAW_MATERIAL_CESSION' ? Object.keys(RAW_MATERIAL_DATA) : Object.keys(TECHNOLOGY_DATA)).map((t: string) => (
-                                                <option key={t} value={t}>{t}</option>
-                                            ))}
-                                        </select>
-                                    ) : (
-                                        // Step 2: Select Specific Card (Country/ID)
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                            <div style={{ fontSize: '0.8rem', color: '#aaa' }}>Tipo: {activeSelector.subType}</div>
-                                            <select
-                                                onChange={(e) => {
-                                                    if (e.target.value) {
-                                                        onSelect({ cardId: e.target.value });
-                                                    }
-                                                }}
-                                                style={{ width: '100%', padding: '5px', backgroundColor: '#000', color: '#fff', border: '1px solid #555' }}
-                                                defaultValue=""
-                                            >
-                                                <option value="" disabled>Seleccionar Origen...</option>
-                                                {availableItems
-                                                    .filter((c: any) => c.type === activeSelector.subType)
-                                                    .map((c: any) => {
-                                                        // Try to resolve country name if available
-                                                        const regionName = REGIONS.find(r => r.id === c.country)?.title || c.country || 'Desconocido';
-                                                        return (
-                                                            <option key={c.id} value={c.id}>{regionName} ({c.id})</option>
-                                                        );
-                                                    })}
-                                            </select>
-                                            {(() => {
-                                                const filteredItems = availableItems.filter((c: any) => c.type === activeSelector.subType);
-                                                return filteredItems.length === 0 && (
-                                                    <div style={{ color: '#ff5555', fontSize: '0.7rem' }}>No posees cartas de este tipo.</div>
-                                                );
-                                            })()}
-                                            <button onClick={() => setActiveSelector({ ...activeSelector, subType: undefined })} style={{ fontSize: '0.7rem', background: 'transparent', border: 'none', color: '#00ffff', cursor: 'pointer', textAlign: 'left' }}>
-                                                &lt; Volver a tipos
-                                            </button>
-                                        </div>
-                                    )
-                                )}
-
-                                {type === 'NON_AGGRESSION' && (
-                                    // Multi-select for regions? Or just "Adding one by one"?
-                                    // For simplicity, let's do a single add per click, or a simple multi-select mock
-                                    <select
-                                        onChange={(e) => {
-                                            if (e.target.value) {
-                                                onSelect({ regionIds: [e.target.value] }); // Simple single region per clause or start list
-                                            }
-                                        }}
-                                        style={{ width: '100%', padding: '5px', backgroundColor: '#000', color: '#fff', border: '1px solid #555' }}
-                                        defaultValue=""
-                                    >
-                                        <option value="" disabled>Restringir ataque desde...</option>
-                                        {availableItems.map((r: any) => (
-                                            <option key={r.id} value={r.id}>{r.title}</option>
-                                        ))}
-                                    </select>
-                                )}
-                                <button onClick={() => setActiveSelector(null)} style={{ marginTop: '5px', fontSize: '0.7rem', background: 'transparent', border: 'none', color: '#888', cursor: 'pointer' }}>Cancelar</button>
-                            </>
+                        ))}
+                        {editable && (
+                            <select className="ui-select" style={{ marginTop: 6 }} value="" disabled={opts.length === 0}
+                                onChange={e => e.target.value && add(def.type, giver, e.target.value)}
+                                aria-label={`Agregar ${def.label}`}>
+                                <option value="">{opts.length === 0 ? 'Nada disponible' : '+ Agregar…'}</option>
+                                {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                            </select>
                         )}
                     </div>
-                ) : (
-                    <button
-                        onClick={() => setActiveSelector({ type, direction })}
-                        style={{ width: '100%', padding: '5px', backgroundColor: 'rgba(255,255,255,0.1)', border: '1px dashed #666', color: '#aaa', cursor: 'pointer', fontSize: '0.8rem' }}
-                    >
-                        + AÑADIR
-                    </button>
-                )}
-            </div>
+                );
+            })}
+        </Section>
+    );
+
+    // Paso 1: elegir contraparte.
+    if (!targetId) {
+        const rivals = state.players.filter(p => String(p.id) !== String(meId) && !p.isEliminated);
+        return (
+            <Modal tone="diplomacy" kicker="Nuevo tratado" title="Elegí la contraparte" size="sm" onClose={onClose}>
+                <div className="ui-stack">
+                    {rivals.map(p => <Option key={p.id} label={<span style={{ color: p.color }}>{p.name}</span>} onSelect={() => setTargetId(p.id)} />)}
+                </div>
+            </Modal>
         );
-    };
+    }
 
     return (
-        <div style={{
-            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-            width: '95%', maxWidth: '1200px', height: '90vh',
-            backgroundColor: '#111', border: '2px solid #00ffff', boxShadow: '0 0 30px rgba(0, 255, 255, 0.2)',
-            zIndex: 1100, display: 'flex', flexDirection: 'column', color: '#fff', fontFamily: 'monospace'
-        }}>
-            {/* Header */}
-            <div style={{ padding: '15px', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2 style={{ margin: 0, color: '#00ffff' }}>EDITOR DE TRATADOS</h2>
-                <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '1.5rem', cursor: 'pointer' }}>✕</button>
+        <Modal
+            tone="diplomacy"
+            kicker={isNew ? 'Nuevo tratado' : initialTreaty?.status === 'PENDING_APPROVAL' ? (awaitingMe ? 'Oferta recibida' : 'Oferta enviada') : 'Tratado'}
+            title={`Con ${target?.name ?? ''}`}
+            size="xl"
+            onClose={onClose}
+            footer={editable ? <>
+                {awaitingMe && <Button variant="danger" onClick={() => { rejectTreaty(initialTreaty!); onClose(); }}>Rechazar</Button>}
+                <Button tone="diplomacy" disabled={clauses.length === 0} onClick={() => { proposeTreaty(targetId, clauses, isNew ? undefined : initialTreaty?.id); onClose(); }}>
+                    {initialTreaty ? 'Enviar contraoferta' : 'Enviar oferta'}
+                </Button>
+                {awaitingMe && <Button variant="primary" tone="diplomacy" onClick={() => { acceptTreaty(initialTreaty!); onClose(); }}>Aceptar tratado</Button>}
+            </> : undefined}
+        >
+            <div className="ui-split" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                {side(meId, <>Yo entrego <span className="ui-muted">({myPlayer.name})</span></>)}
+                {side(targetId, <>{target?.name} entrega</>)}
             </div>
-
-            {/* Target Selection if New */}
-            {isNew && !targetPlayerId ? (
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '20px' }}>
-                    <h3>SELECCIONE CONTRAPARTE</h3>
-                    <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                        {players.filter(p => p.id != currentPlayer.id).map(p => (
-                            <button key={p.id} onClick={() => setTargetPlayerId(p.id)} style={{ padding: '20px', minWidth: '150px', backgroundColor: p.color, border: 'none', fontSize: '1.2rem', fontWeight: 'bold', cursor: 'pointer' }}>
-                                {p.name}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            ) : (
-                <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-                    {/* LEFT: MY CONCESSIONS (I Give) */}
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: '1px solid #333' }}>
-                        <div style={{ padding: '10px', backgroundColor: currentPlayer.color, color: '#000', fontWeight: 'bold', textAlign: 'center' }}>
-                            YO ENTREGO ({currentPlayer.name})
-                        </div>
-                        <div style={{ flex: 1, overflowY: 'auto', padding: '15px' }}>
-                            {renderSection("Cesión de Territorios", 'REGION_CESSION', 'GIVE', getAvailableRegions(currentPlayer.id), (data) => handleAddClause('REGION_CESSION', 'GIVE', data))}
-
-                            {renderSection("Materia Prima", 'RAW_MATERIAL_CESSION', 'GIVE', getAvailableRawMaterials(currentPlayer), (data) => handleAddClause('RAW_MATERIAL_CESSION', 'GIVE', data))}
-
-                            {renderSection("Préstamo de Tecnología", 'TECH_LOAN', 'GIVE', getAvailableTechs(currentPlayer), (data) => handleAddClause('TECH_LOAN', 'GIVE', data, 5))}
-
-                            {renderSection("Duplicado de Tecnología", 'TECH_DUPLICATE', 'GIVE', getAvailableTechs(currentPlayer), (data) => handleAddClause('TECH_DUPLICATE', 'GIVE', data))}
-
-                            {renderSection("Pacto de No Agresión (Desde mis tierras)", 'NON_AGGRESSION', 'GIVE', getAvailableRegions(currentPlayer.id), (data) => handleAddClause('NON_AGGRESSION', 'GIVE', data, 3))}
-                        </div>
-                    </div>
-
-                    {/* RIGHT: THEIR CONCESSIONS (They Give / I Receive) */}
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ padding: '10px', backgroundColor: targetPlayer?.color || '#555', color: '#000', fontWeight: 'bold', textAlign: 'center' }}>
-                            {targetPlayer?.name} ENTREGA
-                        </div>
-                        <div style={{ flex: 1, overflowY: 'auto', padding: '15px' }}>
-                            {renderSection("Cesión de Territorios", 'REGION_CESSION', 'RECEIVE', targetPlayerId ? getAvailableRegions(targetPlayerId) : [], (data) => handleAddClause('REGION_CESSION', 'RECEIVE', data))}
-
-                            {renderSection("Materia Prima", 'RAW_MATERIAL_CESSION', 'RECEIVE', targetPlayer ? getAvailableRawMaterials(targetPlayer) : [], (data) => handleAddClause('RAW_MATERIAL_CESSION', 'RECEIVE', data))}
-
-                            {renderSection("Préstamo de Tecnología", 'TECH_LOAN', 'RECEIVE', targetPlayer ? getAvailableTechs(targetPlayer) : [], (data) => handleAddClause('TECH_LOAN', 'RECEIVE', data, 5))}
-
-                            {renderSection("Duplicado de Tecnología", 'TECH_DUPLICATE', 'RECEIVE', targetPlayer ? getAvailableTechs(targetPlayer) : [], (data) => handleAddClause('TECH_DUPLICATE', 'RECEIVE', data))}
-
-                            {renderSection("Pacto de No Agresión (Desde sus tierras)", 'NON_AGGRESSION', 'RECEIVE', targetPlayerId ? getAvailableRegions(targetPlayerId) : [], (data) => handleAddClause('NON_AGGRESSION', 'RECEIVE', data, 3))}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Footer */}
-            {targetPlayerId && (
-                <div style={{ padding: '20px', borderTop: '1px solid #333', display: 'flex', justifyContent: 'center', gap: '20px' }}>
-                    {initialTreaty?.status === 'PENDING_APPROVAL' && initialTreaty.targetPlayerId == currentPlayer.id && (
-                        <button onClick={() => {
-                            rejectTreaty(initialTreaty);
-                            onClose();
-                        }} style={{ padding: '10px 30px', backgroundColor: '#ff0000', border: 'none', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', color: '#fff' }}>
-                            RECHAZAR OFERTA
-                        </button>
-                    )}
-
-                    {(!initialTreaty || initialTreaty.status === 'DRAFT' || initialTreaty.status === 'PENDING_APPROVAL') && (
-                        <button onClick={handleSendOffer} style={{ padding: '10px 30px', backgroundColor: '#00ffff', border: 'none', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer' }}>
-                            {initialTreaty?.status === 'PENDING_APPROVAL' ? 'ENVIAR CONTRAOFERTA' : 'ENVIAR OFERTA'}
-                        </button>
-                    )}
-
-                    {initialTreaty?.status === 'PENDING_APPROVAL' && initialTreaty.targetPlayerId == currentPlayer.id && (
-                        <button onClick={handleAccept} style={{ padding: '10px 30px', backgroundColor: '#00ff00', border: 'none', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer' }}>
-                            ACEPTAR TRATADO
-                        </button>
-                    )}
-                </div>
-            )}
-        </div>
+            <p className="ui-muted" style={{ fontSize: '0.85rem' }}>Las cláusulas entran en vigor al comenzar el año siguiente a la aceptación.</p>
+        </Modal>
     );
 };
