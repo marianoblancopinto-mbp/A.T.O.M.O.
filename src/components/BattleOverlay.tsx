@@ -1,543 +1,165 @@
-import React, { useState } from 'react';
-import type { Card } from '../types/gameTypes';
-
+import React, { useEffect, useState } from 'react';
+import type { Card, BattleState } from '../types/gameTypes';
+import { regionTitle } from '@atomo/shared';
 import { useGameContext } from '../context/GameContext';
-import { BattleCard } from './shared/battle/BattleCard';
-import { BattleSupplyModal } from './shared/battle/BattleSupplyModal';
-import type { BattleState } from '../types/gameTypes';
 import { useGameActions } from '../hooks/useGameActions';
 import { useMyPlayer } from '../hooks/useMyPlayer';
+import { BattleCard } from './shared/battle/BattleCard';
+import { BattleSupplyModal } from './shared/battle/BattleSupplyModal';
+import { Modal, Section, Button } from '../ui/components';
 
-interface BattleOverlayProps {
-    battleState: BattleState | null;
-    onOpenInventory: () => void;
+const AFK_MS = 20000;
+
+/** Lista de modificadores de cada bando, con el mismo formato para los dos. */
+function modifiers(b: BattleState) {
+    const a = b.attackerBonuses, d = b.defenderBonuses;
+    const att: string[] = [];
+    if (a.isNormandy) att.push('+2 Artillería, +1 Infantería (Normandía)');
+    else {
+        if (a.isMaritime) att.push('+1 Artillería, −1 Infantería (desembarco)');
+        if (a.isAndesCrossing) att.push('+1 Infantería (Cruce de los Andes)');
+    }
+    if (a.isAlejandroBonus) att.push('+1 Infantería (Alejandro Magno)');
+    if (a.isOtomanoBonus) att.push('+1 Infantería (Legado Otomano)');
+    if (a.isGengisBonus) att.push('+1 Infantería (Gengis Khan)');
+    if (a.isBolivarBonus) att.push('+1 Infantería (Bolívar)');
+    if (a.isPacificFireBonus) att.push('+1 Aéreo (Fuego del Pacífico)');
+    const def: string[] = [];
+    const terrainAir = d.air - (d.isGoldenDomeBonus ? 1 : 0);
+    if (d.art > 0) def.push(`+${d.art} vs Artillería (terreno)`);
+    if (terrainAir > 0) def.push(`+${terrainAir} vs Aéreo (terreno)`);
+    if (d.inf > 0) def.push(`+${d.inf} vs Infantería (terreno)`);
+    if (d.isGoldenDomeBonus) def.push('+1 vs Aéreo (Cúpula Dorada)');
+    return { att, def };
 }
 
-export const BattleOverlay: React.FC<BattleOverlayProps> = ({
-    battleState,
-    onOpenInventory,
-}) => {
-    // Hooks
-    const { state, multiplayer } = useGameContext();
-    const { players } = state;
+/**
+ * Pantalla de batalla. Sólo la ven los dos participantes. El servidor reparte
+ * las manos, resuelve los choques y juega por la IA neutral; acá sólo se elige
+ * una carta de la mano propia.
+ */
+export const BattleOverlay: React.FC<{ battleState: BattleState | null; onOpenInventory: () => void }> = ({ battleState, onOpenInventory }) => {
+    const { multiplayer } = useGameContext();
     const actions = useGameActions();
     const { myPlayer } = useMyPlayer();
+    const [showSupplies, setShowSupplies] = useState(false);
+    const [confirmKick, setConfirmKick] = useState(false);
+    const [idle, setIdle] = useState(false);
 
-    // --- Local UI State for non-synced interactions ---
-    const [showSupplyModal, setShowSupplyModal] = useState(false);
-    const [supplyRole, setSupplyRole] = useState<'attacker' | 'defender'>('attacker');
-    const [isPendingSync, setIsPendingSync] = useState(false);
-    const [phaseStartTime, setPhaseStartTime] = useState(Date.now());
-    const [showForceExit, setShowForceExit] = useState(false);
-    const [showKickConfirm, setShowKickConfirm] = useState(false);
+    const phaseKey = battleState ? `${battleState.phase}-${battleState.roundCount}` : '';
+    useEffect(() => {
+        setIdle(false);
+        const t = setTimeout(() => setIdle(true), AFK_MS);
+        return () => clearTimeout(t);
+    }, [phaseKey]);
 
     if (!battleState) return null;
+    const b = battleState;
+    const isAttacker = String(multiplayer.playerId) === String(b.attacker.id);
+    const isDefender = String(multiplayer.playerId) === String(b.defender.id);
+    if (!isAttacker && !isDefender) return null;
 
-    // Derived Data
-    const attacker = players.find(p => p.id === battleState.attacker.id) || battleState.attacker;
-    const defender = players.find(p => p.id === battleState.defender.id) || battleState.defender;
+    const isNeutral = String(b.defender.id) === 'neutral_ai';
+    const myHand: Card[] = isAttacker ? b.attackerHand : b.defenderHand;
+    const myTurnToPlay = (isAttacker && b.phase === 'ATTACKER_SELECTION') || (isDefender && b.phase === 'DEFENDER_SELECTION');
+    const finished = b.phase === 'VICTORY' || b.phase === 'DEFEAT';
+    const iWon = finished && ((b.phase === 'VICTORY') === isAttacker);
+    const opponent = isAttacker ? b.defender : b.attacker;
+    const canKick = multiplayer.isHost && !isNeutral && !finished;
+    const mods = modifiers(b);
+    const front = isAttacker ? b.attackSourceId : b.targetRegionId;
 
-    // Identity Check
-    const isAttacker = String(multiplayer.playerId) === String(attacker.id);
-    const isDefender = String(multiplayer.playerId) === String(defender.id);
-    const isNeutralAI = String(defender.id) === 'neutral_ai';
-    const isHost = multiplayer.isHost;
-    const opponentId = isAttacker ? defender.id : attacker.id;
-    const opponentName = isAttacker ? defender.name : attacker.name;
-    const canKickOpponent = isHost && (isAttacker || isDefender) && !isNeutralAI;
-
-    // Visibility Restriction: Only involved players see the overlay
-    if (!isAttacker && !isDefender && !isNeutralAI) return null;
-    // Special case: if defender is AI, the attacker is the only one who should see/control the flow
-    if (isNeutralAI && !isAttacker) return null;
-    const attackerName = attacker.name;
-    const attackerColor = attacker.color;
-    const defenderName = defender.name;
-    const defenderColor = defender.color;
-
-    // Global Battle State
-    const {
-        attackerHand,
-        defenderHand,
-        attackerBonuses,
-        targetRegionId,
-        phase,
-        currentAttackerCard,
-        currentDefenderCard,
-        clashResult,
-        attackerWins,
-        defenderWins,
-        roundCount,
-        defenderBonuses
-    } = battleState;
-
-    // --- Sync & AFK Monitoring ---
-    React.useEffect(() => {
-        setIsPendingSync(false);
-        setPhaseStartTime(Date.now());
-        setShowForceExit(false);
-    }, [phase, roundCount]);
-
-    React.useEffect(() => {
-        const interval = setInterval(() => {
-            const idleTime = Date.now() - phaseStartTime;
-            if (idleTime > 20000) { // 20 seconds
-                setShowForceExit(true);
-            }
-        }, 1000);
-        return () => clearInterval(interval);
-    }, [phaseStartTime]);
-
-    // La IA neutral la juega el SERVIDOR (con una pausa breve); el cliente sólo espera.
-
-    // --- Handlers ---
-
-    const handleOpenSupplyModal = (role: 'attacker' | 'defender') => {
-        // Only allow opening if it's your role
-        if (role === 'attacker' && !isAttacker) return;
-        if (role === 'defender' && !isDefender) return;
-
-        setSupplyRole(role);
-        setShowSupplyModal(true);
-    };
-
-    const handleConfirmSupplies = (selectedIds: Set<string>) => {
-        // El servidor calcula cuántas cartas robar (set completo = 4, suelto = 1) y las reparte.
-        if (selectedIds.size > 0) actions.useBattleSupplies([...selectedIds]);
-        setShowSupplyModal(false);
-    };
-
-    const handleAttackerSelect = (card: Card) => {
-        if (!isAttacker) return;
-        actions.playBattleCard(card.id);
-    };
-
-    const handleDefenderSelect = (card: Card) => {
-        if (!isDefender) return;
-        actions.playBattleCard(card.id);
-    };
-
-    const nextClash = () => {
-        setIsPendingSync(true);
-        actions.nextBattleRound();
-    };
-
-    const handleClose = () => {
-        actions.closeBattle();
-    };
-
-    const handleKickOpponent = () => {
-        if (!canKickOpponent) return;
-        actions.kickPlayer(opponentId);
-        setShowKickConfirm(false);
-    };
-
-    // --- Render Helpers ---
-
-    const renderScoreBanner = () => (
-        <div style={{
-            width: '100%',
-            padding: '12px',
-            backgroundColor: '#000',
-            borderBottom: '1px solid #333',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            gap: '30px',
-            fontSize: '1.2rem',
-            fontWeight: 'bold',
-            position: 'sticky',
-            top: 0,
-            zIndex: 100,
-            fontFamily: 'monospace',
-            boxShadow: '0 5px 15px rgba(0,0,0,0.5)'
-        }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '12px', height: '12px', backgroundColor: attackerColor, borderRadius: '50%' }} />
-                <span style={{ color: attackerColor }}>{attackerName.toUpperCase()}: {attackerWins}</span>
-            </div>
-            <div style={{ color: '#666', fontSize: '0.8rem' }}>// ROUND {roundCount + 1}/3 //</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ color: defenderColor }}>{defenderName.toUpperCase()}: {defenderWins}</span>
-                <div style={{ width: '12px', height: '12px', backgroundColor: defenderColor, borderRadius: '50%' }} />
-            </div>
-            {/* Host Kick Button */}
-            {canKickOpponent && phase !== 'VICTORY' && phase !== 'DEFEAT' && (
-                <div style={{ position: 'absolute', right: '15px', top: '50%', transform: 'translateY(-50%)' }}>
-                    {!showKickConfirm ? (
-                        <button
-                            onClick={() => setShowKickConfirm(true)}
-                            style={{
-                                padding: '5px 10px',
-                                fontSize: '0.7rem',
-                                backgroundColor: 'transparent',
-                                color: '#ff4444',
-                                border: '1px solid #ff4444',
-                                cursor: 'pointer',
-                                fontFamily: 'monospace',
-                                textTransform: 'uppercase',
-                                opacity: 0.7,
-                                transition: 'opacity 0.2s'
-                            }}
-                            onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.7'; }}
-                        >
-                            EXPULSAR AFK
-                        </button>
-                    ) : (
-                        <div style={{ display: 'flex', gap: '5px' }}>
-                            <button
-                                onClick={handleKickOpponent}
-                                style={{
-                                    padding: '5px 10px',
-                                    fontSize: '0.7rem',
-                                    backgroundColor: '#ff0000',
-                                    color: '#fff',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    fontFamily: 'monospace',
-                                    fontWeight: 'bold',
-                                    textTransform: 'uppercase'
-                                }}
-                            >
-                                CONFIRMAR EXPULSI\u00D3N DE {opponentName.toUpperCase()}
-                            </button>
-                            <button
-                                onClick={() => setShowKickConfirm(false)}
-                                style={{
-                                    padding: '5px 8px',
-                                    fontSize: '0.7rem',
-                                    backgroundColor: '#333',
-                                    color: '#fff',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    fontFamily: 'monospace'
-                                }}
-                            >
-                                X
-                            </button>
-                        </div>
-                    )}
-                </div>
-            )}
-        </div>
-    );
-
-    const renderModifiers = () => {
-        const attMods: React.ReactNode[] = [];
-        const defMods: React.ReactNode[] = [];
-
-        // Attacker Modifiers
-        if (attackerBonuses.isNormandy) {
-            attMods.push(<div key="att-normandy-art" style={{ color: '#00aaff' }}>+2 Artillería (Desembarco de Normandía)</div>);
-            attMods.push(<div key="att-normandy-inf" style={{ color: '#00ff44' }}>+1 Infantería (Desembarco de Normandía)</div>);
-        } else {
-            if (attackerBonuses.art !== 0) {
-                attMods.push(<div key="att-art" style={{ color: '#fff' }}>{`${attackerBonuses.art > 0 ? '+' : ''}${attackerBonuses.art} Artillería (Desembarco)`}</div>);
-            }
-            if (attackerBonuses.isMaritime) {
-                attMods.push(<div key="att-inf-maritime" style={{ color: '#ff4444' }}>-1 Infantería (Desembarco)</div>);
-            }
-            if (attackerBonuses.isAndesCrossing) {
-                attMods.push(<div key="att-inf-andes" style={{ color: '#00ff00' }}>+1 Infantería (Misión Cruce de los Andes)</div>);
-            }
-            if (attackerBonuses.isAlejandroBonus) {
-                attMods.push(<div key="att-inf-alejandro" style={{ color: '#ffd700' }}>+1 Infantería (Misión Alejandro Magno)</div>);
-            }
-            if (attackerBonuses.isOtomanoBonus) {
-                attMods.push(<div key="att-inf-otomano" style={{ color: '#00ccff' }}>+1 Infantería (Legado Otomano)</div>);
-            }
-            if (attackerBonuses.isGengisBonus) {
-                attMods.push(<div key="att-inf-gengis" style={{ color: '#ff4444' }}>+1 Infantería (Gengis Khan)</div>);
-            }
-            if (attackerBonuses.isBolivarBonus) {
-                attMods.push(<div key="att-inf-bolivar" style={{ color: '#ffcc00' }}>+1 Infantería (Bolívar)</div>);
-            }
-            if (attackerBonuses.isPacificFireBonus) {
-                attMods.push(<div key="att-air-pacific" style={{ color: '#00ffff' }}>+1 Aéreo (Fuego del Pacífico)</div>);
-            }
-        }
-
-        // Defender Modifiers
-        if (defenderBonuses.art > 0) defMods.push(<div key="def-art" style={{ color: '#fff' }}>+{defenderBonuses.art} Artillería (Terreno)</div>);
-        if (defenderBonuses.air > 0) defMods.push(<div key="def-air" style={{ color: '#fff' }}>+{defenderBonuses.air} Aéreo (Terreno)</div>);
-        if (defenderBonuses.inf > 0) defMods.push(<div key="def-inf" style={{ color: '#fff' }}>+{defenderBonuses.inf} Infantería (Terreno)</div>);
-        if (defenderBonuses.isGoldenDomeBonus) defMods.push(<div key="def-goldendome" style={{ color: '#ffd700' }}>+1 Aéreo (Cúpula Dorada)</div>);
-
-        return (
-            <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '10px',
-                marginBottom: '20px',
-                padding: '10px',
-                border: '1px solid #333',
-                backgroundColor: 'rgba(0,0,0,0.5)',
-                fontFamily: 'monospace',
-                fontSize: '0.8rem'
-            }}>
-                <div style={{ display: 'flex', gap: '40px', justifyContent: 'center' }}>
-                    <div style={{ textAlign: 'center' }}>
-                        <div style={{ color: attackerColor, borderBottom: `1px solid ${attackerColor}`, marginBottom: '5px' }}>MODIFICADORES {attackerName}</div>
-                        {attMods.length > 0 ? attMods : <div style={{ color: '#666' }}>-</div>}
-                    </div>
-                    <div style={{ width: '1px', backgroundColor: '#333' }}></div>
-                    <div style={{ textAlign: 'center' }}>
-                        <div style={{ color: defenderColor, borderBottom: `1px solid ${defenderColor}`, marginBottom: '5px' }}>MODIFICADORES {defenderName}</div>
-                        {defMods.length > 0 ? defMods : <div style={{ color: '#666' }}>-</div>}
-                    </div>
-                </div>
-            </div>
-        );
-    };
-
-    // --- ASYMMETRIC RENDER LOGIC ---
-
-    const renderAttackerView = () => {
-        return (
-            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-
-                {renderModifiers()}
-
-                {/* Status Message */}
-                {phase === 'DEFENDER_SELECTION' && (
-                    <div style={{ textAlign: 'center', marginBottom: '30px', animation: 'fadeIn 0.5s' }}>
-                        <h2 style={{ color: '#888' }}>
-                            {isNeutralAI ? 'PROCESANDO DEFENSA ESTRATÉGICA...' : 'ESPERANDO AL DEFENSOR...'}
-                        </h2>
-                        {isNeutralAI && (
-                            <div style={{ marginTop: '20px' }}>
-                                <div style={{ color: '#00ff00', fontSize: '0.8rem', marginBottom: '10px' }}>FUERZAS LOCALES ACTIVAS</div>
-                            </div>
-                        )}
-                        <div style={{ marginTop: '20px', opacity: 0.7 }}>
-                            <BattleCard card={currentAttackerCard!} role="attacker" disabled={true} />
-                        </div>
-                    </div>
-                )}
-
-                {/* Card Selection */}
-                {phase === 'ATTACKER_SELECTION' && (
-                    <>
-                        <h2 style={{ color: attackerColor, marginBottom: '20px' }}>SELECCIONA TU CARTA</h2>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '10px' }}>
-                            {attackerHand.map(card => (
-                                <BattleCard
-                                    key={card.id}
-                                    card={card}
-                                    role="attacker"
-                                    onClick={() => handleAttackerSelect(card)}
-                                    highlight={true}
-                                />
-                            ))}
-                        </div>
-                        <button
-                            onClick={() => handleOpenSupplyModal('attacker')}
-                            style={{ marginTop: '20px', padding: '10px', background: '#222', color: attackerColor, border: '1px solid #444' }}
-                        >
-                            USAR SUMINISTROS
-                        </button>
-                    </>
-                )}
-            </div>
-        );
-    };
-
-    const renderDefenderView = () => {
-        return (
-            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-
-                {renderModifiers()}
-
-                {/* Status Message */}
-                {phase === 'ATTACKER_SELECTION' && (
-                    <div style={{ textAlign: 'center', marginBottom: '30px', animation: 'fadeIn 0.5s' }}>
-                        <h2 style={{ color: '#888' }}>EL ATACANTE ESTÁ ELIGIENDO...</h2>
-                    </div>
-                )}
-
-                {/* Card Selection */}
-                {phase === 'DEFENDER_SELECTION' && (
-                    <>
-                        <div style={{ marginBottom: '30px', opacity: 0.7, transform: 'scale(0.8)' }}>
-                            <div style={{ color: '#888', textAlign: 'center', marginBottom: '10px' }}>ATAQUE ENTRANTE</div>
-                            {/* NOTE: We can decide to hide the attacker card here for "Fog of War" or show it. 
-                                Standard TEG/Risk shows it to allow counter-play logic. */}
-                            <BattleCard card={currentAttackerCard!} role="attacker" disabled={true} />
-                        </div>
-
-                        <h2 style={{ color: defenderColor, marginBottom: '20px' }}>ELIGE TU DEFENSA</h2>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '10px' }}>
-                            {defenderHand.map(card => (
-                                <BattleCard
-                                    key={card.id}
-                                    card={card}
-                                    role="defender"
-                                    onClick={() => handleDefenderSelect(card)}
-                                    highlight={true}
-                                />
-                            ))}
-                        </div>
-                        <button
-                            onClick={() => handleOpenSupplyModal('defender')}
-                            style={{ marginTop: '20px', padding: '10px', background: '#222', color: defenderColor, border: '1px solid #444' }}
-                        >
-                            USAR SUMINISTROS
-                        </button>
-                    </>
-                )}
-            </div>
-        );
-    };
-
-    const renderResolution = () => {
-        if (!clashResult || !currentAttackerCard || !currentDefenderCard) return null;
-
-        return (
-            <div style={{ textAlign: 'center', animation: 'fadeIn 0.5s', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <h2 style={{
-                    color: clashResult.winner === 'attacker' ? attackerColor : defenderColor,
-                    fontSize: '2.5rem', marginBottom: '20px', whiteSpace: 'pre-wrap'
-                }}>
-                    {clashResult.winner === 'attacker' ? 'VICTORIA ATACANTE' : 'VICTORIA DEFENSOR'}<br />
-                    <span style={{ fontSize: '1rem', color: '#ccc' }}>{clashResult.reason}</span>
-                </h2>
-
-                <div style={{ display: 'flex', gap: '50px', alignItems: 'center', margin: '30px 0' }}>
-                    <div style={{ transform: 'scale(1.2)' }}>
-                        <BattleCard card={currentAttackerCard} role="attacker" highlight={clashResult.winner === 'attacker'} disabled={true} />
-                    </div>
-                    <div style={{ fontSize: '3rem', fontWeight: 'bold', color: '#555' }}>VS</div>
-                    <div style={{ transform: 'scale(1.2)' }}>
-                        <BattleCard card={currentDefenderCard} role="defender" highlight={clashResult.winner === 'defender'} disabled={true} />
-                    </div>
-                </div>
-
-                {isAttacker ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
-                        <button
-                            onClick={nextClash}
-                            disabled={isPendingSync}
-                            style={{
-                                padding: '15px 40px',
-                                fontSize: '1.2rem',
-                                backgroundColor: isPendingSync ? '#222' : '#333',
-                                color: isPendingSync ? '#666' : '#fff',
-                                border: `1px solid ${isPendingSync ? '#444' : '#666'}`,
-                                borderRadius: '4px',
-                                cursor: isPendingSync ? 'wait' : 'pointer',
-                                fontWeight: 'bold',
-                                marginTop: '20px'
-                            }}
-                        >
-                            {isPendingSync ? 'SINCRONIZANDO...' : 'CONTINUAR ATAQUE'}
-                        </button>
-                        {isPendingSync && (
-                            <div style={{ color: '#00ff00', fontSize: '0.8rem', animation: 'blink 1s infinite' }}>
-                                ENVIANDO DATOS AL CUARTEL GENERAL...
-                            </div>
-                        )}
-                    </div>
-                ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px', marginTop: '20px' }}>
-                        <div style={{ color: '#888', fontStyle: 'italic', animation: 'pulse 1.5s infinite' }}>
-                            {showForceExit ? 'EL ATACANTE NO RESPONDE' : 'Esperando a que el atacante continúe...'}
-                        </div>
-                        <button
-                            onClick={nextClash}
-                            style={{
-                                padding: '10px 20px',
-                                fontSize: '0.9rem',
-                                backgroundColor: showForceExit ? 'rgba(255,0,0,0.1)' : 'transparent',
-                                color: showForceExit ? '#ff4444' : '#666',
-                                border: `1px solid ${showForceExit ? '#ff4444' : '#444'}`,
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                                fontWeight: showForceExit ? 'bold' : 'normal',
-                                boxShadow: showForceExit ? '0 0 10px rgba(255,0,0,0.2)' : 'none'
-                            }}
-                        >
-                            {showForceExit ? 'CONTINUAR (SISTEMA AFK DETECTADO)' : 'CONTINUAR (SI EL ATACANTE NO RESPONDE)'}
-                        </button>
-                        {showForceExit && (
-                            <div style={{ fontSize: '0.7rem', color: '#ff4444', maxWidth: '300px', textAlign: 'center' }}>
-                                Se ha detectado inactividad prolongada del atacante. Puedes retirarte de la batalla sin perder tropas adicionales.
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
-        );
-    }
+    const footer = finished
+        ? <Button variant="primary" onClick={actions.closeBattle}>Cerrar batalla</Button>
+        : <>
+            {canKick && (confirmKick
+                ? <Button variant="danger" onClick={() => { actions.kickPlayer(opponent.id); setConfirmKick(false); }}>Confirmar expulsión de {opponent.name}</Button>
+                : <Button variant="ghost" tone="danger" onClick={() => setConfirmKick(true)}>Expulsar por inactividad</Button>)}
+            {myTurnToPlay && <Button onClick={() => setShowSupplies(true)}>Usar suministros</Button>}
+            {b.phase === 'RESOLUTION' && (isAttacker
+                ? <Button variant="primary" onClick={actions.nextBattleRound}>Continuar</Button>
+                : <Button variant={idle ? 'primary' : 'secondary'} onClick={actions.nextBattleRound}>{idle ? 'Continuar (atacante inactivo)' : 'Continuar'}</Button>)}
+        </>;
 
     return (
-        <div style={{
-            position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-            backgroundColor: '#050505',
-            zIndex: 3000,
-            display: 'flex', flexDirection: 'column', alignItems: 'center',
-            overflowY: 'auto'
-        }}>
-            {renderScoreBanner()}
+        <>
+            <Modal
+                layer="screen"
+                tone={finished ? (iWon ? 'default' : 'danger') : 'danger'}
+                kicker={`Ronda ${Math.min(b.roundCount + 1, 3)}/3 · ${b.attacker.name} ${b.attackerWins} – ${b.defenderWins} ${b.defender.name}`}
+                title={`Batalla por ${regionTitle(b.targetRegionId)}`}
+                size="xl"
+                footer={footer}
+            >
+                <div className="ui-split" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: 12 }}>
+                    <Section title={<span style={{ color: b.attacker.color }}>Atacante · {b.attacker.name} (desde {regionTitle(b.attackSourceId)})</span>}>
+                        {mods.att.length ? mods.att.map(m => <div key={m} className="ui-text" style={{ margin: 0 }}>{m}</div>) : <span className="ui-muted">Sin modificadores</span>}
+                    </Section>
+                    <Section title={<span style={{ color: b.defender.color }}>Defensor · {b.defender.name}</span>}>
+                        {mods.def.length ? mods.def.map(m => <div key={m} className="ui-text" style={{ margin: 0 }}>{m}</div>) : <span className="ui-muted">Sin modificadores</span>}
+                    </Section>
+                </div>
 
-            <div style={{ flex: 1, width: '100%', maxWidth: '1400px', padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-
-                {phase === 'RESOLUTION' ? renderResolution() : (
-                    <>
-                        {(phase === 'VICTORY' || phase === 'DEFEAT') ? (
-                            <div style={{ textAlign: 'center', animation: 'fadeIn 0.5s', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                <h1 style={{
-                                    color: phase === 'VICTORY' ? (isAttacker ? attackerColor : defenderColor) : (isAttacker ? defenderColor : attackerColor),
-                                    fontSize: '4rem',
-                                    marginBottom: '20px',
-                                    textShadow: '0 0 20px rgba(0,0,0,0.8)'
-                                }}>
-                                    {phase === 'VICTORY' ? '¡VICTORIA!' : '¡DERROTA!'}
-                                </h1>
-                                <div style={{ fontSize: '1.5rem', color: '#ccc', marginBottom: '40px' }}>
-                                    {phase === 'VICTORY'
-                                        ? `La región ${targetRegionId} ha sido conquistada.`
-                                        : `La defensa de ${targetRegionId} ha tenido éxito.`}
-                                </div>
-                                <button
-                                    onClick={handleClose}
-                                    style={{
-                                        padding: '15px 40px',
-                                        fontSize: '1.5rem',
-                                        backgroundColor: '#444',
-                                        color: '#fff',
-                                        border: '2px solid #fff',
-                                        borderRadius: '8px',
-                                        cursor: 'pointer',
-                                        fontWeight: 'bold',
-                                        boxShadow: '0 0 15px rgba(255,255,255,0.2)'
-                                    }}
-                                >
-                                    CERRAR BATALLA
-                                </button>
-                            </div>
-                        ) : (
-                            <>
-                                {isAttacker && renderAttackerView()}
-                                {isDefender && renderDefenderView()}
-                            </>
-                        )}
-                    </>
+                {finished && (
+                    <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                        <h2 className="ui-announce__title" style={{ fontSize: 'clamp(2rem, 6vw, 3.4rem)' }}>{iWon ? '¡Victoria!' : '¡Derrota!'}</h2>
+                        <p className="ui-text">{b.phase === 'VICTORY'
+                            ? `${b.attacker.name} conquistó ${regionTitle(b.targetRegionId)}.`
+                            : `${b.defender.name} defendió ${regionTitle(b.targetRegionId)}.`}</p>
+                    </div>
                 )}
 
-            </div>
+                {b.phase === 'RESOLUTION' && b.clashResult && b.currentAttackerCard && b.currentDefenderCard && (
+                    <Section title={b.clashResult.winner === 'attacker' ? 'Gana el atacante' : 'Gana el defensor'}>
+                        <p className="ui-text">{b.clashResult.reason}</p>
+                        <div className="ui-row" style={{ justifyContent: 'center', gap: 24 }}>
+                            <BattleCard card={b.currentAttackerCard} role="attacker" highlight={b.clashResult.winner === 'attacker'} disabled />
+                            <strong className="ui-muted" style={{ fontSize: '2rem' }}>VS</strong>
+                            <BattleCard card={b.currentDefenderCard} role="defender" highlight={b.clashResult.winner === 'defender'} disabled />
+                        </div>
+                    </Section>
+                )}
 
-            <BattleSupplyModal
-                isOpen={showSupplyModal}
-                onClose={() => setShowSupplyModal(false)}
-                supplies={myPlayer?.supplies ?? { food: [], manufacture: [], energy: [] }}
-                playerName={supplyRole === 'attacker' ? attackerName : defenderName}
-                playerColor={supplyRole === 'attacker' ? attackerColor : defenderColor}
-                playerIndex={supplyRole === 'attacker' ? attacker.id : defender.id}
-                targetRegionId={supplyRole === 'attacker' ? battleState.attackSourceId : targetRegionId}
-                onConfirm={handleConfirmSupplies}
-                onOpenInventory={onOpenInventory}
-            />
-        </div>
+                {(b.phase === 'ATTACKER_SELECTION' || b.phase === 'DEFENDER_SELECTION') && (
+                    <>
+                        {b.phase === 'DEFENDER_SELECTION' && b.currentAttackerCard && (
+                            <Section title="Ataque entrante">
+                                <div className="ui-row" style={{ justifyContent: 'center' }}>
+                                    <BattleCard card={b.currentAttackerCard} role="attacker" disabled />
+                                </div>
+                            </Section>
+                        )}
+                        <Section title={myTurnToPlay ? (isAttacker ? 'Elegí tu carta de ataque' : 'Elegí tu defensa') : 'Tu mano'}>
+                            {!myTurnToPlay && (
+                                <p className="ui-note">{isAttacker
+                                    ? (isNeutral ? 'Las fuerzas locales están respondiendo…' : `Esperando la defensa de ${b.defender.name}…`)
+                                    : `${b.attacker.name} está eligiendo su ataque…`} {b.opponentHandSize != null && <span className="ui-muted">(el rival tiene {b.opponentHandSize} cartas)</span>}</p>
+                            )}
+                            <div className="ui-row" style={{ justifyContent: 'center', gap: 10 }}>
+                                {myHand.map(card => (
+                                    <BattleCard key={card.id} card={card} role={isAttacker ? 'attacker' : 'defender'}
+                                        disabled={!myTurnToPlay} highlight={myTurnToPlay}
+                                        onClick={myTurnToPlay ? () => actions.playBattleCard(card.id) : undefined} />
+                                ))}
+                            </div>
+                        </Section>
+                    </>
+                )}
+            </Modal>
+
+            {myPlayer && (
+                <BattleSupplyModal
+                    isOpen={showSupplies}
+                    onClose={() => setShowSupplies(false)}
+                    supplies={myPlayer.supplies}
+                    playerName={myPlayer.name}
+                    playerColor={myPlayer.color}
+                    playerIndex={myPlayer.id}
+                    targetRegionId={front}
+                    onConfirm={ids => { actions.useBattleSupplies([...ids]); setShowSupplies(false); }}
+                    onOpenInventory={onOpenInventory}
+                />
+            )}
+        </>
     );
 };

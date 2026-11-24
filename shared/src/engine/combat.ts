@@ -13,7 +13,7 @@ import { calculateAttackerScore, calculateDefenderScore, selectBestDefenderCard 
 import { shuffled, type Random } from './rng';
 import {
     fail, ok, sameId, getPlayer, currentPlayer, owns, playerRef, regionTitle, isRegion,
-    notify, pickSupplies, updatePlayer, removeSupplies, type EngineResult,
+    notify, pickSupplies, updatePlayer, removeSupplies, hasRoute, type EngineResult,
 } from './helpers';
 
 export const NEUTRAL_AI_ID = 'neutral_ai';
@@ -277,6 +277,9 @@ export function useBattleSupplies(state: GameState, actorId: unknown, supplyIds:
     const items = pickSupplies(player, supplyIds);
     if (typeof items === 'string') return fail(items);
     if (items.length === 0) return fail('No elegiste suministros.');
+    // Los suministros tienen que poder llegar al frente: el país de origen del ataque o el defendido.
+    const front = role === 'attacker' ? b.attackSourceId : b.targetRegionId;
+    if (items.some(s => !hasRoute(state, actorId, s.originCountry, front))) return fail('Algún suministro no tiene ruta hasta el frente.');
 
     const count = (t: string) => items.filter(s => s.type === t).length;
     let m = count('manufacture'), f = count('food'), e = count('energy'), sets = 0;

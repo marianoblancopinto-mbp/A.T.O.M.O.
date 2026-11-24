@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { DocumentModal } from '../../../ui/DocumentModal';
+import { boxStyle, h3Style, sectionStyle } from '../../../ui/docStyles';
 import { getSpecialMissions } from '../../../data/missionData';
 
 interface SecondaryMissionsModalProps {
@@ -19,30 +21,6 @@ export const SecondaryMissionsModal: React.FC<SecondaryMissionsModalProps> = ({
     if (!isOpen) return null;
 
     const activeMission = missions.find(m => m.id === activeMissionId)!;
-
-    const sectionStyle: React.CSSProperties = {
-        color: '#ccc',
-        lineHeight: '1.7',
-        fontSize: '0.95rem',
-    };
-
-    const h3Style: React.CSSProperties = {
-        color: '#ff8800',
-        borderBottom: '1px solid #ff880044',
-        paddingBottom: '8px',
-        marginTop: '25px',
-        marginBottom: '12px',
-        fontSize: '1.1rem',
-        letterSpacing: '2px',
-    };
-
-    const boxStyle: React.CSSProperties = {
-        backgroundColor: 'rgba(255, 136, 0, 0.05)',
-        border: '1px solid #ff880044',
-        padding: '20px',
-        marginTop: '20px',
-        fontSize: '0.9rem',
-    };
 
     const renderEspionage = () => (
         <div style={sectionStyle}>
@@ -103,145 +81,10 @@ export const SecondaryMissionsModal: React.FC<SecondaryMissionsModalProps> = ({
     );
 
     return (
-        <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.95)',
-            zIndex: 10000,
-            display: 'flex',
-            fontFamily: '"Courier New", Courier, monospace',
-        }}>
-            {/* Sidebar — Missions & Espionage */}
-            <div style={{
-                width: '280px',
-                minWidth: '280px',
-                backgroundColor: '#0a0a0a',
-                borderRight: '1px solid #222',
-                display: 'flex',
-                flexDirection: 'column',
-                padding: '20px 0',
-                overflowY: 'auto',
-            }}>
-                <div style={{
-                    padding: '0 20px 20px',
-                    borderBottom: '1px solid #222',
-                    marginBottom: '10px',
-                }}>
-                    <h2 style={{
-                        color: '#ff8800',
-                        fontSize: '1.1rem',
-                        margin: 0,
-                        letterSpacing: '2px',
-                    }}>
-                        OBJETIVOS ADICIONALES
-                    </h2>
-                    <div style={{ color: '#555', fontSize: '0.7rem', marginTop: '5px' }}>
-                        Protocolos Secundarios
-                    </div>
-                </div>
-
-                {/* Espionage Toggle */}
-                <button
-                    onClick={() => setActiveSection('espionage')}
-                    style={{
-                        padding: '12px 20px',
-                        border: 'none',
-                        backgroundColor: activeSection === 'espionage' ? 'rgba(0, 255, 255, 0.1)' : 'transparent',
-                        color: activeSection === 'espionage' ? '#00ffff' : '#444',
-                        cursor: 'pointer',
-                        fontSize: '0.8rem',
-                        textAlign: 'left',
-                        fontFamily: 'inherit',
-                        borderLeft: activeSection === 'espionage' ? '3px solid #00ffff' : '3px solid transparent',
-                        transition: 'all 0.2s',
-                        textTransform: 'uppercase',
-                        letterSpacing: '1px',
-                        marginBottom: '10px',
-                        fontWeight: 'bold'
-                    }}
-                >
-                    INTELIGENCIA Y ESPIONAJE
-                </button>
-
-                <div style={{ padding: '0 20px 10px', color: '#222', fontSize: '0.65rem', letterSpacing: '2px', fontWeight: 'bold' }}>
-                    OPERACIONES DE CAMPO
-                </div>
-
-                {missions.map((mission) => (
-                    <button
-                        key={mission.id}
-                        onClick={() => {
-                            setActiveSection('mission');
-                            setActiveMissionId(mission.id);
-                        }}
-                        style={{
-                            padding: '12px 20px',
-                            border: 'none',
-                            backgroundColor: (activeSection === 'mission' && activeMissionId === mission.id) ? 'rgba(255, 136, 0, 0.1)' : 'transparent',
-                            color: (activeSection === 'mission' && activeMissionId === mission.id) ? '#ff8800' : '#444',
-                            cursor: 'pointer',
-                            fontSize: '0.75rem',
-                            textAlign: 'left',
-                            fontFamily: 'inherit',
-                            borderLeft: (activeSection === 'mission' && activeMissionId === mission.id) ? '3px solid #ff8800' : '3px solid transparent',
-                            transition: 'all 0.2s',
-                            textTransform: 'uppercase',
-                            letterSpacing: '1px'
-                        }}
-                        onMouseEnter={(e) => {
-                            if (activeSection !== 'mission' || activeMissionId !== mission.id) {
-                                e.currentTarget.style.backgroundColor = '#0d0d0d';
-                                e.currentTarget.style.color = '#aaa';
-                            }
-                        }}
-                        onMouseLeave={(e) => {
-                            if (activeSection !== 'mission' || activeMissionId !== mission.id) {
-                                e.currentTarget.style.backgroundColor = 'transparent';
-                                e.currentTarget.style.color = '#444';
-                            }
-                        }}
-                    >
-                        {mission.title}
-                    </button>
-                ))}
-            </div>
-
-            {/* Content Area */}
-            <div style={{
-                flex: 1,
-                overflowY: 'auto',
-                padding: '40px 60px',
-                position: 'relative',
-            }}>
-                {/* Close Button */}
-                <button
-                    onClick={onClose}
-                    style={{
-                        position: 'fixed',
-                        top: '15px',
-                        right: '20px',
-                        background: 'none',
-                        border: '1px solid #444',
-                        color: '#888',
-                        fontSize: '1.5rem',
-                        cursor: 'pointer',
-                        padding: '5px 12px',
-                        zIndex: 10001,
-                        fontFamily: 'monospace',
-                        transition: 'all 0.2s',
-                    }}
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = '#ff4444';
-                        e.currentTarget.style.color = '#ff4444';
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = '#444';
-                        e.currentTarget.style.color = '#888';
-                    }}
-                >
-                    X
-                </button>
-
-                <div style={{ maxWidth: '800px' }}>
+        <DocumentModal kicker="Protocolos secundarios" title="Objetivos adicionales" onClose={onClose}
+            items={[{ id: 'espionage', label: 'Inteligencia y espionaje' }, ...missions.map(m => ({ id: m.id, label: m.title, group: 'Operaciones de campo' }))]}
+            activeId={activeSection === 'espionage' ? 'espionage' : activeMissionId}
+            onSelect={id => { if (id === 'espionage') setActiveSection('espionage'); else { setActiveSection('mission'); setActiveMissionId(id); } }}>
                     {activeSection === 'espionage' ? renderEspionage() : (
                         <div style={sectionStyle}>
                             <div style={{
@@ -335,8 +178,6 @@ export const SecondaryMissionsModal: React.FC<SecondaryMissionsModalProps> = ({
                     }}>
                         PROTOCOLO DE SEGURIDAD {activeSection === 'espionage' ? 'CI-7' : 'X-MIL'} ACTIVADO — {activeSection === 'espionage' ? 'EYES ONLY' : 'ACCESO RESTRINGIDO'}
                     </div>
-                </div>
-            </div>
-        </div>
+        </DocumentModal>
     );
 };

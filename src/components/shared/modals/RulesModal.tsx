@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { DocumentModal } from '../../../ui/DocumentModal';
+import { h3Style, sectionStyle, tableStyle, tdStyle, thStyle, tipStyle, warningStyle } from '../../../ui/docStyles';
 
 type Section = 'overview' | 'combat' | 'production' | 'missions' | 'nuclear' | 'treaties' | 'espionage';
 
@@ -21,66 +23,6 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
     const [activeSection, setActiveSection] = useState<Section>('overview');
 
     if (!isOpen) return null;
-
-    const sectionStyle: React.CSSProperties = {
-        color: '#ccc',
-        lineHeight: '1.7',
-        fontSize: '0.95rem',
-    };
-
-    const h3Style: React.CSSProperties = {
-        color: '#00ff00',
-        borderBottom: '1px solid #00ff0044',
-        paddingBottom: '8px',
-        marginTop: '25px',
-        marginBottom: '12px',
-        fontSize: '1.1rem',
-        letterSpacing: '2px',
-    };
-
-    const tableStyle: React.CSSProperties = {
-        width: '100%',
-        borderCollapse: 'collapse',
-        marginTop: '10px',
-        marginBottom: '15px',
-        fontSize: '0.85rem',
-    };
-
-    const thStyle: React.CSSProperties = {
-        padding: '8px 12px',
-        backgroundColor: '#111',
-        color: '#00ff00',
-        border: '1px solid #333',
-        textAlign: 'left',
-    };
-
-    const tdStyle: React.CSSProperties = {
-        padding: '8px 12px',
-        border: '1px solid #222',
-        color: '#aaa',
-    };
-
-    const tipStyle: React.CSSProperties = {
-        backgroundColor: 'rgba(0, 255, 0, 0.05)',
-        border: '1px solid #00ff0044',
-        borderLeft: '3px solid #00ff00',
-        padding: '12px 16px',
-        marginTop: '15px',
-        marginBottom: '15px',
-        fontSize: '0.85rem',
-        color: '#88ff88',
-    };
-
-    const warningStyle: React.CSSProperties = {
-        backgroundColor: 'rgba(255, 0, 0, 0.05)',
-        border: '1px solid #ff000044',
-        borderLeft: '3px solid #ff0000',
-        padding: '12px 16px',
-        marginTop: '15px',
-        marginBottom: '15px',
-        fontSize: '0.85rem',
-        color: '#ff8888',
-    };
 
     const renderOverview = () => (
         <div style={sectionStyle}>
@@ -667,118 +609,9 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
     };
 
     return (
-        <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.95)',
-            zIndex: 10000,
-            display: 'flex',
-            fontFamily: '"Courier New", Courier, monospace',
-        }}>
-            {/* Sidebar Navigation */}
-            <div style={{
-                width: '260px',
-                minWidth: '260px',
-                backgroundColor: '#0a0a0a',
-                borderRight: '1px solid #222',
-                display: 'flex',
-                flexDirection: 'column',
-                padding: '20px 0',
-                overflowY: 'auto',
-            }}>
-                <div style={{
-                    padding: '0 20px 20px',
-                    borderBottom: '1px solid #222',
-                    marginBottom: '10px',
-                }}>
-                    <h2 style={{
-                        color: '#00ff00',
-                        fontSize: '1.2rem',
-                        margin: 0,
-                        letterSpacing: '3px',
-                    }}>
-                        MANUAL DE OPERACIONES
-                    </h2>
-                    <div style={{ color: '#555', fontSize: '0.75rem', marginTop: '5px' }}>
-                        A.T.O.M.O v2 — Guía del Comandante
-                    </div>
-                </div>
-
-                {SECTIONS.map(section => (
-                    <button
-                        key={section.id}
-                        onClick={() => setActiveSection(section.id)}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '10px',
-                            padding: '12px 20px',
-                            border: 'none',
-                            backgroundColor: activeSection === section.id ? '#001a00' : 'transparent',
-                            color: activeSection === section.id ? '#00ff00' : '#888',
-                            cursor: 'pointer',
-                            fontSize: '0.85rem',
-                            textAlign: 'left',
-                            fontFamily: 'inherit',
-                            borderLeft: activeSection === section.id ? '3px solid #00ff00' : '3px solid transparent',
-                            transition: 'all 0.2s',
-                        }}
-                        onMouseEnter={(e) => {
-                            if (activeSection !== section.id) {
-                                e.currentTarget.style.backgroundColor = '#0d0d0d';
-                                e.currentTarget.style.color = '#aaa';
-                            }
-                        }}
-                        onMouseLeave={(e) => {
-                            if (activeSection !== section.id) {
-                                e.currentTarget.style.backgroundColor = 'transparent';
-                                e.currentTarget.style.color = '#888';
-                            }
-                        }}
-                    >
-                        <span>{section.label}</span>
-                    </button>
-                ))}
-            </div>
-
-            {/* Content Area */}
-            <div style={{
-                flex: 1,
-                overflowY: 'auto',
-                padding: '30px 40px',
-            }}>
-                {/* Close Button */}
-                <button
-                    onClick={onClose}
-                    style={{
-                        position: 'fixed',
-                        top: '15px',
-                        right: '20px',
-                        background: 'none',
-                        border: '1px solid #444',
-                        color: '#888',
-                        fontSize: '1.5rem',
-                        cursor: 'pointer',
-                        padding: '5px 12px',
-                        zIndex: 10001,
-                        fontFamily: 'monospace',
-                        transition: 'all 0.2s',
-                    }}
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = '#ff4444';
-                        e.currentTarget.style.color = '#ff4444';
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = '#444';
-                        e.currentTarget.style.color = '#888';
-                    }}
-                >
-                    X
-                </button>
-
-                <div style={{ maxWidth: '800px' }}>
-                    {renderContent()}
-                </div>
-            </div>
-        </div>
+        <DocumentModal kicker="A.T.O.M.O. — Guía del comandante" title="Manual de operaciones"
+            items={SECTIONS} activeId={activeSection} onSelect={id => setActiveSection(id as Section)} onClose={onClose}>
+            {renderContent()}
+        </DocumentModal>
     );
 };

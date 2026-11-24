@@ -1,179 +1,51 @@
-
 import React, { useState } from 'react';
 import { useGameContext } from '../../../context/GameContext';
 import { useMyPlayer } from '../../../hooks/useMyPlayer';
-import { type Treaty } from '../../../types/treatyTypes';
+import type { Treaty } from '../../../types/treatyTypes';
 import { TreatyEditor } from './TreatyEditor';
+import { Modal, Section, Button, Empty } from '../../../ui/components';
+import { Item } from '../../../ui/Item';
 
-interface TreatiesPanelProps {
-    onClose: () => void;
-}
-
-export const TreatiesPanel: React.FC<TreatiesPanelProps> = ({ onClose }) => {
+/** Lista de tratados vigentes y negociaciones del jugador. */
+export const TreatiesPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const { state } = useGameContext();
-    const { players, treaties } = state;
-    // "Yo" es el jugador de este cliente, no el de turno.
     const { myPlayer } = useMyPlayer();
-    const currentPlayer = myPlayer ?? { id: '__none__' };
+    const [editing, setEditing] = useState<{ treaty?: Treaty } | null>(null);
+    if (!myPlayer) return null;
+    const me = String(myPlayer.id);
 
-    const [isCreating, setIsCreating] = useState(false);
-    const [viewingTreaty, setViewingTreaty] = useState<Treaty | null>(null);
+    if (editing) return <TreatyEditor onClose={() => setEditing(null)} initialTreaty={editing.treaty} isNew={!editing.treaty} />;
 
-    // Filter treaties involved with current player
-    const myTreaties = treaties.filter(t =>
-        (t.creatorId == currentPlayer.id || t.targetPlayerId == currentPlayer.id) &&
-        (t.status === 'ACTIVE' || t.status === 'PENDING_START')
-    );
-
-    const pendingTreaties = treaties.filter(t =>
-        (t.creatorId == currentPlayer.id || t.targetPlayerId == currentPlayer.id) &&
-        (t.status === 'PENDING_APPROVAL' || t.status === 'DRAFT')
-    );
-
-    const handleCreateNew = () => {
-        setIsCreating(true);
+    const partner = (t: Treaty) => state.players.find(p => String(p.id) === (String(t.creatorId) === me ? String(t.targetPlayerId) : String(t.creatorId)));
+    const term = (t: Treaty) => {
+        const max = Math.max(...t.clauses.map(c => c.duration));
+        const until = max === -1 ? 'permanente' : `hasta ${t.createdAtYear + max - 1}`;
+        return t.status === 'PENDING_START' ? `Empieza en ${t.createdAtYear} · ${until}` : until;
     };
-
-    const handleViewTreaty = (treaty: Treaty) => {
-        setViewingTreaty(treaty);
-    };
-
-    const handleBack = () => {
-        setIsCreating(false);
-        setViewingTreaty(null);
-    };
-
-    if (isCreating) {
-        return <TreatyEditor onClose={handleBack} isNew={true} />;
-    }
-
-    if (viewingTreaty) {
-        return <TreatyEditor onClose={handleBack} initialTreaty={viewingTreaty} />;
-    }
+    const active = state.treaties.filter(t => t.status === 'ACTIVE' || t.status === 'PENDING_START');
+    const pending = state.treaties.filter(t => t.status === 'PENDING_APPROVAL');
 
     return (
-        <div style={{
-            position: 'fixed',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: '80%',
-            maxWidth: '900px',
-            height: '80vh',
-            backgroundColor: 'rgba(10, 10, 20, 0.95)',
-            border: '2px solid #ff00ff',
-            boxShadow: '0 0 20px rgba(255, 0, 255, 0.2)',
-            zIndex: 1000,
-            display: 'flex',
-            flexDirection: 'column',
-            padding: '20px',
-            color: '#fff',
-            fontFamily: 'monospace'
-        }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #ff00ff', paddingBottom: '10px' }}>
-                <h2 style={{ margin: 0, textTransform: 'uppercase', color: '#ff00ff', textShadow: '0 0 5px #ff00ff', whiteSpace: 'nowrap' }}>TRATADOS INTERNACIONALES</h2>
-                <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#ff00ff', fontSize: '1.5rem', cursor: 'pointer' }}>X</button>
-            </div>
-
-            <div style={{ flex: 1, overflowY: 'auto' }}>
-
-                {/* Active Treaties */}
-                <h3 style={{ borderBottom: '1px solid #555', paddingBottom: '5px', color: '#00ff00' }}>TRATADOS VIGENTES</h3>
-                {myTreaties.length === 0 ? (
-                    <p style={{ fontStyle: 'italic', color: '#888' }}>No hay tratados vigentes.</p>
-                ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {myTreaties.map(t => {
-                            const partnerId = t.creatorId == currentPlayer.id ? t.targetPlayerId : t.creatorId;
-                            const partner = players.find(p => p.id == partnerId);
-
-                            const maxDuration = Math.max(...t.clauses.map(c => c.duration));
-
-                            let statusText = '';
-                            if (t.status === 'PENDING_START') {
-                                statusText = `(Inicia en ${t.createdAtYear})`;
-                                if (maxDuration !== -1) {
-                                    const expirationYear = t.createdAtYear + maxDuration - 1;
-                                    statusText += ` - (Hasta ${expirationYear})`;
-                                } else {
-                                    statusText += ` - (Permanente)`;
-                                }
-                            } else if (t.status === 'ACTIVE') {
-                                if (maxDuration === -1) {
-                                    statusText = '(Permanente)';
-                                } else {
-                                    // Calculate expiration year based on start year and duration
-                                    // Treaties are valid for 'duration' years starting from 'createdAtYear'
-                                    // Example: Start 2026, Duration 1 => Valid 2026. Expires end of 2026.
-                                    const expirationYear = t.createdAtYear + maxDuration - 1;
-                                    statusText = `(Vence: ${expirationYear})`;
-                                }
-                            }
-
-                            return (
-                                <div key={t.id} style={{ border: '1px solid #00ff00', padding: '10px', backgroundColor: 'rgba(0, 255, 0, 0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <div>
-                                        <span>CON: {partner?.name || 'Desconocido'}</span>
-                                        <span style={{ marginLeft: '10px', fontSize: '0.8rem', color: '#88ff88' }}>{statusText}</span>
-                                    </div>
-                                    <button onClick={() => handleViewTreaty(t)} style={{ padding: '5px 10px', backgroundColor: '#003300', border: '1px solid #00ff00', color: '#00ff00', cursor: 'pointer' }}>VER DETALLES</button>
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
-
-                {/* Pending Negotiations */}
-                <h3 style={{ borderBottom: '1px solid #555', paddingBottom: '5px', marginTop: '30px', color: '#ffff00' }}>NEGOCIACIONES ACTIVAS</h3>
-                {pendingTreaties.length === 0 ? (
-                    <p style={{ fontStyle: 'italic', color: '#888' }}>No hay negociaciones en curso.</p>
-                ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {pendingTreaties.map(t => {
-                            const partnerId = t.creatorId == currentPlayer.id ? t.targetPlayerId : t.creatorId;
-                            const partner = players.find(p => p.id == partnerId);
-                            const isMyTurnToAct = (t.status === 'PENDING_APPROVAL' && t.targetPlayerId == currentPlayer.id) || (t.status === 'DRAFT' && t.creatorId == currentPlayer.id); // Validar lógica de Draft
-
-                            return (
-                                <div key={t.id} style={{ border: '1px solid #ffff00', padding: '10px', backgroundColor: 'rgba(255, 255, 0, 0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <div>
-                                        <span>CON: {partner?.name || 'Desconocido'}</span>
-                                        <span style={{ marginLeft: '10px', fontSize: '0.8rem', color: '#ffff00' }}>
-                                            {t.status === 'PENDING_APPROVAL'
-                                                ? (t.targetPlayerId == currentPlayer.id ? '(Esperando tu respuesta)' : '(Esperando respuesta)')
-                                                : '(Borrador)'}
-                                        </span>
-                                    </div>
-                                    <button onClick={() => handleViewTreaty(t)} style={{ padding: '5px 10px', backgroundColor: '#333300', border: '1px solid #ffff00', color: '#ffff00', cursor: 'pointer' }}>
-                                        {isMyTurnToAct ? 'VER OFERTA' : 'VER ESTADO'}
-                                    </button>
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
-
-            </div>
-
-            <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'center' }}>
-                <button
-                    onClick={handleCreateNew}
-                    style={{
-                        padding: '15px 30px',
-                        fontSize: '1.2rem',
-                        fontWeight: 'bold',
-                        backgroundColor: '#330033',
-                        color: '#ff00ff',
-                        border: '2px solid #ff00ff',
-                        cursor: 'pointer',
-                        textTransform: 'uppercase',
-                        boxShadow: '0 0 15px rgba(255, 0, 255, 0.4)',
-                        whiteSpace: 'nowrap'
-                    }}
-                >
-                    NUEVO TRATADO
-                </button>
-            </div>
-        </div>
+        <Modal tone="diplomacy" kicker="Diplomacia" title="Tratados internacionales" size="md" onClose={onClose}
+            footer={<Button variant="primary" tone="diplomacy" onClick={() => setEditing({})}>Nuevo tratado</Button>}>
+            <Section title="Negociaciones en curso">
+                {pending.length === 0 ? <Empty>No hay negociaciones en curso.</Empty> : pending.map(t => {
+                    const mine = String(t.targetPlayerId) === me;
+                    return (
+                        <Item key={t.id} title={`Con ${partner(t)?.name ?? 'desconocido'}`}
+                            desc={`${t.clauses.length} cláusula${t.clauses.length === 1 ? '' : 's'}`}
+                            status={mine ? { label: 'Esperando tu respuesta', kind: 'wait' } : { label: 'Esperando respuesta', kind: 'no' }}
+                            actions={<Button size="sm" tone="diplomacy" variant={mine ? 'primary' : 'secondary'} onClick={() => setEditing({ treaty: t })}>{mine ? 'Ver oferta' : 'Ver estado'}</Button>} />
+                    );
+                })}
+            </Section>
+            <Section title="Tratados vigentes">
+                {active.length === 0 ? <Empty>No hay tratados vigentes.</Empty> : active.map(t => (
+                    <Item key={t.id} title={`Con ${partner(t)?.name ?? 'desconocido'}`} desc={term(t)}
+                        status={t.status === 'ACTIVE' ? { label: 'Vigente', kind: 'ok' } : { label: 'Pendiente', kind: 'wait' }}
+                        actions={<Button size="sm" tone="diplomacy" onClick={() => setEditing({ treaty: t })}>Ver detalles</Button>} />
+                ))}
+            </Section>
+        </Modal>
     );
 };

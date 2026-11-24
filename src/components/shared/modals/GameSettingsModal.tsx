@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { DocumentModal } from '../../../ui/DocumentModal';
+import { h3Style, tipStyle, warningStyle } from '../../../ui/docStyles';
 
 interface GameSettingsModalProps {
     isOpen: boolean;
@@ -19,7 +21,6 @@ export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
     currentSettings
 }) => {
     const [activeSection, setActiveSection] = useState<SettingsSection>('abandonment');
-    const isSaving = false;
 
     if (!isOpen) return null;
 
@@ -37,38 +38,6 @@ export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
         color: '#ccc',
         lineHeight: '1.7',
         fontSize: '0.95rem',
-    };
-
-    const h3Style: React.CSSProperties = {
-        color: '#00ff00',
-        borderBottom: '1px solid #00ff0044',
-        paddingBottom: '8px',
-        marginTop: '25px',
-        marginBottom: '12px',
-        fontSize: '1.1rem',
-        letterSpacing: '2px',
-    };
-
-    const tipStyle: React.CSSProperties = {
-        backgroundColor: 'rgba(0, 255, 0, 0.05)',
-        border: '1px solid #00ff0044',
-        borderLeft: '3px solid #00ff00',
-        padding: '12px 16px',
-        marginTop: '15px',
-        marginBottom: '15px',
-        fontSize: '0.85rem',
-        color: '#88ff88',
-    };
-
-    const warningStyle: React.CSSProperties = {
-        backgroundColor: 'rgba(255, 0, 0, 0.05)',
-        border: '1px solid #ff000044',
-        borderLeft: '3px solid #ff0000',
-        padding: '12px 16px',
-        marginTop: '15px',
-        marginBottom: '15px',
-        fontSize: '0.85rem',
-        color: '#ff8888',
     };
 
     const controlRowStyle: React.CSSProperties = {
@@ -238,139 +207,10 @@ export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
     };
 
     return (
-        <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.95)',
-            zIndex: 10000,
-            display: 'flex',
-            fontFamily: '"Courier New", Courier, monospace',
-        }}>
-            {/* Sidebar Navigation */}
-            <div style={{
-                width: '260px',
-                minWidth: '260px',
-                backgroundColor: '#0a0a0a',
-                borderRight: '1px solid #222',
-                display: 'flex',
-                flexDirection: 'column',
-                padding: '20px 0',
-                overflowY: 'auto',
-            }}>
-                <div style={{
-                    padding: '0 20px 20px',
-                    borderBottom: '1px solid #222',
-                    marginBottom: '10px',
-                }}>
-                    <h2 style={{
-                        color: '#00ff00',
-                        fontSize: '1.2rem',
-                        margin: 0,
-                        letterSpacing: '3px',
-                    }}>
-                        CONFIGURACIÓN
-                    </h2>
-                    <div style={{ color: '#555', fontSize: '0.75rem', marginTop: '5px' }}>
-                        PROTOCOLO A.T.O.M.O
-                    </div>
-                </div>
-
-                {SECTIONS.map(section => (
-                    <button
-                        key={section.id}
-                        onClick={() => setActiveSection(section.id as SettingsSection)}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '10px',
-                            padding: '12px 20px',
-                            border: 'none',
-                            backgroundColor: activeSection === section.id ? '#001a00' : 'transparent',
-                            color: activeSection === section.id ? '#00ff00' : '#888',
-                            cursor: 'pointer',
-                            fontSize: '0.85rem',
-                            textAlign: 'left',
-                            fontFamily: 'inherit',
-                            borderLeft: activeSection === section.id ? '3px solid #00ff00' : '3px solid transparent',
-                            transition: 'all 0.2s',
-                        }}
-                    >
-                        <span>{section.label}</span>
-                    </button>
-                ))}
-
-                {!isHost && (
-                    <div style={{
-                        marginTop: 'auto',
-                        padding: '20px',
-                        color: '#ffff00',
-                        fontSize: '0.7rem',
-                        textAlign: 'center',
-                        backgroundColor: 'rgba(255, 255, 0, 0.05)',
-                        borderTop: '1px solid #440'
-                    }}>
-                        MODO SOLO LECTURA
-                    </div>
-                )}
-            </div>
-
-            {/* Content Area */}
-            <div style={{
-                flex: 1,
-                overflowY: 'auto',
-                padding: '30px 40px',
-                position: 'relative'
-            }}>
-                {/* Close Button */}
-                <button
-                    onClick={onClose}
-                    style={{
-                        position: 'fixed',
-                        top: '15px',
-                        right: '25px',
-                        background: 'none',
-                        border: '1px solid #444',
-                        color: '#888',
-                        fontSize: '1.5rem',
-                        cursor: 'pointer',
-                        padding: '5px 12px',
-                        zIndex: 10001,
-                        fontFamily: 'monospace',
-                        transition: 'all 0.2s',
-                    }}
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = '#ff4444';
-                        e.currentTarget.style.color = '#ff4444';
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = '#444';
-                        e.currentTarget.style.color = '#888';
-                    }}
-                >
-                    X
-                </button>
-
-                <div style={{ maxWidth: '800px' }}>
-                    {renderContent()}
-                </div>
-
-                {isSaving && (
-                    <div style={{ 
-                        position: 'fixed', bottom: '20px', right: '30px',
-                        color: '#00ff00', fontSize: '0.75rem', 
-                        letterSpacing: '2px', animation: 'blink 1.5s infinite'
-                    }}>
-                        TRANSMITIENDO...
-                    </div>
-                )}
-            </div>
-            
-            <style>{`
-                @keyframes blink {
-                    0% { opacity: 0.2; }
-                    50% { opacity: 1; }
-                    100% { opacity: 0.2; }
-                }
-            `}</style>
-        </div>
+        <DocumentModal kicker="Protocolo A.T.O.M.O." title="Configuración"
+            items={SECTIONS} activeId={activeSection} onSelect={id => setActiveSection(id as SettingsSection)} onClose={onClose}>
+            {!isHost && <p style={tipStyle}>Sólo el anfitrión puede cambiar la configuración.</p>}
+            {renderContent()}
+        </DocumentModal>
     );
 };

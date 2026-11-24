@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useGameContext } from '../../context/GameContext';
 import { useGameActions } from '../../hooks/useGameActions';
+import { Button } from '../../ui/components';
 
 interface SidebarPanelProps {
     onEndTurn: () => void;
@@ -35,306 +36,58 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
 
     if (!currentPlayer) return null;
 
-    // Check if it is the local player's turn (Multiplayer guard)
     const isMyTurn = !!multiplayer.playerId && String(currentPlayer.id) === String(multiplayer.playerId);
-
-    const greenBtnStyle: React.CSSProperties = {
-        padding: '12px 15px',
-        fontSize: '0.9rem',
-        fontWeight: 'bold',
-        backgroundColor: '#002200',
-        color: '#00ff00',
-        border: '2px solid #00ff00',
-        cursor: 'pointer',
-        textTransform: 'uppercase',
-        fontFamily: 'monospace',
-        transition: 'all 0.2s',
-        boxShadow: '0 0 10px rgba(0, 255, 0, 0.3)'
-    };
-
-    const greenHoverIn = (e: React.MouseEvent<HTMLButtonElement>) => {
-        e.currentTarget.style.backgroundColor = '#00ff00';
-        e.currentTarget.style.color = '#000';
-    };
-    const greenHoverOut = (e: React.MouseEvent<HTMLButtonElement>) => {
-        e.currentTarget.style.backgroundColor = '#002200';
-        e.currentTarget.style.color = '#00ff00';
-    };
-
-    // Mobile specific logic
-    const isMobile = window.innerWidth <= 768;
+    const close = () => onCloseMobile?.();
+    const go = (fn: () => void) => () => { fn(); close(); };
+    const month = (gameDate.getMonth() + 1).toString().padStart(2, '0');
 
     return (
-        <div
-            className={`sidebar-panel ${mobileOpen ? 'mobile-open' : ''}`}
-            style={{
-                width: '300px',
-                height: '100vh',
-                padding: '20px',
-                backgroundColor: 'rgba(0, 0, 0, 0.98)',
-                borderRight: '2px solid #00ff00',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'flex-start',
-                gap: '20px',
-                color: '#00ff00',
-                boxShadow: '5px 0 10px rgba(0, 255, 0, 0.1)',
-                zIndex: 100,
-                boxSizing: 'border-box',
-                transition: 'transform 0.3s ease',
-                overflowY: 'auto',
-                ...(isMobile ? {
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    transform: mobileOpen ? 'translateX(0)' : 'translateX(-100%)',
-                } : {})
-            }}
-        >
-            <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                borderBottom: '1px solid #00ff00',
-                paddingBottom: '20px',
-                marginTop: '10px'
-            }}>
-                <div style={{
-                    fontSize: '1.8rem',
-                    fontWeight: 'bold',
-                    letterSpacing: '3px',
-                    textShadow: '0 0 5px #00ff00',
-                }}>
-                    A.T.O.M.O.
-                </div>
-                {isMobile && (
-                    <button
-                        onClick={onCloseMobile}
-                        style={{
-                            background: 'transparent',
-                            border: '1px solid #00ff00',
-                            color: '#00ff00',
-                            padding: '5px 10px',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        X
-                    </button>
-                )}
+        <aside className={`sidebar${mobileOpen ? ' sidebar--open' : ''}`} aria-label="Panel de mando">
+            <div className="ui-row" style={{ justifyContent: 'space-between' }}>
+                <div className="sidebar__brand">A.T.O.M.O.</div>
+                <button type="button" className="ui-close sidebar__close" onClick={close} aria-label="Cerrar menú">✕</button>
             </div>
 
-            {/* Active Player Info */}
-            <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '10px',
-                border: '1px solid #00ff00',
-                padding: '20px',
-                backgroundColor: '#001100'
-            }}>
-                <span style={{ fontSize: '0.8rem', textTransform: 'uppercase', opacity: 0.8 }}>
-                    JUGADOR ACTIVO
-                </span>
-                <div style={{
-                    width: '30px',
-                    height: '30px',
-                    borderRadius: '2px',
-                    border: '2px solid #fff',
-                    backgroundColor: currentPlayer.color || '#fff',
-                }} />
-                <span style={{
-                    fontSize: '1.2rem',
-                    fontWeight: 'bold',
-                    textTransform: 'uppercase',
-                    color: currentPlayer.color || '#00ff00',
-                    textShadow: `0 0 5px ${currentPlayer.color || '#00ff00'}`
-                }}>
-                    {currentPlayer.name || 'Desconocido'}
-                </span>
+            <div className="sidebar__turn">
+                <div className="ui-kicker">{isMyTurn ? 'Tu turno' : 'Turno de'}</div>
+                <div style={{ color: currentPlayer.color, fontSize: '1.3rem', fontWeight: 'bold', textShadow: `0 0 8px ${currentPlayer.color}` }}>{currentPlayer.name}</div>
             </div>
 
-            {/* Action Buttons Container */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
-                {isMyTurn && (
-                    <button
-                        onClick={() => {
-                            onEndTurn();
-                            if (isMobile) onCloseMobile?.();
-                        }}
-                        style={{
-                            padding: '12px 15px',
-                            fontSize: '0.9rem',
-                            fontWeight: 'bold',
-                            backgroundColor: '#220000',
-                            color: '#ff0000',
-                            border: '2px solid #ff0000',
-                            cursor: 'pointer',
-                            textTransform: 'uppercase',
-                            fontFamily: 'monospace',
-                            transition: 'all 0.2s',
-                            boxShadow: '0 0 10px rgba(255, 0, 0, 0.3)'
-                        }}
-                    >
-                        FINALIZAR OPERACIÓN
-                    </button>
-                )}
+            {isMyTurn && <Button variant="primary" block onClick={go(onEndTurn)}>Terminar turno</Button>}
 
-                <button onClick={() => { onOpenInventory(); if (isMobile) onCloseMobile?.(); }} style={greenBtnStyle} onMouseEnter={greenHoverIn} onMouseLeave={greenHoverOut}>
-                    INVENTARIO
-                </button>
+            <div className="sidebar__group">
+                <Button block onClick={go(onOpenInventory)}>Inventario</Button>
+                <Button block onClick={go(onOpenConfidential)}>Expediente</Button>
+                <Button block tone="diplomacy" onClick={go(onOpenTreaties)}>Tratados</Button>
+                <Button block variant="ghost" onClick={go(onOpenRawMaterials)}>Materias primas</Button>
+                <Button block variant="ghost" onClick={go(onOpenTechnologies)}>Tecnologías</Button>
+            </div>
 
-                <button onClick={() => { onOpenRawMaterials(); if (isMobile) onCloseMobile?.(); }} style={greenBtnStyle} onMouseEnter={greenHoverIn} onMouseLeave={greenHoverOut}>
-                    MATERIAS PRIMAS
-                </button>
-
-                <button onClick={() => { onOpenTechnologies(); if (isMobile) onCloseMobile?.(); }} style={greenBtnStyle} onMouseEnter={greenHoverIn} onMouseLeave={greenHoverOut}>
-                    TECNOLOGÍAS
-                </button>
-
-                <button
-                    onClick={() => { onOpenConfidential(); if (isMobile) onCloseMobile?.(); }}
-                    style={{
-                        padding: '12px 15px',
-                        fontSize: '0.9rem',
-                        fontWeight: 'bold',
-                        backgroundColor: '#000033',
-                        color: '#00ffff',
-                        border: '2px solid #00ffff',
-                        cursor: 'pointer',
-                        textTransform: 'uppercase',
-                        fontFamily: 'monospace',
-                        transition: 'all 0.2s',
-                        boxShadow: '0 0 10px rgba(0, 255, 255, 0.3)'
-                    }}
-                >
-                    INFO CONFIDENCIAL
-                </button>
-
-                <button
-                    onClick={() => { onOpenTreaties(); if (isMobile) onCloseMobile?.(); }}
-                    style={{
-                        padding: '12px 15px',
-                        fontSize: '0.9rem',
-                        fontWeight: 'bold',
-                        backgroundColor: '#330033',
-                        color: '#ff00ff',
-                        border: '2px solid #ff00ff',
-                        cursor: 'pointer',
-                        textTransform: 'uppercase',
-                        fontFamily: 'monospace',
-                        transition: 'all 0.2s',
-                        boxShadow: '0 0 10px rgba(255, 0, 255, 0.3)'
-                    }}
-                >
-                    TRATADOS
-                </button>
-
-                {/* Host Controls */}
-                {multiplayer.connectionStatus === 'PLAYING' && multiplayer.isHost && (
-                    <div style={{ marginTop: '20px', borderTop: '1px solid #ff4444', paddingTop: '10px' }}>
-                        <div style={{ fontSize: '0.8rem', color: '#ff4444', marginBottom: '10px', textAlign: 'center' }}>CONTROL DE ANFITRIÓN</div>
-                        
-                        {players.map(p => {
-                            if (p.isEliminated) return null; // Don't show already eliminated players
-                            
-                            const isConfirming = showKickConfirm === String(p.id);
-                            
-                            return (
-                                <div key={p.id} style={{ marginBottom: '10px' }}>
-                                    <button
-                                        onClick={() => {
-                                            if (isConfirming) {
-                                                actions.kickPlayer(p.id);
-                                                setShowKickConfirm(null);
-                                            } else {
-                                                setShowKickConfirm(String(p.id));
-                                            }
-                                        }}
-                                        style={{
-                                            width: '100%',
-                                            padding: '8px',
-                                            fontSize: '0.8rem',
-                                            backgroundColor: isConfirming ? '#ff0000' : 'transparent',
-                                            color: isConfirming ? '#fff' : '#ff4444',
-                                            border: `1px solid ${isConfirming ? '#ff0000' : '#ff4444'}`,
-                                            cursor: 'pointer',
-                                            textTransform: 'uppercase'
-                                        }}
-                                    >
-                                        {isConfirming ? `CONFIRMAR EXPULSIÓN DE ${p.name}` : `EXPULSAR A ${p.name}`}
-                                    </button>
-                                    
-                                    {isConfirming && (
-                                        <button
-                                            onClick={() => setShowKickConfirm(null)}
-                                            style={{
-                                                width: '100%', padding: '5px', marginTop: '5px',
-                                                backgroundColor: '#333', color: '#fff', border: 'none', fontSize: '0.7rem', cursor: 'pointer'
-                                            }}
-                                        >
-                                            CANCELAR
-                                        </button>
-                                    )}
-                                </div>
-                            );
-                        })}
-
-                        {/* Finalizar la partida para todos (sin ganador) */}
-                        <div style={{ marginTop: '15px', borderTop: '1px dashed #ff444455', paddingTop: '12px' }}>
-                            <button
-                                onClick={() => {
-                                    if (showEndConfirm) {
-                                        actions.endGame();
-                                        setShowEndConfirm(false);
-                                    } else {
-                                        setShowEndConfirm(true);
-                                    }
-                                }}
-                                style={{
-                                    width: '100%',
-                                    padding: '10px',
-                                    fontSize: '0.8rem',
-                                    fontWeight: 'bold',
-                                    backgroundColor: showEndConfirm ? '#ff0000' : 'transparent',
-                                    color: showEndConfirm ? '#fff' : '#ff4444',
-                                    border: `1px solid ${showEndConfirm ? '#ff0000' : '#ff4444'}`,
-                                    cursor: 'pointer',
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '1px'
-                                }}
-                            >
-                                {showEndConfirm ? '⚠ CONFIRMAR FIN DE PARTIDA' : 'FINALIZAR PARTIDA'}
-                            </button>
-                            {showEndConfirm && (
-                                <button
-                                    onClick={() => setShowEndConfirm(false)}
-                                    style={{
-                                        width: '100%', padding: '5px', marginTop: '5px',
-                                        backgroundColor: '#333', color: '#fff', border: 'none', fontSize: '0.7rem', cursor: 'pointer'
-                                    }}
-                                >
-                                    CANCELAR
-                                </button>
-                            )}
+            {multiplayer.isHost && (
+                <div className="sidebar__host sidebar__group" data-tone="danger">
+                    <div className="ui-kicker">Control de anfitrión</div>
+                    {players.filter(p => !p.isEliminated && String(p.id) !== String(multiplayer.playerId)).map(p => (
+                        showKickConfirm === String(p.id) ? (
+                            <div key={p.id} className="ui-row">
+                                <Button size="sm" variant="danger" onClick={() => { actions.kickPlayer(p.id); setShowKickConfirm(null); }}>Confirmar expulsión</Button>
+                                <Button size="sm" variant="ghost" onClick={() => setShowKickConfirm(null)}>Cancelar</Button>
+                            </div>
+                        ) : (
+                            <Button key={p.id} size="sm" tone="danger" block onClick={() => setShowKickConfirm(String(p.id))}>Expulsar a {p.name}</Button>
+                        )
+                    ))}
+                    {showEndConfirm ? (
+                        <div className="ui-row">
+                            <Button size="sm" variant="danger" onClick={() => { actions.endGame(); setShowEndConfirm(false); }}>Confirmar fin</Button>
+                            <Button size="sm" variant="ghost" onClick={() => setShowEndConfirm(false)}>Cancelar</Button>
                         </div>
-                    </div>
-                )}
-            </div>
+                    ) : (
+                        <Button size="sm" variant="ghost" tone="danger" block onClick={() => setShowEndConfirm(true)}>Finalizar partida</Button>
+                    )}
+                </div>
+            )}
 
-            <div style={{
-                marginTop: 'auto',
-                borderTop: '1px solid #333',
-                paddingTop: '15px',
-                fontSize: '0.7rem',
-                letterSpacing: '1px',
-                opacity: 0.8,
-                textAlign: 'center'
-            }}>
-                &gt;&gt; FECHA: {(new Date(gameDate).getMonth() + 1).toString().padStart(2, '0')}/{new Date(gameDate).getFullYear()}<br />
-                &gt;&gt; SISTEMA ONLINE
-            </div>
-        </div>
+            <div className="sidebar__foot">Fecha: {month}/{gameDate.getFullYear()} · sistema online</div>
+        </aside>
     );
 };
-

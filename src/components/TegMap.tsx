@@ -3,8 +3,7 @@ import { BattleOverlay } from './BattleOverlay';
 import { MapRender } from './game/MapRender';
 import { SidebarPanel } from './game/SidebarPanel';
 import { RegionInfoPanel } from './game/RegionInfoPanel';
-import { RawMaterialsModal } from './game/RawMaterialsModal';
-import { TechnologiesModal } from './game/TechnologiesModal';
+import { ResourceCatalogModal } from './game/ResourceCatalogModal';
 import { ConfidentialInfoModal } from './game/ConfidentialInfoModal';
 import { Announcements } from './game/Announcements';
 import { ProductionPhaseOverlay } from './shared/overlays/ProductionPhaseOverlay';
@@ -41,8 +40,6 @@ const GameScreen: React.FC<{ spectator: boolean }> = ({ spectator }) => {
     const [panel, setPanel] = useState<Panel>(null);
     const [inventoryFilter, setInventoryFilter] = useState<string | null>(null);
     const [mobileSidebar, setMobileSidebar] = useState(false);
-    const [expandedRaw, setExpandedRaw] = useState<Set<string>>(new Set());
-    const [expandedTech, setExpandedTech] = useState<Set<string>>(new Set());
 
     // Animación final: recolorea el mapa SÓLO en pantalla (no toca el estado del servidor).
     const [animatedOwners, setAnimatedOwners] = useState<Record<string, string | number | null>>({});
@@ -153,8 +150,7 @@ const GameScreen: React.FC<{ spectator: boolean }> = ({ spectator }) => {
                     filterTargetCountry={inventoryFilter}
                 />
             )}
-            {panel === 'raw' && <RawMaterialsModal show onClose={() => setPanel(null)} expandedRawMaterials={expandedRaw} setExpandedRawMaterials={setExpandedRaw} />}
-            {panel === 'tech' && <TechnologiesModal show onClose={() => setPanel(null)} expandedTechnologies={expandedTech} setExpandedTechnologies={setExpandedTech} />}
+            {(panel === 'raw' || panel === 'tech') && <ResourceCatalogModal kind={panel} onClose={() => setPanel(null)} />}
             {panel === 'treaties' && <TreatiesPanel onClose={() => setPanel(null)} />}
             {panel === 'confidential' && <ConfidentialInfoModal onClose={() => setPanel(null)} />}
 
