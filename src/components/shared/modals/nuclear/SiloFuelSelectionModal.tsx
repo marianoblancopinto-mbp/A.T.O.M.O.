@@ -1,5 +1,6 @@
 import React from 'react';
 import { useGameContext } from '../../../../context/GameContext';
+import { useGameActions } from '../../../../hooks/useGameActions';
 import { useSupplyRoute } from '../../../../hooks/useSupplyRoute';
 import { usePlayerResources } from '../../../../hooks/usePlayerResources';
 import { RAW_MATERIAL_DATA } from '../../../../data/productionData';
@@ -19,7 +20,8 @@ export const SiloFuelSelectionModal: React.FC<SiloFuelSelectionModalProps> = ({
     siloRegionId,
     playerIndex
 }) => {
-    const { state, dispatch } = useGameContext();
+    const { state } = useGameContext();
+    const gameActions = useGameActions();
     const { players } = state;
     const { rawMaterials } = usePlayerResources(playerIndex);
     const { checkRoute } = useSupplyRoute();
@@ -30,23 +32,7 @@ export const SiloFuelSelectionModal: React.FC<SiloFuelSelectionModalProps> = ({
     const currentAssignedCardId = player.siloFuelCards?.[siloRegionId];
 
     const handleAssign = (cardId: string) => {
-        // Dispatch update to assign fuel
-        // We might not have a specific action for this, so we update the player's siloFuelCards map
-        const updatedSiloFuelCards = {
-            ...player.siloFuelCards,
-            [siloRegionId]: cardId
-        };
-
-        dispatch({
-            type: 'UPDATE_PLAYER',
-            payload: {
-                index: playerIndex,
-                data: {
-                    siloFuelCards: updatedSiloFuelCards
-                }
-            }
-        });
-
+        gameActions.assignSiloFuel(siloRegionId, cardId);
         onClose();
     };
 

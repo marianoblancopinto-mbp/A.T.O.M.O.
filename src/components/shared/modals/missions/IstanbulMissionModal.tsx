@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useGameContext } from '../../../../context/GameContext';
+import { useGameActions } from '../../../../hooks/useGameActions';
+import { useMyPlayer } from '../../../../hooks/useMyPlayer';
 import { MissionModalBase } from '../MissionModalBase';
 import { useSupplyRoute } from '../../../../hooks/useSupplyRoute';
 import { usePlayerResources } from '../../../../hooks/usePlayerResources';
-import type { SpecialCard } from '../../../../types/playerTypes';
 
 interface IstanbulMissionModalProps {
     onClose: () => void;
@@ -14,10 +15,12 @@ export const IstanbulMissionModal: React.FC<IstanbulMissionModalProps> = ({
     onClose,
     onSuccess
 }) => {
-    const { state, dispatch } = useGameContext();
-    const { players, currentPlayerIndex, owners } = state;
+    const { state } = useGameContext();
+    const actions = useGameActions();
+    const { myPlayerIndex } = useMyPlayer();
+    const { players, owners } = state;
     const { checkRoute } = useSupplyRoute();
-    const { technologies, rawMaterials } = usePlayerResources(currentPlayerIndex);
+    const { technologies, rawMaterials } = usePlayerResources(myPlayerIndex);
 
     const [selectedBridgeCards, setSelectedBridgeCards] = useState<{
         techId: string | null;
@@ -26,7 +29,7 @@ export const IstanbulMissionModal: React.FC<IstanbulMissionModalProps> = ({
 
     const [selectedCityName, setSelectedCityName] = useState<'ESTAMBUL' | 'CONSTANTINOPLA'>('ESTAMBUL');
 
-    const player = players[currentPlayerIndex];
+    const player = players[myPlayerIndex];
     if (!player) return null;
 
     const hasTurkey = owners['turquia'] === player.id;
@@ -42,40 +45,7 @@ export const IstanbulMissionModal: React.FC<IstanbulMissionModalProps> = ({
 
     const handleComplete = () => {
         if (!canComplete || !selectedBridgeCards.techId || !selectedBridgeCards.rawId) return;
-
-        // Consume Cards
-        dispatch({
-            type: 'MARK_CARD_AS_USED',
-            payload: { cardId: selectedBridgeCards.techId, category: 'technology' }
-        });
-        dispatch({
-            type: 'MARK_CARD_AS_USED',
-            payload: { cardId: selectedBridgeCards.rawId, category: 'rawMaterial' }
-        });
-
-        // Add Special Card & Active Mission
-        const newCard: SpecialCard = {
-            id: `special-istanbul-${Date.now()}`,
-            type: 'PUENTE_BOSFORO',
-            name: `PUENTE DE ${selectedCityName}`,
-            originCountry: 'turquia',
-            description: `Conexión terrestre permanente entre Grecia y Turquía. La ciudad ha sido refundada como ${selectedCityName}.`,
-            createdAt: Date.now()
-        };
-
-        const updatedSpecialCards = [...player.specialCards, newCard];
-        const updatedActiveMissions = [...player.activeSpecialMissions, { id: 'refundacion_estanbul', baseRegionId: 'turquia', startTime: Date.now() }];
-
-        dispatch({
-            type: 'UPDATE_PLAYER',
-            payload: {
-                index: currentPlayerIndex,
-                data: {
-                    specialCards: updatedSpecialCards,
-                    activeSpecialMissions: updatedActiveMissions
-                }
-            }
-        });
+        actions.activateMission({ missionId: 'refundacion_estanbul', techIds: [selectedBridgeCards.techId!], rawIds: [selectedBridgeCards.rawId!], cityName: selectedCityName });
 
         onSuccess(player.name, selectedCityName);
         onClose();

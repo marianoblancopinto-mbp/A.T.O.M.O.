@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useGameContext } from '../../../../context/GameContext';
+import { useGameActions } from '../../../../hooks/useGameActions';
+import { useMyPlayer } from '../../../../hooks/useMyPlayer';
 import { MissionModalBase } from '../MissionModalBase';
 import { useSupplyRoute } from '../../../../hooks/useSupplyRoute';
 import type { RegionData } from '../../../../data/mapRegions';
-import type { SupplyItem } from '../../../../types/productionTypes';
-import type { SpecialCard } from '../../../../types/playerTypes';
 
 interface GeothermalMissionModalProps {
     show: boolean;
@@ -23,8 +23,10 @@ export const GeothermalMissionModal: React.FC<GeothermalMissionModalProps> = ({
     onOpenInventory,
     onSuccess
 }) => {
-    const { state, dispatch } = useGameContext();
-    const { players, currentPlayerIndex, owners, productionDeck } = state;
+    const { state } = useGameContext();
+    const actions = useGameActions();
+    const { myPlayerIndex } = useMyPlayer();
+    const { players, owners, productionDeck } = state;
     const { checkRoute } = useSupplyRoute();
 
     const [selectedGeothermalTechId, setSelectedGeothermalTechId] = useState<string | null>(null);
@@ -33,14 +35,14 @@ export const GeothermalMissionModal: React.FC<GeothermalMissionModalProps> = ({
     const countryName = REGIONS.find(r => r.id === targetCountry)?.title || targetCountry;
 
     // Requirements
-    const hasControl = String(owners[targetCountry]) === String(players[currentPlayerIndex]?.id);
-    const player = players[currentPlayerIndex];
+    const hasControl = String(owners[targetCountry]) === String(players[myPlayerIndex]?.id);
+    const player = players[myPlayerIndex];
 
     // Filter available resources
     // Logic moved from TegMap.tsx
     // 1. Get cards from ProductionDeck that belong to owned territories + Inventory cards
     const ownedTerritories = Object.entries(owners)
-        .filter(([_, ownerId]) => String(ownerId) === String(players[currentPlayerIndex]?.id))
+        .filter(([_, ownerId]) => String(ownerId) === String(players[myPlayerIndex]?.id))
         .map(([regionId]) => regionId);
 
     const territoryTechs = productionDeck?.technologies.filter(card =>
@@ -58,38 +60,15 @@ export const GeothermalMissionModal: React.FC<GeothermalMissionModalProps> = ({
     const ironMaterials = allRawMaterials.filter(c => {
         if (c.type !== 'HIERRO' || c.usedThisTurn) return false;
         // Use the new hook!
-        return checkRoute(c.country!, targetCountry, currentPlayerIndex);
+        return checkRoute(c.country!, targetCountry, myPlayerIndex);
     });
 
     const canComplete = hasControl && selectedGeothermalTechId !== null && selectedGeothermalIronId !== null;
 
     const handleComplete = () => {
         if (!canComplete || !selectedGeothermalTechId || !selectedGeothermalIronId) return;
+        actions.activateMission({ missionId: 'energia_geotermica', baseRegionId: targetCountry, techIds: [selectedGeothermalTechId!], rawIds: [selectedGeothermalIronId!] });
 
-        // 1. Consume cards
-        dispatch({ type: 'MARK_CARD_AS_USED', payload: { cardId: selectedGeothermalTechId, category: 'technology' } });
-        dispatch({ type: 'MARK_CARD_AS_USED', payload: { cardId: selectedGeothermalIronId, category: 'rawMaterial' } });
-
-        // 2. Generate Energy Supply
-        const newSupply: SupplyItem = {
-            id: `energy-geo-${targetCountry}-${Date.now()}`,
-            type: 'energy',
-            originCountry: targetCountry
-        };
-        dispatch({ type: 'ADD_SUPPLY', payload: { playerIndex: currentPlayerIndex, supply: newSupply } });
-
-        // 3. Generate Special Card (Persistence)
-        const newSpecialCard: SpecialCard = {
-            id: `geo-plant-${targetCountry}-${Date.now()}`,
-            type: 'PLANTA_GEOTERMICA',
-            name: 'PLANTA GEOTÉRMICA',
-            originCountry: targetCountry,
-            description: 'Genera 1 suministro de Energía al inicio de cada turno.',
-            createdAt: Date.now()
-        };
-        dispatch({ type: 'ADD_SPECIAL_CARD', payload: { playerIndex: currentPlayerIndex, card: newSpecialCard } });
-
-        // 4. Notify & Close
         onSuccess(countryName);
         onClose();
     };

@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { supabase } from '../../../supabaseClient';
 
 interface GameSettingsModalProps {
     isOpen: boolean;
     onClose: () => void;
-    gameId: string;
+    /** Manda el cambio al servidor (sólo el anfitrión; el servidor lo valida). */
+    onUpdate: (settings: Record<string, unknown>) => void;
     isHost: boolean;
     currentSettings: any;
 }
@@ -14,12 +14,12 @@ type SettingsSection = 'abandonment' | 'ai_config' | 'game_mode';
 export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
     isOpen,
     onClose,
-    gameId,
+    onUpdate,
     isHost,
     currentSettings
 }) => {
     const [activeSection, setActiveSection] = useState<SettingsSection>('abandonment');
-    const [isSaving, setIsSaving] = useState(false);
+    const isSaving = false;
 
     if (!isOpen) return null;
 
@@ -27,23 +27,9 @@ export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
     const aiDifficulty = currentSettings?.aiDifficulty ?? 50;
     const gameMode = currentSettings?.gameMode || 'classic';
 
-    const handleUpdateSetting = async (key: string, value: any) => {
+    const handleUpdateSetting = (key: string, value: any) => {
         if (!isHost) return;
-        setIsSaving(true);
-        try {
-            const newSettings = { ...currentSettings, [key]: value };
-            const { error } = await supabase
-                .from('games')
-                .update({ settings: newSettings })
-                .eq('id', gameId);
-
-            if (error) throw error;
-        } catch (err) {
-            console.error('Error updating settings:', err);
-            alert('Error al guardar la configuración.');
-        } finally {
-            setIsSaving(false);
-        }
+        onUpdate({ [key]: value });
     };
 
     // --- SHARED STYLES (COHESIVE WITH RULES MODAL) ---

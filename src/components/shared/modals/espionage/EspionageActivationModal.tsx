@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { REGIONS } from '../../../../data/mapRegions';
 import { useGameContext } from '../../../../context/GameContext';
+import { useMyPlayer } from '../../../../hooks/useMyPlayer';
 import { useGameActions } from '../../../../hooks/useGameActions';
 import { useSupplyRoute } from '../../../../hooks/useSupplyRoute';
 import { usePlayerResources } from '../../../../hooks/usePlayerResources';
@@ -15,12 +16,12 @@ interface EspionageActivationModalProps {
 
 export const EspionageActivationModal: React.FC<EspionageActivationModalProps> = ({
     show,
-    onClose,
-    playerIndex
+    onClose
 }) => {
     const { state } = useGameContext();
-    const { players, currentPlayerIndex: stateCurrentPlayerIndex, owners } = state;
-    const effectivePlayerIndex = playerIndex ?? stateCurrentPlayerIndex;
+    const { players, owners } = state;
+    // Siempre actúa el jugador de este cliente (no el de turno).
+    const { myPlayerIndex: effectivePlayerIndex } = useMyPlayer();
     const gameActions = useGameActions();
     const { checkRoute } = useSupplyRoute();
     const { technologies, rawMaterials } = usePlayerResources(effectivePlayerIndex);
@@ -53,7 +54,7 @@ export const EspionageActivationModal: React.FC<EspionageActivationModalProps> =
             gameActions.createEspionageCard(selectedHqId, {
                 techId: selectedTechId,
                 semiId: selectedSemiId
-            }, effectivePlayerIndex);
+            });
             onClose();
         }
     };

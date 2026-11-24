@@ -8,11 +8,14 @@ interface MapRenderProps {
     selectedRegionId: string | null;
     onRegionClick: (regionId: string) => void;
     spectator?: boolean;
+    /** Colores sólo visuales (animación final); se superponen al mapa real. */
+    ownersOverride?: Record<string, string | number | null>;
 }
 
-export const MapRender: React.FC<MapRenderProps> = ({ selectedRegionId, onRegionClick, spectator }) => {
+export const MapRender: React.FC<MapRenderProps> = ({ selectedRegionId, onRegionClick, spectator, ownersOverride }) => {
     const { state } = useGameContext();
-    const { owners, players } = state;
+    const { players } = state;
+    const owners = ownersOverride ? { ...state.owners, ...ownersOverride } : state.owners;
     const { getFillColor, getRegionCenter } = useTegMapHelpers({ owners, players });
 
     const getPointForRoute = useCallback((regionId: string) => {

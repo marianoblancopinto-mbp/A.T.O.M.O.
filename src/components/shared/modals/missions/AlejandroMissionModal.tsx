@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useGameContext } from '../../../../context/GameContext';
+import { useGameActions } from '../../../../hooks/useGameActions';
+import { useMyPlayer } from '../../../../hooks/useMyPlayer';
 import { useSupplyRoute } from '../../../../hooks/useSupplyRoute';
-import type { SpecialCard } from '../../../../types/playerTypes';
 import { MissionModalBase } from '../MissionModalBase';
 
 interface AlejandroMissionModalProps {
@@ -9,17 +10,17 @@ interface AlejandroMissionModalProps {
     onClose: () => void;
     onSuccess: (playerName: string) => void;
     onOpenInventory: () => void;
-    playerIndex: number;
 }
 
 export const AlejandroMissionModal: React.FC<AlejandroMissionModalProps> = ({
     show,
     onClose,
     onSuccess,
-    onOpenInventory,
-    playerIndex
+    onOpenInventory
 }) => {
-    const { state, dispatch } = useGameContext();
+    const { state } = useGameContext();
+    const actions = useGameActions();
+    const { myPlayerIndex } = useMyPlayer();
     const { players, owners } = state;
     const { checkRoute } = useSupplyRoute();
 
@@ -27,7 +28,7 @@ export const AlejandroMissionModal: React.FC<AlejandroMissionModalProps> = ({
     const [selectedAlejandroManufactureId, setSelectedAlejandroManufactureId] = useState<string | null>(null);
     const [selectedAlejandroEnergyId, setSelectedAlejandroEnergyId] = useState<string | null>(null);
 
-    const player = players[playerIndex];
+    const player = players[myPlayerIndex];
     if (!player) return null;
 
     const hasGreece = String(owners['grecia']) === String(player.id);
@@ -39,38 +40,7 @@ export const AlejandroMissionModal: React.FC<AlejandroMissionModalProps> = ({
 
     const handleComplete = () => {
         if (!canComplete) return;
-
-        // Create new special card
-        const newSpecialCard: SpecialCard = {
-            id: `alejandro-${Date.now()}`,
-            type: 'ALEJANDRO_MAGNO',
-            name: 'OPERACIÓN ALEJANDRO MAGNO',
-            description: 'Bonus +1 Infantería y paso libre Grecia-Turquía.',
-            originCountry: 'grecia',
-            createdAt: Date.now()
-        };
-
-        // Prepare new supplies lists
-        const newFood = player.supplies.food.filter(s => s.id !== selectedAlejandroFoodId);
-        const newManufacture = player.supplies.manufacture.filter(s => s.id !== selectedAlejandroManufactureId);
-        const newEnergy = player.supplies.energy.filter(s => s.id !== selectedAlejandroEnergyId);
-
-        // Dispatch Update
-        dispatch({
-            type: 'UPDATE_PLAYER',
-            payload: {
-                index: playerIndex,
-                data: {
-                    supplies: {
-                        food: newFood,
-                        manufacture: newManufacture,
-                        energy: newEnergy
-                    },
-                    alejandroMagnoActive: true,
-                    specialCards: [...player.specialCards, newSpecialCard]
-                }
-            }
-        });
+        actions.activateMission({ missionId: 'alejandro_magno', supplyIds: [selectedAlejandroFoodId!, selectedAlejandroManufactureId!, selectedAlejandroEnergyId!] });
 
         onSuccess(player.name);
         onClose();
@@ -101,8 +71,8 @@ export const AlejandroMissionModal: React.FC<AlejandroMissionModalProps> = ({
                         <div style={{ marginBottom: '20px' }}>
                             <div style={{ color: '#aaa', marginBottom: '8px', fontSize: '0.85rem', fontWeight: 'bold' }}>SUMINISTRO DE ALIMENTOS:</div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                {foodSupplies.filter(s => checkRoute(s.originCountry, 'grecia', playerIndex)).length > 0 ? (
-                                    foodSupplies.filter(s => checkRoute(s.originCountry, 'grecia', playerIndex)).map(s => (
+                                {foodSupplies.filter(s => checkRoute(s.originCountry, 'grecia', myPlayerIndex)).length > 0 ? (
+                                    foodSupplies.filter(s => checkRoute(s.originCountry, 'grecia', myPlayerIndex)).map(s => (
                                         <div
                                             key={s.id}
                                             onClick={() => setSelectedAlejandroFoodId(s.id)}
@@ -130,8 +100,8 @@ export const AlejandroMissionModal: React.FC<AlejandroMissionModalProps> = ({
                         <div style={{ marginBottom: '20px' }}>
                             <div style={{ color: '#aaa', marginBottom: '8px', fontSize: '0.85rem', fontWeight: 'bold' }}>SUMINISTRO DE MANUFACTURAS:</div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                {manufactureSupplies.filter(s => checkRoute(s.originCountry, 'grecia', playerIndex)).length > 0 ? (
-                                    manufactureSupplies.filter(s => checkRoute(s.originCountry, 'grecia', playerIndex)).map(s => (
+                                {manufactureSupplies.filter(s => checkRoute(s.originCountry, 'grecia', myPlayerIndex)).length > 0 ? (
+                                    manufactureSupplies.filter(s => checkRoute(s.originCountry, 'grecia', myPlayerIndex)).map(s => (
                                         <div
                                             key={s.id}
                                             onClick={() => setSelectedAlejandroManufactureId(s.id)}
@@ -159,8 +129,8 @@ export const AlejandroMissionModal: React.FC<AlejandroMissionModalProps> = ({
                         <div style={{ marginBottom: '25px' }}>
                             <div style={{ color: '#aaa', marginBottom: '8px', fontSize: '0.85rem', fontWeight: 'bold' }}>SUMINISTRO DE ENERGÍA:</div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                {energySupplies.filter(s => checkRoute(s.originCountry, 'grecia', playerIndex)).length > 0 ? (
-                                    energySupplies.filter(s => checkRoute(s.originCountry, 'grecia', playerIndex)).map(s => (
+                                {energySupplies.filter(s => checkRoute(s.originCountry, 'grecia', myPlayerIndex)).length > 0 ? (
+                                    energySupplies.filter(s => checkRoute(s.originCountry, 'grecia', myPlayerIndex)).map(s => (
                                         <div
                                             key={s.id}
                                             onClick={() => setSelectedAlejandroEnergyId(s.id)}

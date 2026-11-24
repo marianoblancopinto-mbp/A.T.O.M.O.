@@ -44,9 +44,14 @@ export interface PlayerData {
         isActive: boolean;
     }[];
     isEliminated?: boolean;
+    /** Informes de espionaje obtenidos (PRIVADOS: sólo los ve este jugador). */
+    intelReports?: EspionageReport[];
 }
 
 export interface EspionageReport {
+    id: string;
     type: 'silos' | 'mineral';
-    data: any; // Can be refined later
+    targetPlayerId: string | number;
+    targetPlayerName: string;
+    data: any; // silos: { location, status }[] | mineral: { location, isExtracted }
 }

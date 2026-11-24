@@ -27,12 +27,21 @@ export const TIER_NAMES: Record<Tier, string> = {
 // Let's check playerTypes.ts first. A safer bet is to use 'any' or just standard types for now if circular dep exists,
 // but let's assume standard imports work.
 
-import type { PlayerData } from './playerTypes';
+/**
+ * Datos PÚBLICOS de un jugador (lo que cualquiera puede ver). Las batallas y el
+ * ganador guardan sólo esto: nunca una copia completa del jugador (que incluye
+ * su inventario y sus secretos).
+ */
+export interface PlayerRef {
+    id: string | number;
+    name: string;
+    color: string;
+}
 
 export interface BattleState {
     isActive: boolean;
-    attacker: PlayerData;
-    defender: PlayerData;
+    attacker: PlayerRef;
+    defender: PlayerRef;
     attackerHand: Card[];
     defenderHand: Card[];
     attackerBonuses: {
@@ -71,4 +80,11 @@ export interface BattleState {
     attackerWins: number;
     defenderWins: number;
     isAiCheating?: boolean;
+    /** El defensor es la IA neutral y todavía no eligió su carta (la elige el servidor). */
+    aiPending?: boolean;
+    /**
+     * Sólo en la VISTA de un jugador: cuántas cartas tiene el rival. La mano rival
+     * llega vacía (oculta); este número permite dibujar los dorsos.
+     */
+    opponentHandSize?: number;
 }

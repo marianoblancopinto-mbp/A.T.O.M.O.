@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useGameContext } from '../../../../context/GameContext';
+import { useMyPlayer } from '../../../../hooks/useMyPlayer';
 import { useGameActions } from '../../../../hooks/useGameActions';
 import { REGIONS } from '../../../../data/mapRegions';
 import { useSupplyRoute } from '../../../../hooks/useSupplyRoute';
@@ -25,13 +26,13 @@ interface SelectedSiloCards {
 
 export const SiloConstructionModal: React.FC<SiloConstructionModalProps> = ({
     show,
-    onClose,
-    playerIndex
+    onClose
 }) => {
 
     const { state } = useGameContext();
-    const { players, currentPlayerIndex: stateCurrentPlayerIndex, owners } = state;
-    const effectivePlayerIndex = playerIndex ?? stateCurrentPlayerIndex;
+    const { players, owners } = state;
+    // Siempre actúa el jugador de este cliente (no el de turno).
+    const { myPlayerIndex: effectivePlayerIndex } = useMyPlayer();
     const { checkRoute } = useSupplyRoute();
     const { technologies, rawMaterials } = usePlayerResources(effectivePlayerIndex);
     const gameActions = useGameActions();

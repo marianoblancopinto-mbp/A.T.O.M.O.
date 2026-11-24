@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { type SupplyType, TECHNOLOGY_PRODUCES, type SupplyItem } from '../types/productionTypes';
+import { type SupplyType, TECHNOLOGY_PRODUCES } from '../types/productionTypes';
 import { TECHNOLOGY_DATA, RAW_MATERIAL_DATA, TECHNOLOGY_REQUIREMENTS } from '../data/productionData';
 import { useGameContext } from '../context/GameContext';
+import { useGameActions } from '../hooks/useGameActions';
 import { useMyPlayer } from '../hooks/useMyPlayer';
 
 interface InventoryModalProps {
@@ -28,9 +29,10 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
     battleTargetId,
     filterTargetCountry
 }) => {
-    const { state, dispatch } = useGameContext();
-    const { productionDeck, roundPhase } = state;
-    const { myPlayer, myPlayerIndex, resources, checkRoute } = useMyPlayer();
+    const { state } = useGameContext();
+    const { roundPhase } = state;
+    const actions = useGameActions();
+    const { myPlayer, resources, checkRoute } = useMyPlayer();
 
     // La producción de suministros SOLO está habilitada durante la fase de producción
     // (preturno) al inicio de la ronda. Durante la ronda de acciones queda bloqueada.
@@ -314,33 +316,8 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
             return;
         }
 
-        const supplyType = TECHNOLOGY_PRODUCES[techType];
-
-        // Find Origin Country (global deck first, then inventory override)
-        let originCountry = 'Desconocido';
-        if (productionDeck) {
-            const globalRawCard = productionDeck.rawMaterials.find(c => c.id === rawCard.id);
-            if (globalRawCard) originCountry = globalRawCard.country;
-        }
-        if (originCountry === 'Desconocido') {
-            const invRawCard = myPlayer.inventory.rawMaterials.find(c => c.id === rawCard.id);
-            if (invRawCard) {
-                originCountry = (invRawCard as any).country || (invRawCard as any).originCountry || 'Desconocido';
-            }
-        }
-
-        // Producción atómica y sincronizada: consume ambas cartas (mazo global + inventario)
-        // y agrega el suministro. El reducer valida que estemos en fase de producción.
-        dispatch({
-            type: 'PRODUCE_SUPPLY',
-            payload: {
-                playerIndex: myPlayerIndex,
-                techId: techCard.id,
-                rawId: rawCard.id,
-                supplyType: supplyType as SupplyItem['type'],
-                originCountry
-            }
-        });
+        // El servidor valida y crea el suministro (tipo y país de origen salen de las cartas).
+        actions.produceSupply(techCard.id, rawCard.id);
 
         // Deselect after production
         setSelectedTech(null);

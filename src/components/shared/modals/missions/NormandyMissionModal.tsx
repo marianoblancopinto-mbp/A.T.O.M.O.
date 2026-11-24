@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useGameContext } from '../../../../context/GameContext';
+import { useGameActions } from '../../../../hooks/useGameActions';
+import { useMyPlayer } from '../../../../hooks/useMyPlayer';
 import { MissionModalBase } from '../MissionModalBase';
 import { useSupplyRoute } from '../../../../hooks/useSupplyRoute';
 import { usePlayerResources } from '../../../../hooks/usePlayerResources';
-import type { SpecialCard } from '../../../../types/playerTypes';
 
 interface NormandyMissionModalProps {
     show: boolean;
@@ -15,9 +16,11 @@ export const NormandyMissionModal: React.FC<NormandyMissionModalProps> = ({
     show,
     onClose
 }) => {
-    const { state, dispatch } = useGameContext();
-    const { currentPlayerIndex, players, owners } = state;
-    const { technologies, rawMaterials } = usePlayerResources(currentPlayerIndex);
+    const { state } = useGameContext();
+    const actions = useGameActions();
+    const { myPlayerIndex } = useMyPlayer();
+    const { players, owners } = state;
+    const { technologies, rawMaterials } = usePlayerResources(myPlayerIndex);
     const { checkRoute } = useSupplyRoute();
 
     const [selectedNormandyTechId, setSelectedNormandyTechId] = useState<string | null>(null);
@@ -25,7 +28,7 @@ export const NormandyMissionModal: React.FC<NormandyMissionModalProps> = ({
 
     if (!show) return null;
 
-    const currentPlayerId = players[currentPlayerIndex]?.id;
+    const currentPlayerId = players[myPlayerIndex]?.id;
     const hasUK = String(owners['reino_unido']) === String(currentPlayerId);
     const franceOwner = owners['francia'];
     const germanyOwner = owners['alemania'];
@@ -41,41 +44,14 @@ export const NormandyMissionModal: React.FC<NormandyMissionModalProps> = ({
     const ironMaterials = rawMaterials.filter(c => {
         if ((c.type as string) !== 'HIERRO' || c.usedThisTurn) return false;
         // Check route to UK
-        return checkRoute(c.country!, 'reino_unido', currentPlayerIndex);
+        return checkRoute(c.country!, 'reino_unido', myPlayerIndex);
     });
 
     const canComplete = hasUK && sameEnemyOwner && selectedNormandyTechId && selectedNormandyIronId;
 
     const handleComplete = () => {
         if (!canComplete || !selectedNormandyTechId || !selectedNormandyIronId) return;
-
-        // 1. Consume Cards
-        dispatch({ type: 'MARK_CARD_AS_USED', payload: { cardId: selectedNormandyTechId, category: 'technology' } });
-        dispatch({ type: 'MARK_CARD_AS_USED', payload: { cardId: selectedNormandyIronId, category: 'rawMaterial' } });
-
-        // 2. Create Special Card
-        const newCard: SpecialCard = {
-            id: `normandy-card-${Date.now()}`,
-            type: 'NORMANDY_LANDING',
-            name: 'DESEMBARCO DE NORMANDÍA',
-            originCountry: 'reino_unido',
-            description: 'Bonus +1 Artillería y +2 Infantería al atacar Francia desde UK.',
-            createdAt: Date.now()
-        };
-
-        dispatch({ type: 'ADD_SPECIAL_CARD', payload: { playerIndex: currentPlayerIndex, card: newCard } });
-
-        // 3. Notify
-        dispatch({
-            type: 'SET_NOTIFICATION',
-            payload: {
-                type: 'SECONDARY_MISSION',
-                title: 'DESEMBARCO DE NORMANDÍA',
-                message: 'La invasión ha comenzado. Las fuerzas aliadas han desembarcado en las playas de Francia.',
-                color: '#00aaff',
-                playerName: players[currentPlayerIndex].name
-            }
-        });
+        actions.activateMission({ missionId: 'desembarco_normandia', techIds: [selectedNormandyTechId!], rawIds: [selectedNormandyIronId!] });
 
         onClose();
     };

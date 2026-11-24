@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useMultiplayerContext } from '../context/GameContext';
 import { MENU_SECTIONS } from '../data/loreData';
-import { generateInitialGameState } from '../data/gameInitializer';
 import { RulesModal } from './shared/modals/RulesModal';
 import { HistoryModal } from './shared/modals/HistoryModal';
 import { MissionModal } from './shared/modals/MissionModal';
@@ -25,7 +24,8 @@ export const Lobby: React.FC<LobbyProps> = ({ onGameStart, muted, onMuteToggle }
         gameSettings,
         createGame,
         joinGame,
-        startGame
+        startGame,
+        updateSettings
     } = useMultiplayerContext();
 
 
@@ -285,26 +285,10 @@ export const Lobby: React.FC<LobbyProps> = ({ onGameStart, muted, onMuteToggle }
                         <div style={{ marginTop: '60px', textAlign: 'center' }}>
                             {isHost ? (
                                 <button
-                                    onClick={async () => {
-                                        // 1. Generar el estado inicial sincronizado con los IDs del lobby.
-                                        const playerNames = lobbyPlayers.map((p: any) => p.name);
-                                        const playerIds = lobbyPlayers.map((p: any) => p.playerId);
-                                        const initialState = generateInitialGameState(
-                                            lobbyPlayers.length,
-                                            playerNames,
-                                            playerIds,
-                                            {
-                                                proxyWarCountry: gameSettings?.proxyWarCountry || 'País Desconocido',
-                                                abandonmentMode: 'redistribute',
-                                                aiActive: false,
-                                                aiDifficulty: 50,
-                                                gameMode: 'classic'
-                                            }
-                                        );
-
-                                        // 2. El anfitrión manda el estado inicial al servidor autoritativo,
-                                        //    que lo adopta y difunde a todos (transiciona a "playing").
-                                        await startGame(initialState);
+                                    onClick={() => {
+                                        // El servidor genera la partida (reparto, recursos y
+                                        // minerales secretos); el anfitrión sólo da la orden.
+                                        startGame();
                                     }}
                                     style={{
                                         padding: '20px 40px', fontSize: '1.5rem', fontWeight: 'bold',
@@ -338,7 +322,7 @@ export const Lobby: React.FC<LobbyProps> = ({ onGameStart, muted, onMuteToggle }
                 <GameSettingsModal
                     isOpen={showSettings}
                     onClose={() => setShowSettings(false)}
-                    gameId={gameId}
+                    onUpdate={updateSettings}
                     isHost={isHost}
                     currentSettings={gameSettings}
                 />

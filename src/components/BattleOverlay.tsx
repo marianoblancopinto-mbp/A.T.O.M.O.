@@ -5,7 +5,8 @@ import { useGameContext } from '../context/GameContext';
 import { BattleCard } from './shared/battle/BattleCard';
 import { BattleSupplyModal } from './shared/battle/BattleSupplyModal';
 import type { BattleState } from '../types/gameTypes';
-import { selectBestDefenderCard } from '../utils/combatCalculations';
+import { useGameActions } from '../hooks/useGameActions';
+import { useMyPlayer } from '../hooks/useMyPlayer';
 
 interface BattleOverlayProps {
     battleState: BattleState | null;
@@ -17,8 +18,10 @@ export const BattleOverlay: React.FC<BattleOverlayProps> = ({
     onOpenInventory,
 }) => {
     // Hooks
-    const { state, dispatch, multiplayer } = useGameContext();
+    const { state, multiplayer } = useGameContext();
     const { players } = state;
+    const actions = useGameActions();
+    const { myPlayer } = useMyPlayer();
 
     // --- Local UI State for non-synced interactions ---
     const [showSupplyModal, setShowSupplyModal] = useState(false);
@@ -85,71 +88,7 @@ export const BattleOverlay: React.FC<BattleOverlayProps> = ({
         return () => clearInterval(interval);
     }, [phaseStartTime]);
 
-    // --- AI Auto-trigger ---
-    React.useEffect(() => {
-        console.log(`[BattleOverlay] AI Check: Phase=${phase}, isNeutral=${isNeutralAI}, isAttacker=${isAttacker}`);
-        if (phase === 'DEFENDER_SELECTION' && isNeutralAI && isAttacker) {
-            console.log('[BattleOverlay] Fuerzas Locales detected. Attacker is triggering AI move.');
-            
-            let aiCard: Card | null = null;
-            
-            try {
-                if (defenderHand.length > 0) {
-                    aiCard = selectBestDefenderCard(
-                        currentAttackerCard!,
-                        attackerBonuses,
-                        defenderHand,
-                        defenderBonuses,
-                        attackerHand,
-                        battleState.isAiCheating,
-                        {
-                            attackerWins: battleState.attackerWins,
-                            defenderWins: battleState.defenderWins,
-                            roundCount: battleState.roundCount
-                        }
-                    );
-                }
-            } catch (error) {
-                console.error('[BattleOverlay] Error in AI strategy calculation:', error);
-                // Fallback to random card immediately if the algorithm throws
-                if (defenderHand.length > 0) {
-                    aiCard = defenderHand[Math.floor(Math.random() * defenderHand.length)];
-                    console.log('[BattleOverlay] AI fallback to random card due to error:', aiCard);
-                }
-            }
-            
-            let timer: ReturnType<typeof setTimeout>;
-            let failsafeTimer: ReturnType<typeof setTimeout>;
-
-            if (aiCard) {
-                // Regular AI move with a small visual delay
-                timer = setTimeout(() => {
-                    dispatch({
-                        type: 'BATTLE_DEFENDER_SELECT',
-                        payload: { cardId: aiCard!.id }
-                    });
-                }, 1500);
-            }
-
-            // Failsafe timer: 30 seconds after phase start, if we are somehow still stuck, throw a random card.
-            failsafeTimer = setTimeout(() => {
-                console.warn('[BattleOverlay] AI 30-second failsafe triggered.');
-                // We don't check phase directly from state here because closures, but dispatch will handle it safely
-                if (defenderHand.length > 0) {
-                    const randomCard = defenderHand[Math.floor(Math.random() * defenderHand.length)];
-                    dispatch({
-                        type: 'BATTLE_DEFENDER_SELECT',
-                        payload: { cardId: randomCard.id }
-                    });
-                }
-            }, 30000);
-
-            return () => {
-                clearTimeout(timer);
-                clearTimeout(failsafeTimer);
-            };
-        }
-    }, [phase, isNeutralAI, isAttacker, state.settings?.aiActive, currentAttackerCard]);
+    // La IA neutral la juega el SERVIDOR (con una pausa breve); el cliente sólo espera.
 
     // --- Handlers ---
 
@@ -163,90 +102,33 @@ export const BattleOverlay: React.FC<BattleOverlayProps> = ({
     };
 
     const handleConfirmSupplies = (selectedIds: Set<string>) => {
-        // ... (Existing Supply Logic - kept local to the modal interaction, but dispatches global updates) ...
-        const currentSupplies = supplyRole === 'attacker' ? attacker.supplies : defender.supplies;
-
-        // Count selected & Calculate Draw Count (Simplified for brevity, logic remains same)
-        const selectedManufacture = currentSupplies.manufacture.filter(s => selectedIds.has(s.id)).length;
-        const selectedFood = currentSupplies.food.filter(s => selectedIds.has(s.id)).length;
-        const selectedEnergy = currentSupplies.energy.filter(s => selectedIds.has(s.id)).length;
-
-        // Calculate Draw Count
-        let m = selectedManufacture;
-        let f = selectedFood;
-        let e = selectedEnergy;
-        let sets = 0;
-        while (m > 0 && f > 0 && e > 0) { sets++; m--; f--; e--; }
-
-        const drawCount = (sets * 4) + m + f + e;
-
-        if (drawCount > 0) {
-            const deck = [...battleState.deck];
-            const newCards: Card[] = [];
-            for (let i = 0; i < drawCount; i++) {
-                if (deck.length > 0) newCards.push(deck.pop()!);
-            }
-
-            const playerToUpdate = supplyRole === 'attacker' ? attacker : defender;
-            const playerIndex = players.findIndex(p => String(p.id) === String(playerToUpdate.id));
-            if (playerIndex !== -1) {
-                const s = { ...playerToUpdate.supplies };
-                s.manufacture = s.manufacture.filter(item => !selectedIds.has(item.id));
-                s.food = s.food.filter(item => !selectedIds.has(item.id));
-                s.energy = s.energy.filter(item => !selectedIds.has(item.id));
-                
-                dispatch({
-                    type: 'UPDATE_PLAYER',
-                    payload: { index: playerIndex, data: { supplies: s } }
-                });
-            }
-
-            // Update Battle State via Global Action
-            const updatedAttackerHand = supplyRole === 'attacker' ? [...attackerHand, ...newCards] : attackerHand;
-            const updatedDefenderHand = supplyRole === 'defender' ? [...defenderHand, ...newCards] : defenderHand;
-
-            dispatch({
-                type: 'UPDATE_BATTLE',
-                payload: {
-                    deck,
-                    attackerHand: updatedAttackerHand,
-                    defenderHand: updatedDefenderHand
-                }
-            });
-        }
+        // El servidor calcula cuántas cartas robar (set completo = 4, suelto = 1) y las reparte.
+        if (selectedIds.size > 0) actions.useBattleSupplies([...selectedIds]);
         setShowSupplyModal(false);
     };
 
-
     const handleAttackerSelect = (card: Card) => {
         if (!isAttacker) return;
-        dispatch({
-            type: 'BATTLE_ATTACKER_SELECT',
-            payload: { cardId: card.id }
-        });
+        actions.playBattleCard(card.id);
     };
 
     const handleDefenderSelect = (card: Card) => {
         if (!isDefender) return;
-        dispatch({
-            type: 'BATTLE_DEFENDER_SELECT',
-            payload: { cardId: card.id }
-        });
+        actions.playBattleCard(card.id);
     };
 
     const nextClash = () => {
         setIsPendingSync(true);
-        // Just proceed to next round/end. Reducer handles logic.
-        dispatch({ type: 'BATTLE_NEXT_ROUND' });
+        actions.nextBattleRound();
     };
 
     const handleClose = () => {
-        dispatch({ type: 'END_BATTLE' });
+        actions.closeBattle();
     };
 
     const handleKickOpponent = () => {
         if (!canKickOpponent) return;
-        dispatch({ type: 'KICK_PLAYER', payload: { playerId: opponentId } });
+        actions.kickPlayer(opponentId);
         setShowKickConfirm(false);
     };
 
@@ -562,7 +444,7 @@ export const BattleOverlay: React.FC<BattleOverlayProps> = ({
                             {showForceExit ? 'EL ATACANTE NO RESPONDE' : 'Esperando a que el atacante continúe...'}
                         </div>
                         <button
-                            onClick={handleClose}
+                            onClick={nextClash}
                             style={{
                                 padding: '10px 20px',
                                 fontSize: '0.9rem',
@@ -575,7 +457,7 @@ export const BattleOverlay: React.FC<BattleOverlayProps> = ({
                                 boxShadow: showForceExit ? '0 0 10px rgba(255,0,0,0.2)' : 'none'
                             }}
                         >
-                            {showForceExit ? 'ABANDONAR BATALLA (SISTEMA AFK DETECTADO)' : 'SALIR (SI EL ATACANTE NO RESPONDE)'}
+                            {showForceExit ? 'CONTINUAR (SISTEMA AFK DETECTADO)' : 'CONTINUAR (SI EL ATACANTE NO RESPONDE)'}
                         </button>
                         {showForceExit && (
                             <div style={{ fontSize: '0.7rem', color: '#ff4444', maxWidth: '300px', textAlign: 'center' }}>
@@ -648,7 +530,7 @@ export const BattleOverlay: React.FC<BattleOverlayProps> = ({
             <BattleSupplyModal
                 isOpen={showSupplyModal}
                 onClose={() => setShowSupplyModal(false)}
-                supplies={supplyRole === 'attacker' ? attacker.supplies : defender.supplies}
+                supplies={myPlayer?.supplies ?? { food: [], manufacture: [], energy: [] }}
                 playerName={supplyRole === 'attacker' ? attackerName : defenderName}
                 playerColor={supplyRole === 'attacker' ? attackerColor : defenderColor}
                 playerIndex={supplyRole === 'attacker' ? attacker.id : defender.id}

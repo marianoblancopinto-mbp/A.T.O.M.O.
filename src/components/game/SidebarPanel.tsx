@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useGameContext } from '../../context/GameContext';
+import { useGameActions } from '../../hooks/useGameActions';
 
 interface SidebarPanelProps {
     onEndTurn: () => void;
@@ -22,7 +23,8 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
     mobileOpen = false,
     onCloseMobile,
 }) => {
-    const { state, dispatch, multiplayer } = useGameContext();
+    const { state, multiplayer } = useGameContext();
+    const actions = useGameActions();
     const { players, currentPlayerIndex, gameDate } = state;
     const currentPlayer = players[currentPlayerIndex];
 
@@ -34,9 +36,7 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
     if (!currentPlayer) return null;
 
     // Check if it is the local player's turn (Multiplayer guard)
-    const isMyTurn = (multiplayer.connectionStatus === 'PLAYING' && multiplayer.playerId)
-        ? String(currentPlayer.id) === String(multiplayer.playerId)
-        : true;
+    const isMyTurn = !!multiplayer.playerId && String(currentPlayer.id) === String(multiplayer.playerId);
 
     const greenBtnStyle: React.CSSProperties = {
         padding: '12px 15px',
@@ -245,7 +245,7 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
                                     <button
                                         onClick={() => {
                                             if (isConfirming) {
-                                                dispatch({ type: 'KICK_PLAYER', payload: { playerId: p.id } });
+                                                actions.kickPlayer(p.id);
                                                 setShowKickConfirm(null);
                                             } else {
                                                 setShowKickConfirm(String(p.id));
@@ -285,7 +285,7 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
                             <button
                                 onClick={() => {
                                     if (showEndConfirm) {
-                                        dispatch({ type: 'END_GAME' });
+                                        actions.endGame();
                                         setShowEndConfirm(false);
                                     } else {
                                         setShowEndConfirm(true);

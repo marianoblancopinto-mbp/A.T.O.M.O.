@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { getSpecialMissions, type SpecialMission } from '../../../../data/missionData';
 import { WAR_SECRETS_RESOURCES } from '../../../../data/productionData';
 import { useGameContext } from '../../../../context/GameContext';
+import { useGameActions } from '../../../../hooks/useGameActions';
+import { useMyPlayer } from '../../../../hooks/useMyPlayer';
 import { REGIONS } from '../../../../data/mapRegions';
 import type { RawMaterialType } from '../../../../types/productionTypes';
 
@@ -21,11 +23,13 @@ export const WarSecretsModal: React.FC<WarSecretsModalProps> = ({
     proxyWarCountryName,
     onSuccess
 }) => {
-    const { state, dispatch } = useGameContext();
-    const { players, currentPlayerIndex } = state;
+    const { state } = useGameContext();
+    const { players } = state;
+    const actions = useGameActions();
+    const { myPlayerIndex } = useMyPlayer();
     const [selectedAgency, setSelectedAgency] = useState<'CIA' | 'MSS' | null>(null);
 
-    const player = players[currentPlayerIndex];
+    const player = players[myPlayerIndex];
     if (!player) return null;
 
     // Determine availability of Agencies
@@ -57,71 +61,7 @@ export const WarSecretsModal: React.FC<WarSecretsModalProps> = ({
             return;
         }
 
-        // 1. Consume Espionage Card
-        dispatch({
-            type: 'MARK_CARD_AS_USED', // We might need a generic remove special card action or use UPDATE_PLAYER
-            // MARK_CARD_AS_USED is for territory cards usually.
-            // Let's check if we have REMOVE_SPECIAL_CARD or similar.
-            // If not, we construct new state and UPDATE_PLAYER.
-            // TegMap used: newPlayers[pIndex].specialCards = ...filter...
-            // So we'll use UPDATE_PLAYER.
-            payload: { cardId: techCard.id, category: 'technology' } // Fallback if it works, but better manual update.
-        });
-
-        // Actually, let's build the new player object parts.
-        const updatedSpecialCards = player.specialCards.filter(c => c.id !== techCard.id);
-
-        // 2. Add Special Mission Badge
-        updatedSpecialCards.push({
-            id: `mission_badge_${Date.now()}`,
-            name: `SECRETOS DE ${proxyWarCountryName.toUpperCase()}`,
-            description: `Operación de inteligencia exitosa en ${proxyWarCountryName}. Recursos asegurados: ${WAR_SECRETS_RESOURCES.find(r => r.type === resourceType)?.label}.`,
-            type: 'SECRETOS_GUERRA',
-            originCountry: countryId,
-            createdAt: Date.now()
-        });
-
-        // 3. Add Raw Material Card
-        const newRawMaterial = {
-            id: `secret_resource_${Date.now()}`,
-            type: resourceType,
-            category: 'rawMaterial' as const,
-            country: countryId,
-            usedThisTurn: false
-        };
-        const updatedRawMaterials = [...player.inventory.rawMaterials, newRawMaterial];
-
-        // 4. Update secretWarData
-        const newSecretData = {
-            countryId: countryId,
-            resourceType: resourceType,
-            agency: selectedAgency,
-            isActive: true
-        };
-        const updatedSecretWarData = [...player.secretWarData, newSecretData];
-
-        // 5. Update activeSpecialMissions
-        const updatedActiveMissions = [...player.activeSpecialMissions, {
-            id: 'secretos_guerra',
-            baseRegionId: countryId
-        }];
-
-        // Dispatch Update
-        dispatch({
-            type: 'UPDATE_PLAYER',
-            payload: {
-                index: currentPlayerIndex,
-                data: {
-                    specialCards: updatedSpecialCards,
-                    inventory: {
-                        ...player.inventory,
-                        rawMaterials: updatedRawMaterials
-                    },
-                    secretWarData: updatedSecretWarData,
-                    activeSpecialMissions: updatedActiveMissions
-                }
-            }
-        });
+        actions.activateMission({ missionId: 'secretos_guerra', agency: selectedAgency, resourceType });
 
         // Notify Parent
         onSuccess(player.name, proxyWarCountryName);

@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { MissionModalBase } from '../MissionModalBase';
 import { useGameContext } from '../../../../context/GameContext';
+import { useGameActions } from '../../../../hooks/useGameActions';
+import { useMyPlayer } from '../../../../hooks/useMyPlayer';
 import { useSupplyRoute } from '../../../../hooks/useSupplyRoute';
 import { usePlayerResources } from '../../../../hooks/usePlayerResources';
 import { REGIONS } from '../../../../data/mapRegions';
-import type { SpecialCard } from '../../../../types/playerTypes';
 
 interface AntarcticaMissionModalProps {
     onClose: () => void;
@@ -15,10 +16,12 @@ export const AntarcticaMissionModal: React.FC<AntarcticaMissionModalProps> = ({
     onClose,
     onSuccess
 }) => {
-    const { state, dispatch } = useGameContext();
-    const { players, currentPlayerIndex, owners } = state;
+    const { state } = useGameContext();
+    const actions = useGameActions();
+    const { myPlayerIndex } = useMyPlayer();
+    const { players, owners } = state;
     const { checkRoute } = useSupplyRoute();
-    const { technologies, rawMaterials } = usePlayerResources(currentPlayerIndex);
+    const { technologies, rawMaterials } = usePlayerResources(myPlayerIndex);
 
     const [selectedAntarcticaBase, setSelectedAntarcticaBase] = useState<string | null>(null);
     const [selectedAntarcticaCards, setSelectedAntarcticaCards] = useState<{
@@ -28,7 +31,7 @@ export const AntarcticaMissionModal: React.FC<AntarcticaMissionModalProps> = ({
         semiId: string | null;
     }>({ heavyIndId: null, elecIndId: null, ironId: null, semiId: null });
 
-    const player = players[currentPlayerIndex];
+    const player = players[myPlayerIndex];
     if (!player) return null;
 
     const hasControl = ['chile', 'argentina', 'australia', 'sudafrica'].every(id => owners[id] === player.id);
@@ -50,48 +53,7 @@ export const AntarcticaMissionModal: React.FC<AntarcticaMissionModalProps> = ({
 
     const handleComplete = () => {
         if (!canComplete) return;
-
-        // Consume Cards
-        dispatch({
-            type: 'MARK_CARD_AS_USED',
-            payload: { cardId: selectedAntarcticaCards.heavyIndId!, category: 'technology' }
-        });
-        dispatch({
-            type: 'MARK_CARD_AS_USED',
-            payload: { cardId: selectedAntarcticaCards.elecIndId!, category: 'technology' }
-        });
-        dispatch({
-            type: 'MARK_CARD_AS_USED',
-            payload: { cardId: selectedAntarcticaCards.ironId!, category: 'rawMaterial' }
-        });
-        dispatch({
-            type: 'MARK_CARD_AS_USED',
-            payload: { cardId: selectedAntarcticaCards.semiId!, category: 'rawMaterial' }
-        });
-
-        // Add Special Card
-        const newCard: SpecialCard = {
-            id: `special-antarctica-${Date.now()}`,
-            type: 'SECONDARY_MISSION',
-            name: 'RUTA ANTÁRTICA',
-            originCountry: selectedAntarcticaBase!, // Base
-            description: 'Ruta comercial antártica establecida. Genera bonificaciones pasivas.',
-            createdAt: Date.now()
-        };
-
-        const updatedSpecialCards = [...player.specialCards, newCard];
-        const updatedActiveMissions = [...player.activeSpecialMissions, { id: 'ruta_antartica', baseRegionId: selectedAntarcticaBase!, startTime: Date.now() }];
-
-        dispatch({
-            type: 'UPDATE_PLAYER',
-            payload: {
-                index: currentPlayerIndex,
-                data: {
-                    specialCards: updatedSpecialCards,
-                    activeSpecialMissions: updatedActiveMissions
-                }
-            }
-        });
+        actions.activateMission({ missionId: 'ruta_antartica', baseRegionId: selectedAntarcticaBase!, techIds: [selectedAntarcticaCards.heavyIndId!, selectedAntarcticaCards.elecIndId!], rawIds: [selectedAntarcticaCards.ironId!, selectedAntarcticaCards.semiId!] });
 
         onSuccess(player.name);
         onClose();

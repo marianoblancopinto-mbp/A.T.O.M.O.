@@ -1,8 +1,8 @@
 import React from 'react';
-import type { PlayerData as PlayerDataType } from '../../../types/playerTypes';
+import type { PlayerRef } from '../../../types/gameTypes';
 
 interface EndgameOverlayProps {
-    winner: PlayerDataType | null;
+    winner: PlayerRef | null;
     endgameChoice: 'victory' | 'destruction' | null;
     onEndgameChoice: (choice: 'victory' | 'destruction') => void;
     onNewOperation: () => void;

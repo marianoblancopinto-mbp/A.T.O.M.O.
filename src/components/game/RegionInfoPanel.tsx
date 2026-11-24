@@ -29,11 +29,10 @@ export const RegionInfoPanel: React.FC<RegionInfoPanelProps> = ({
 }) => {
     const { state, multiplayer } = useGameContext();
     const { players, currentPlayerIndex, owners, regionResources } = state;
-    const currentPlayer = players[currentPlayerIndex];
+    // Mis datos (el mineral secreto es privado: sólo llega el mío).
+    const currentPlayer = players.find(p => String(p.id) === String(multiplayer.playerId));
 
-    const isMyTurn = (multiplayer.connectionStatus === 'PLAYING' && multiplayer.playerId)
-        ? players[currentPlayerIndex]?.id === multiplayer.playerId
-        : true;
+    const isMyTurn = !!multiplayer.playerId && String(players[currentPlayerIndex]?.id) === String(multiplayer.playerId);
 
 
     const isMobile = window.innerWidth <= 768;
