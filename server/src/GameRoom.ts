@@ -1,125 +1,140 @@
 /**
- * GameRoom — sala autoritativa de A.T.O.M.O.
+ * GameRoom — adaptador Colyseus de GameSession.
  *
- * El servidor es la ÚNICA fuente de verdad. Maneja dos fases:
- *  - LOBBY: los jugadores se unen con su nombre; el primero es el anfitrión.
- *  - PLAYING: el anfitrión inicia la partida (manda el estado inicial que generó);
- *    a partir de ahí los clientes mandan Intents y el servidor valida (rules),
- *    aplica (reducer de @atomo/shared) y difunde el estado.
+ * Protocolo (cliente → servidor):
+ *   join options { token?, playerName }   reconectar con el token guardado o tomar asiento nuevo
+ *   'settings'  { ...GameSettings }        sólo anfitrión, en el lobby
+ *   'start'                                sólo anfitrión
+ *   'command'   Command                    una intención de juego (ver engine/commands)
  *
- * Sincronización por mensajes (sin @colyseus/schema); alcanza para un juego por turnos.
+ * Servidor → cliente:
+ *   'seat'      { playerId, token }        PRIVADO: identidad asignada por el servidor
+ *   'lobby'     LobbyView                  a todos
+ *   'state'     vista proyectada           a CADA cliente la suya (nunca el estado completo)
+ *   'rejected'  { reason }                 sólo a quien mandó algo inválido
  */
 
 import colyseus, { type Client } from 'colyseus';
-import type { GameState, Intent } from '@atomo/shared';
-import {
-    createInitialState,
-    adoptInitialState,
-    applyIntent,
-    toWire,
-    addLobbyPlayer,
-    removeLobbyPlayer,
-    isHost,
-    type LobbyPlayer,
-} from './roomLogic';
+import { GameSession } from './session';
 
 const { Room } = colyseus;
 
-interface JoinOptions {
-    playerId?: string | number;
-    playerName?: string;
-}
+const AI_DELAY_MS = 1200;
+const RECONNECT_SECONDS = 60;
+// Límite simple de mensajes por conexión (protege al servidor de clientes rotos o abusivos).
+const RATE_WINDOW_MS = 1000;
+const RATE_MAX = 25;
 
 export class GameRoom extends Room {
-    private gameState: GameState = createInitialState();
-    private lobby: LobbyPlayer[] = [];
-    private phase: 'lobby' | 'playing' = 'lobby';
-    // Qué jugador del juego controla cada conexión (sessionId -> playerId).
-    private playerBySession = new Map<string, string | number>();
+    private session = new GameSession();
+    private playerBySession = new Map<string, string | null>(); // sessionId -> playerId (null = espectador)
+    private rate = new Map<string, { start: number; count: number }>();
+    private aiTimer: { clear(): void } | null = null;
 
     onCreate() {
+        this.maxClients = 16;
         console.log(`[GameRoom] Sala creada: ${this.roomId}`);
 
-        // El anfitrión inicia la partida con el estado inicial que generó localmente.
-        this.onMessage('start', (client: Client, payload: { state: unknown }) => {
-            try {
-                const playerId = this.playerBySession.get(client.sessionId);
-                if (playerId == null || !isHost(this.lobby, playerId)) {
-                    client.send('rejected', { reason: 'Sólo el anfitrión puede iniciar la partida.' });
-                    return;
-                }
-                this.gameState = adoptInitialState(payload?.state);
-                this.phase = 'playing';
-                this.broadcast('lobby', { players: this.lobby, phase: this.phase });
-                this.broadcast('state', toWire(this.gameState));
-                console.log(`[GameRoom] Partida iniciada en ${this.roomId}`);
-            } catch (e) {
-                console.error('[GameRoom] Error al iniciar la partida:', e);
-                client.send('rejected', { reason: 'Error al iniciar la partida en el servidor.' });
-            }
-        });
+        this.onMessage('settings', (client: Client, payload: unknown) => this.guard(client, playerId => {
+            const err = this.session.updateSettings(playerId, payload);
+            if (err) return this.reject(client, err);
+            this.broadcastLobby();
+        }));
 
-        // El cliente manda un intent; el servidor lo valida, lo aplica y difunde.
-        this.onMessage('intent', (client: Client, intent: Intent) => {
-            try {
-                const playerId = this.playerBySession.get(client.sessionId);
-                if (playerId == null) {
-                    client.send('rejected', { reason: 'Conexión sin jugador identificado.' });
-                    return;
-                }
-                const result = applyIntent(this.gameState, playerId, intent);
-                if (result.ok) {
-                    this.gameState = result.state;
-                    this.broadcast('state', toWire(this.gameState));
-                } else {
-                    console.log(`[GameRoom] Intent rechazado de ${playerId}: ${result.reason}`);
-                    client.send('rejected', { reason: result.reason });
-                }
-            } catch (e) {
-                console.error('[GameRoom] Error procesando intent:', e);
-                client.send('rejected', { reason: 'Error procesando la acción en el servidor.' });
-            }
-        });
+        this.onMessage('start', (client: Client) => this.guard(client, playerId => {
+            const err = this.session.start(playerId);
+            if (err) return this.reject(client, err);
+            this.lock();
+            console.log(`[GameRoom] Partida iniciada en ${this.roomId}`);
+            this.broadcastLobby();
+            this.broadcastState();
+        }));
+
+        this.onMessage('command', (client: Client, command: unknown) => this.guard(client, playerId => {
+            const err = this.session.command(playerId, command);
+            if (err) return this.reject(client, err);
+            this.broadcastState();
+            this.scheduleAi();
+        }));
     }
 
-    onJoin(client: Client, options?: JoinOptions) {
-        const playerId = options?.playerId ?? client.sessionId;
-        const name = options?.playerName ?? 'Comandante';
-        this.playerBySession.set(client.sessionId, playerId);
-        this.lobby = addLobbyPlayer(this.lobby, playerId, name);
-
-        console.log(`[GameRoom] ${name} (${playerId}) se unió a ${this.roomId} [${this.phase}]`);
-        this.broadcast('lobby', { players: this.lobby, phase: this.phase });
-
-        // Si la partida ya arrancó, entregar el estado actual al que se une (late-join).
-        if (this.phase === 'playing') {
-            client.send('state', toWire(this.gameState));
+    onJoin(client: Client, options?: { token?: unknown; playerName?: unknown }) {
+        const result = this.session.join(options?.token, options?.playerName);
+        if (result.kind === 'rejected') throw new Error(result.reason);
+        if (result.kind === 'spectator') {
+            this.playerBySession.set(client.sessionId, null);
+        } else {
+            this.playerBySession.set(client.sessionId, result.seat.playerId);
+            client.send('seat', { playerId: result.seat.playerId, token: result.seat.token });
         }
+        this.broadcastLobby();
+        if (this.session.phase === 'playing') this.sendState(client);
     }
 
     async onLeave(client: Client, consented?: boolean) {
-        const playerId = this.playerBySession.get(client.sessionId);
+        const playerId = this.playerBySession.get(client.sessionId) ?? null;
         this.playerBySession.delete(client.sessionId);
-        console.log(`[GameRoom] ${client.sessionId} se fue de ${this.roomId} (consented=${consented})`);
+        this.rate.delete(client.sessionId);
 
-        // Durante la partida, dar un margen de reconexión (Fase 4): mantiene la sala
-        // VIVA ~60s aunque quede sin nadie, así el que se cayó puede volver y retomar
-        // (incluida una batalla en curso). El cliente se re-une por roomId + playerId.
-        if (this.phase === 'playing' && !consented) {
+        if (playerId && this.session.phase === 'playing' && !consented) {
             try {
-                await this.allowReconnection(client, 60);
-                if (playerId != null) this.playerBySession.set(client.sessionId, playerId);
-                console.log(`[GameRoom] ${client.sessionId} reconectó a ${this.roomId}`);
+                await this.allowReconnection(client, RECONNECT_SECONDS);
+                this.playerBySession.set(client.sessionId, playerId);
+                this.sendState(client);
                 return;
-            } catch {
-                console.log(`[GameRoom] ${client.sessionId} no reconectó a tiempo`);
-            }
+            } catch { /* venció el margen */ }
         }
+        if (playerId) this.session.leave(playerId);
+        this.broadcastLobby();
+    }
 
-        // Salida definitiva (en lobby, o venció el margen): sacarlo del lobby.
-        if (playerId != null) {
-            this.lobby = removeLobbyPlayer(this.lobby, playerId);
-            this.broadcast('lobby', { players: this.lobby, phase: this.phase });
+    onDispose() {
+        this.aiTimer?.clear();
+    }
+
+    // ------------------------------------------------------------------ helpers
+
+    /** Identifica al remitente por su conexión y aplica el límite de mensajes. */
+    private guard(client: Client, fn: (playerId: string) => void) {
+        const now = Date.now();
+        const r = this.rate.get(client.sessionId);
+        if (!r || now - r.start > RATE_WINDOW_MS) this.rate.set(client.sessionId, { start: now, count: 1 });
+        else if (++r.count > RATE_MAX) return this.reject(client, 'Demasiados mensajes.');
+
+        const playerId = this.playerBySession.get(client.sessionId);
+        if (!playerId) return this.reject(client, 'Estás mirando como espectador.');
+        try {
+            fn(playerId);
+        } catch (e) {
+            console.error('[GameRoom] Error procesando mensaje:', e);
+            this.reject(client, 'Error procesando la acción en el servidor.');
         }
+    }
+
+    private reject(client: Client, reason: string) {
+        client.send('rejected', { reason });
+    }
+
+    private broadcastLobby() {
+        this.broadcast('lobby', this.session.lobbyView());
+    }
+
+    private sendState(client: Client) {
+        const view = this.session.viewFor(this.playerBySession.get(client.sessionId) ?? null);
+        if (view) client.send('state', view);
+    }
+
+    /** Cada cliente recibe SU proyección; nadie recibe el estado completo. */
+    private broadcastState() {
+        for (const client of this.clients) this.sendState(client);
+    }
+
+    private scheduleAi() {
+        if (this.aiTimer || !this.session.needsAiMove()) return;
+        this.aiTimer = this.clock.setTimeout(() => {
+            this.aiTimer = null;
+            this.session.runAiMove();
+            this.broadcastState();
+        }, AI_DELAY_MS);
     }
 }

@@ -12,29 +12,21 @@ import { ConquestOverlay } from './shared/overlays/ConquestOverlay';
 import { ConfidentialInfoModal } from './game/ConfidentialInfoModal';
 import { SpecialMissionModal } from './shared/modals/missions/SpecialMissionModal';
 import { getSpecialMissions, type SpecialMission } from '../data/missionData';
-import { EspionageGenerationModal } from './shared/modals/espionage/EspionageGenerationModal';
 import { EspionageTargetSelectionModal } from './shared/modals/espionage/EspionageTargetSelectionModal';
 import { EspionageActivationModal } from './shared/modals/espionage/EspionageActivationModal';
-import { NuclearActivationModal } from './shared/modals/nuclear/NuclearActivationModal';
 import { NuclearDesignGenerationModal } from './shared/modals/nuclear/NuclearDesignGenerationModal';
 import { MineralExtractionModal } from './shared/modals/nuclear/MineralExtractionModal';
 import { SiloConstructionModal } from './shared/modals/nuclear/SiloConstructionModal';
 import { SiloFuelSelectionModal } from './shared/modals/nuclear/SiloFuelSelectionModal';
 import { NuclearDeploymentModal } from './shared/modals/nuclear/NuclearDeploymentModal';
 import { NuclearAlertModal } from './shared/modals/nuclear/NuclearAlertModal';
-import { NuclearWarInfoModal } from './shared/modals/nuclear/NuclearWarInfoModal';
 import { YearStartOverlay } from './shared/overlays/YearStartOverlay';
 import { ProductionPhaseOverlay } from './shared/overlays/ProductionPhaseOverlay';
 import { EndgameOverlay } from './shared/overlays/EndgameOverlay';
 import { MissionNotificationOverlay } from './shared/overlays/MissionNotificationOverlay';
+import { ServerRejectionToast } from './shared/overlays/ServerRejectionToast';
 import { MADOverlay } from './shared/overlays/MADOverlay';
-import {
-    isMaritimeConnection,
-    checkSupplyRoute
-} from '../data/mapData';
-import type {
-    SupplyItem
-} from '../types/productionTypes';
+import { isMaritimeConnection } from '../data/mapData';
 import { InventoryModal } from './InventoryModal';
 import { TreatiesPanel } from './game/treaties/TreatiesPanel';
 import { useBattleState } from '../hooks/useBattleState';
@@ -47,8 +39,8 @@ import { useGameActions } from '../hooks/useGameActions';
 
 
 export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false }) => {
-    const { state, dispatch, multiplayer } = useGameContext();
-    const { processTreatyStatus } = useGameActions();
+    const { state, multiplayer, dismissNotification } = useGameContext();
+    const actions = useGameActions();
 
     const {
         gamePhase,
@@ -57,36 +49,14 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
         currentPlayerIndex,
         owners,
         gameDate,
-        turnOrder,
-        turnOrderIndex,
         roundPhase
     } = state;
 
     // Index of the player operating locally (the one whose confidential file is theirs).
     // In multiplayer we always act as the local player; in hotseat it's the active player.
-    const localPlayerIndex = (multiplayer.connectionStatus === 'PLAYING' && multiplayer.playerId)
-        ? (() => {
-            const idx = players.findIndex(p => p.id === multiplayer.playerId);
-            return idx !== -1 ? idx : currentPlayerIndex;
-        })()
-        : currentPlayerIndex;
-
-    // Helper wrappers for backward compatibility during migration
-    const setPlayers = (action: React.SetStateAction<PlayerData[]>) => {
-        if (typeof action === 'function') {
-            dispatch({ type: 'UPDATE_PLAYERS_FN', payload: action as (prev: PlayerData[]) => PlayerData[] });
-        } else {
-            dispatch({ type: 'SET_PLAYERS', payload: action });
-        }
-    };
-
-    const setOwners = (action: React.SetStateAction<Record<string, string | number | null>>) => {
-        if (typeof action === 'function') {
-            dispatch({ type: 'UPDATE_OWNERS_FN', payload: action as (prev: Record<string, string | number | null>) => Record<string, string | number | null> });
-        } else {
-            dispatch({ type: 'SET_OWNERS', payload: action });
-        }
-    };
+    const localPlayerIndex = multiplayer.playerId
+        ? players.findIndex(p => String(p.id) === String(multiplayer.playerId))
+        : -1;
 
     // const setGameDate = ... (removed unused)
     // const setCurrentPlayerIndex = ... (removed unused)
@@ -113,13 +83,6 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
     // Mission Modals State
 
 
-    console.log('TegMap Render - Game Phase:', gamePhase);
-    console.log('Game Started:', gameStarted);
-    if (players.length === 0) console.warn('[TegMap] ⚠️ Players array is EMPTY!');
-    console.log(`[TegMap] Current Player Index: ${currentPlayerIndex}, Player Count: ${players.length}`);
-    if (players[currentPlayerIndex]) {
-        console.log(`[TegMap] Active Player ID: ${players[currentPlayerIndex].id}, My ID: ${multiplayer.playerId}`);
-    }
 
     // Play State (Moved to Context)
     // const [owners, setOwners = useState<Record<string, number | null>>({}); // Removed
@@ -140,7 +103,6 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
 
     const [expandedTechnologies, setExpandedTechnologies] = useState<Set<string>>(new Set());
     const [showSpecialMissionModal, setShowSpecialMissionModal] = useState<string | null>(null);
-    const [showNuclearWarInfo, setShowNuclearWarInfo] = useState<string | null>(null); // Country ID for which the info is shown
 
     // Play State (Moved Up)
 
@@ -168,7 +130,6 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
     // Special Modals
     const [showConfidentialModal, setShowConfidentialModal] = useState(false);
     const [showMineralExtractionModal, setShowMineralExtractionModal] = useState<string | null>(null);
-    const [showNuclearActivationModal, setShowNuclearActivationModal] = useState<string | null>(null);
     const [showNuclearDeploymentModal, setShowNuclearDeploymentModal] = useState(false);
     const [selectedLaunchSilo, setSelectedLaunchSilo] = useState<string | null>(null);
 
@@ -182,6 +143,8 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
 
     const themeSongRef = useRef<HTMLAudioElement | null>(null);
     const [animationIndex, setAnimationIndex] = useState(-1);
+    // Animación final: recolorea el mapa SÓLO en pantalla (no toca el estado del servidor).
+    const [animatedOwners, setAnimatedOwners] = useState<Record<string, string | number | null>>({});
 
     // Desalination Plant Mission State
 
@@ -239,7 +202,6 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
 
     // Espionage State
     const [showEspionageModal, setShowEspionageModal] = useState<string | null>(null);
-    const [showEspionageGenSelection, setShowEspionageGenSelection] = useState(false);
     const [showEspionageActivationModal, setShowEspionageActivationModal] = useState(false);
 
     // Nuclear Design State
@@ -247,50 +209,8 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
     const [nuclearGenLocation, setNuclearGenLocation] = useState<string | null>(null);
     const [missionPlayerIndex, setMissionPlayerIndex] = useState<number | null>(null);
 
-    // Synchronization Channel
-    useEffect(() => {
-        const channel = new BroadcastChannel('teg_game_sync');
-
-        if (spectator) {
-            channel.onmessage = (event) => {
-                const { type, payload } = event.data;
-                if (type === 'STATE_UPDATE') {
-                    dispatch({ type: 'SET_OWNERS', payload: payload.owners });
-                    dispatch({ type: 'SET_PLAYERS', payload: payload.players });
-                    if (payload.gameDate) {
-                        dispatch({ type: 'SET_GAME_DATE', payload: new Date(payload.gameDate) });
-                    }
-                }
-            };
-        }
-
-        return () => channel.close();
-    }, [spectator, dispatch]);
-
-    // Controller Broadcast
-    useEffect(() => {
-        if (!spectator && gameStarted) {
-            const channel = new BroadcastChannel('teg_game_sync');
-            channel.postMessage({
-                type: 'STATE_UPDATE',
-                payload: {
-                    owners,
-                    players,
-                    gameDate: gameDate.getTime()
-                }
-            });
-            channel.close();
-        }
-    }, [owners, players, gameDate, spectator, gameStarted]);
-
-    // Spectator Mode Initialization (Context Sync)
-    useEffect(() => {
-        if (spectator) {
-            dispatch({ type: 'SET_GAME_PHASE', payload: 'playing' });
-            dispatch({ type: 'SET_GAME_STARTED', payload: true });
-        }
-    }, [spectator, dispatch]);
-
+    // Modo espectador: se conecta al servidor como espectador (ver useColyseus) y
+    // recibe sólo la vista pública. Ya no se sincroniza por BroadcastChannel.
 
     // --- Mission Handlers ---
 
@@ -299,166 +219,8 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
 
 
 
-    // Validate Special Card and Silo Ownership
-    useEffect(() => {
-        if (!gameStarted || players.length === 0) return;
-
-        let stateChanged = false;
-        const updatedPlayers = players.map(p => {
-            let playerModified = false;
-            let updatedP = { ...p };
-
-            // 1. Validate Special Cards
-            if (p.specialCards.length > 0) {
-                const validCards = p.specialCards.filter(card => owners[card.originCountry] === p.id);
-                if (validCards.length !== p.specialCards.length) {
-                    updatedP.specialCards = validCards;
-                    playerModified = true;
-                }
-            }
-
-            // 2. Validate Silos
-            if (p.silos.length > 0) {
-                const validSilos = p.silos.filter(siloId => owners[siloId] === p.id);
-                if (validSilos.length !== p.silos.length) {
-                    // NEW: Notify player about lost silo
-                    const lostSiloIds = p.silos.filter(id => !validSilos.includes(id));
-                    lostSiloIds.forEach(sid => {
-                        dispatch({
-                            type: 'SET_NOTIFICATION',
-                            payload: {
-                                type: 'NEUTRALIZED',
-                                title: 'SILO DESTRUIDO',
-                                message: `El silo en ${REGIONS.find(r => r.id === sid)?.title || sid} ha sido capturado y desmantelado. Tendrás que construirlo de verdad de nuevo si quieres recuperar tu capacidad de ataque nuclear.`,
-                                color: '#ff4444',
-                                targetPlayerId: p.id
-                            }
-                        });
-                    });
-
-                    updatedP.silos = validSilos;
-                    playerModified = true;
-
-                    // Also clean up Silo Status
-                    const newSiloStatus = { ...p.siloStatus };
-                    let statusModified = false;
-                    Object.keys(newSiloStatus).forEach(sid => {
-                        if (owners[sid] !== p.id) {
-                            delete (newSiloStatus as any)[sid];
-                            statusModified = true;
-                        }
-                    });
-                    if (statusModified) {
-                        updatedP.siloStatus = newSiloStatus;
-                    }
-
-                    // If they lost all silos, check deployment
-                    if (validSilos.length === 0 && p.nuclearDeploymentActive) {
-                        updatedP.nuclearDeploymentActive = false;
-                    }
-                }
-            }
-
-            if (playerModified) {
-                stateChanged = true;
-                return updatedP;
-            }
-            return p;
-        });
-
-        if (stateChanged) {
-            setPlayers(updatedPlayers);
-        }
-    }, [owners, gameStarted]);
-
-    // Private Overlays for Supply Route loss
-    const prevRouteStatusRef = useRef<Record<string, Record<string, { fuel: boolean, mineral: boolean }>>>({});
-
-    useEffect(() => {
-        if (!gameStarted || players.length === 0) return;
-
-        players.forEach(p => {
-            const playerId = p.id.toString();
-            if (!prevRouteStatusRef.current[playerId]) {
-                prevRouteStatusRef.current[playerId] = {};
-            }
-            const playerPrevStatus = prevRouteStatusRef.current[playerId];
-
-            p.silos.forEach(siloId => {
-                if (!playerPrevStatus[siloId]) {
-                    playerPrevStatus[siloId] = { fuel: true, mineral: true }; // Init as true to only notify on LOST
-                }
-                const prev = playerPrevStatus[siloId];
-
-                // 1. Fuel Route
-                const fuelCardId = p.siloFuelCards?.[siloId];
-                let fuelRouteOK = true;
-                if (fuelCardId) {
-                    const fuelCard = p.inventory.rawMaterials.find(c => c.id === fuelCardId);
-                    if (fuelCard?.country) {
-                        fuelRouteOK = checkSupplyRoute(fuelCard.country, siloId, p.id, owners);
-                        if (prev.fuel && !fuelRouteOK) {
-                            dispatch({
-                                type: 'SET_NOTIFICATION',
-                                payload: {
-                                    type: 'NEUTRALIZED',
-                                    title: 'RUTA DE COMBUSTIBLE CORTADA',
-                                    message: `Se ha perdido la ruta de suministro entre ${REGIONS.find(r => r.id === fuelCard.country)?.title} y el silo en ${REGIONS.find(r => r.id === siloId)?.title}.`,
-                                    color: '#ff9900',
-                                    targetPlayerId: p.id
-                                }
-                            });
-                        }
-                    }
-                }
-
-                // 2. Mineral Route
-                const mineralCard = p.specialCards.find(c => c.name === 'MINERAL SECRETO');
-                let mineralRouteOK = true;
-                if (mineralCard) {
-                    mineralRouteOK = checkSupplyRoute(mineralCard.originCountry, siloId, p.id, owners);
-                    if (prev.mineral && !mineralRouteOK) {
-                        dispatch({
-                            type: 'SET_NOTIFICATION',
-                            payload: {
-                                type: 'NEUTRALIZED',
-                                title: 'SUMINISTRO DE MINERAL INTERRUMPIDO',
-                                message: `La ruta desde el yacimiento de Mineral Secreto (${REGIONS.find(r => r.id === mineralCard.originCountry)?.title}) hasta el silo en ${REGIONS.find(r => r.id === siloId)?.title} ha sido bloqueada.`,
-                                color: '#ff9900',
-                                targetPlayerId: p.id
-                            }
-                        });
-                    }
-                }
-
-                playerPrevStatus[siloId] = { fuel: fuelRouteOK, mineral: mineralRouteOK };
-            });
-        });
-    }, [owners, players, gameStarted]);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    // Cartas, silos, misiones y rutas perdidas al ser conquistado: lo resuelve el
+    // servidor (engine/reconcile) y avisa con notificaciones.
 
     // Espionage logic moved to useGameActions and EspionageTargetSelectionModal
 
@@ -479,8 +241,7 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
         if (currentYear > prevYearRef.current) {
             setShowYearStart(currentYear);
             prevYearRef.current = currentYear;
-            // Process Treaties (Activation/Expiration)
-            processTreatyStatus();
+            // Los tratados se activan/expiran en el servidor al cambiar el año.
         }
 
         // Turn change detection
@@ -527,239 +288,14 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
 
 
 
+    // El servidor resuelve el fin de turno (cambio de año, victoria, timers).
     const endTurn = () => {
-        // 1. Calculate Initial Player Updates (Reset flags for current player)
-        let updatedPlayers = players.map(p => {
-            if (p.id === players[currentPlayerIndex].id) {
-                return {
-                    ...p,
-                    crossingAndesActive: false,
-                    normandyLandingActive: false
-                };
-            }
-            return p;
-        });
-
-        const nextOrderIndex = turnOrderIndex + 1;
-        // Correct: Round ends when we exceed the number of players in the turn order
-        const isEndOfRound = nextOrderIndex >= (turnOrder.length || 1);
-
-        // 2. Advance Months
-        const maxMonthsPerTurn = Math.floor(12 / (players.length || 1));
-        const monthsToAdd = Math.floor(Math.random() * (maxMonthsPerTurn + 1));
-        const dateWithMonths = new Date(gameDate);
-        dateWithMonths.setMonth(dateWithMonths.getMonth() + monthsToAdd);
-
-        let nextGameDate = dateWithMonths;
-        let nextTurnOrder = [...turnOrder];
-        let nextTurnOrderIndex = nextOrderIndex;
-        
-        // Find next non-eliminated player index in mid-round
-        let nextPlayerIdx: number;
-        if (!isEndOfRound) {
-            let searchIdx = nextOrderIndex;
-            while (searchIdx < turnOrder.length && players[turnOrder[searchIdx]]?.isEliminated) {
-                console.log(`[TegMap] ⏩ Skipping eliminated player: ${players[turnOrder[searchIdx]]?.name}`);
-                searchIdx++;
-            }
-            if (searchIdx >= turnOrder.length) {
-                // Round actually ended because all remaining players in order were eliminated
-                nextPlayerIdx = turnOrder[0]; // will be overwritten by round reset logic below
-                nextTurnOrderIndex = searchIdx; // trigger isEndOfRound logic
-            } else {
-                nextPlayerIdx = turnOrder[searchIdx];
-                nextTurnOrderIndex = searchIdx;
-            }
-        } else {
-            nextPlayerIdx = (turnOrder && turnOrder[0] !== undefined) ? turnOrder[0] : 0;
-        }
-
-        let nextWinner: PlayerData | null = null;
-        let nextNotification: any = null;
-
-        // 3. Handle End of Round (New Year)
-        if (isEndOfRound) {
-            // A. Check Nuclear Win Condition
-            const activeDeployments = updatedPlayers.filter(p => p.nuclearDeploymentActive);
-
-            if (activeDeployments.length === 1) {
-                // WINNER
-                nextWinner = activeDeployments[0];
-                nextNotification = {
-                    type: 'GAME_OVER',
-                    title: '\u00A1DOMINIO TOTAL!',
-                    message: `${activeDeployments[0].name} ha completado el despliegue nuclear. La guerra ha terminado.`,
-                    color: activeDeployments[0].color,
-                    playerName: activeDeployments[0].name
-                };
-            } else if (activeDeployments.length > 1) {
-                // Mutual Deterrence
-                nextNotification = {
-                    type: 'NEUTRALIZED',
-                    title: 'DETENCIÓN MUTUA',
-                    message: 'Protocolo de Destrucción Mutua Asegurada evitado por desactivación sistémica. Despliegues abortados.',
-                    color: '#ffaa00'
-                };
-
-                updatedPlayers = updatedPlayers.map(p => {
-                    if (p.nuclearDeploymentActive) {
-                        // D4: sólo el/los silo(s) USADOS en este despliegue entran en cooldown,
-                        // por 1 ronda. Los demás silos operativos siguen disponibles → habilita la
-                        // estrategia de construir 2 silos y desplegar el segundo durante el cooldown
-                        // del primero. (Antes se enfriaban TODOS los silos, lo que la hacía imposible.)
-                        const usedSilos = p.usedNuclearSilos || [];
-                        const newSiloStatus = { ...p.siloStatus };
-                        usedSilos.forEach(sid => {
-                            if (newSiloStatus[sid]) {
-                                newSiloStatus[sid] = { status: 'cooldown', turnsRemaining: 1 };
-                            }
-                        });
-                        return { ...p, nuclearDeploymentActive: false, siloStatus: newSiloStatus };
-                    }
-                    return p;
-                });
-            }
-
-            if (!nextWinner) {
-                // B. Increment Year
-                const nextYear = gameDate.getFullYear() + 1;
-                nextGameDate = new Date(nextYear, 0, 1);
-
-                // C. Shuffle New Order (Active Players ONLY)
-                const activeIndices = players
-                    .map((p, i) => ({ p, i }))
-                    .filter(item => !item.p.isEliminated)
-                    .map(item => item.i);
-
-                const newOrder = [...activeIndices];
-                for (let i = newOrder.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [newOrder[i], newOrder[j]] = [newOrder[j], newOrder[i]];
-                }
-                nextTurnOrder = newOrder;
-                nextTurnOrderIndex = 0;
-                nextPlayerIdx = newOrder[0] ?? 0;
-            }
-        }
-
-        if (nextWinner) {
-            // Dispatch Game Over
-            dispatch({
-                type: 'PROCESS_TURN_CHANGE',
-                payload: {
-                    players: updatedPlayers,
-                    gameDate: nextGameDate,
-                    turnOrderIndex: turnOrderIndex, // Freeze index?
-                    currentPlayerIndex: currentPlayerIndex, // Freeze player?
-                    turnOrder: turnOrder,
-                    notification: nextNotification,
-                    winner: nextWinner
-                }
-            });
-            // Local effects
-            themeSongRef.current?.play();
-            return;
-        }
-
-        // 4. Update Timers for NEXT player
-        const actualNextPlayerIdx = nextPlayerIdx; // This is the index in `players` array
-
-        updatedPlayers = updatedPlayers.map((p, idx) => {
-            if (idx === actualNextPlayerIdx) {
-                const newSiloStatus = { ...p.siloStatus };
-                // Decrement silo timers
-                if (newSiloStatus) {
-                    Object.keys(newSiloStatus).forEach(sid => {
-                        if (newSiloStatus[sid].turnsRemaining > 0) {
-                            newSiloStatus[sid].turnsRemaining -= 1;
-                            if (newSiloStatus[sid].turnsRemaining === 0) {
-                                newSiloStatus[sid].status = 'active';
-                            }
-                        }
-                    });
-                }
-
-                // Geothermal Energy Renewal
-                const geothermalCards = p.specialCards.filter(c => c.type === 'PLANTA_GEOTERMICA');
-                const newEnergySupplies: SupplyItem[] = geothermalCards.map((c, i) => ({
-                    id: `geo-energy-${c.originCountry}-${Date.now()}-${i}`,
-                    type: 'energy',
-                    originCountry: c.originCountry
-                }));
-
-                const updatedSupplies = {
-                    ...p.supplies,
-                    energy: [...p.supplies.energy, ...newEnergySupplies]
-                };
-
-                return {
-                    ...p,
-                    siloStatus: newSiloStatus,
-                    mineralUsedThisTurn: false,
-                    usedNuclearSilos: [], // Reset launch tracking for the new turn
-                    supplies: updatedSupplies,
-                    // Mission flags defined in block 1 were for OLD current player.
-                    // New current player shouldn't have them reset unless they were already false.
-                };
-            }
-            return p;
-        });
-
-        // 5. Dispatch Atomic Update
-        dispatch({
-            type: 'PROCESS_TURN_CHANGE',
-            payload: {
-                players: updatedPlayers,
-                gameDate: nextGameDate,
-                turnOrderIndex: nextTurnOrderIndex,
-                currentPlayerIndex: nextPlayerIdx,
-                turnOrder: nextTurnOrder,
-                notification: nextNotification
-            }
-        });
-
-        // Local UI resets
+        actions.endTurn();
         setSelectedRegionId(null);
-
-        // Note: Global useEffect will handle showing overlays for all players
-        // based on the state update.
     };
 
-
-
-    // Deactivate deployment if Silo region is conquered
-    useEffect(() => {
-        if (conquestData) {
-            setPlayers(prev => prev.map(p => {
-                if (p.nuclearDeploymentActive) {
-                    // Find their silos
-                    const mySiloCards = p.specialCards.filter(c => c.name.includes("SILO"));
-                    // Check if they still own at least one Silo country
-                    const hasSafeSilo = mySiloCards.some(silo => owners[silo.originCountry] === p.id);
-
-                    if (!hasSafeSilo) {
-                        dispatch({
-                            type: 'SET_NOTIFICATION',
-                            payload: {
-                                type: 'NEUTRALIZED',
-                                title: 'DESPLIEGUE NEUTRALIZADO',
-                                message: 'Has perdido tus silos de lanzamiento estratégicos. El despliegue nuclear ha sido abortado.',
-                                color: '#ff0000',
-                                targetPlayerId: p.id
-                            }
-                        });
-                        return { ...p, nuclearDeploymentActive: false };
-                    }
-                }
-                return p;
-            }));
-        }
-    }, [owners, conquestData]);
-
-
-
     const handleEndgameChoice = (choice: 'victory' | 'destruction') => {
-        dispatch({ type: 'SET_ENDGAME_CHOICE', payload: choice });
+        actions.setEndgameChoice(choice);
         setAnimationIndex(0);
     };
 
@@ -775,11 +311,11 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
             const timer = setTimeout(() => {
                 const region = REGIONS[animationIndex];
                 if (state.endgameChoice === 'victory') {
-                    setOwners(prev => ({ ...prev, [region.id]: state.winner!.id }));
+                    setAnimatedOwners(prev => ({ ...prev, [region.id]: state.winner!.id }));
                 } else {
                     // destruction - enemy countries turn black
                     if (owners[region.id] !== state.winner!.id) {
-                        setOwners(prev => ({ ...prev, [region.id]: -2 }));
+                        setAnimatedOwners(prev => ({ ...prev, [region.id]: -2 }));
                     }
                 }
                 setAnimationIndex(prev => prev + 1);
@@ -789,62 +325,6 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
     }, [animationIndex, state.endgameChoice, state.winner]);
 
 
-
-    // Mission Destruction Logic (If Base is Conquered)
-    useEffect(() => {
-        if (conquestData) {
-            setPlayers(prev => prev.map(p => {
-                if (p.activeSpecialMissions.length > 0) {
-                    const missionsToKeep = p.activeSpecialMissions.filter(mission => {
-                        // Check if the player still owns the base of operations for this mission
-                        if (!mission.baseRegionId) return true; // Safety check
-                        const stillOwnsBase = owners[mission.baseRegionId] === p.id;
-
-                        if (!stillOwnsBase) {
-                            dispatch({
-                                type: 'SET_NOTIFICATION',
-                                payload: {
-                                    type: 'NEUTRALIZED',
-                                    title: 'OPERACIÓN ESPECIAL ABORTADA',
-                                    message: `La base de operaciones en ${REGIONS.find(r => r.id === mission.baseRegionId)?.title} ha caído. La misión ${mission.id} ha sido cancelada.`,
-                                    color: '#ff4444',
-                                    playerName: p.name
-                                }
-                            });
-                        }
-                        return stillOwnsBase;
-                    });
-
-                    // Also check for Route Disruption (Option B from user request)
-                    // "si un jugador conquista un pais de la ruta que no es sede de la base de operaciones, la ruta se desactiva pero la base no se destruye"
-                    // This logic is implicitly handled because checkSupplyRoute is dynamic. 
-                    // If the path is broken, the resource won't be available, but the MISSION itself stays active in the player's list 
-                    // unless the BASE is destroyed. The "active" status in UI might need to reflect "Route Blocked" if we want to be fancy,
-                    // but for now, the requirement says "la ruta se desactiva but base not destroyed", which implies the BENEFIT is lost.
-                    // The benefit IS the route itself (Argentina-Sudafrica).
-                    // So we must ensure that the Argentina-Sudafrica connection ONLY works if the route from Base -> Argentina/Sudafrica exists?
-                    // Or is the "Ruta Antártica" itself just the link? 
-                    // User said: "si el jugador activo esta misión, efectivamente se establezca la ruta... SOLO SI LA MISIÓN ESTA ACTIVADA, QUE SUDAFRICA SEA LIMITROFE A ARGENTINA"
-                    // So if we keep the mission in the list, the route exists.
-                    // BUT user also said: "si un jugador conquista un pais de la ruta que no es sede de la base... la ruta se desactiva".
-                    // This implies we need to check continuity to the base even for the inter-continental bonus.
-                    // This is complex to calculate inside the `checkSupplyRoute` purely based on "Mission Active".
-                    // Ideally, `checkSupplyRoute` should verify the path to base.
-
-                    // Remove associated cards for destroyed missions
-                    if (missionsToKeep.length !== p.activeSpecialMissions.length) {
-                        const destroyedMissions = p.activeSpecialMissions.filter(m => !missionsToKeep.includes(m));
-                        const newSpecialCards = p.specialCards.filter(card => {
-                            const isDestroyedAntarctica = destroyedMissions.some(dm => dm.id === 'ruta_antartica' && card.name === 'RUTA ANTÁRTICA' && card.originCountry === dm.baseRegionId);
-                            return !isDestroyedAntarctica;
-                        });
-                        return { ...p, activeSpecialMissions: missionsToKeep, specialCards: newSpecialCards };
-                    }
-                }
-                return p;
-            }));
-        }
-    }, [owners, conquestData]);
 
     // Enhanced Check Supply Route with Mission Logic
     // We overwrite the imported function locally or wrap it. 
@@ -951,7 +431,7 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                 <BattleOverlay
                     battleState={battleState}
                     onOpenInventory={() => {
-                        setInventoryPlayerIndex(currentPlayerIndex);
+                        setInventoryPlayerIndex(localPlayerIndex);
                         setShowInventory(true);
                     }}
                 />
@@ -962,7 +442,7 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                 <SidebarPanel
                     onEndTurn={endTurn}
                     onOpenInventory={() => {
-                        setInventoryPlayerIndex(currentPlayerIndex);
+                        setInventoryPlayerIndex(localPlayerIndex);
                         setShowInventory(true);
                     }}
                     onOpenRawMaterials={() => setShowRawMaterialsModal(true)}
@@ -1008,6 +488,7 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                 }}>
 
                     <MapRender
+                        ownersOverride={animatedOwners}
                         selectedRegionId={selectedRegionId}
                         onRegionClick={handleRegionClick}
                         spectator={spectator}
@@ -1176,20 +657,6 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                 {/* CONFIDENTIAL INFO MODAL */}
 
 
-                {/* Nuclear War Info Modal */}
-                {showNuclearWarInfo && (
-                    <NuclearWarInfoModal
-                        regionId={showNuclearWarInfo}
-                        onClose={() => setShowNuclearWarInfo(null)}
-                        onActivate={(rid) => {
-                            setShowNuclearActivationModal(rid);
-                            setShowNuclearWarInfo(null);
-                        }}
-                    />
-
-                )}
-
-
                 {/* Special Mission Modal */}
                 {
                     showSpecialMissionModal && (
@@ -1204,17 +671,6 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                         />
                     )
                 }
-
-                {/* Nuclear Activation Modal */}
-                <NuclearActivationModal
-                    show={!spectator ? showNuclearActivationModal : null}
-                    onClose={() => {
-                        setShowNuclearActivationModal(null);
-                        setMissionPlayerIndex(null);
-                    }}
-                    playerIndex={missionPlayerIndex ?? undefined}
-                />
-
 
                 {/* Mineral Extraction Modal */}
                 <MineralExtractionModal
@@ -1360,7 +816,7 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
 
                 <SiloFuelSelectionModal
                     show={!!showSiloFuelSelectionModal}
-                    playerIndex={currentPlayerIndex}
+                    playerIndex={localPlayerIndex}
                     onClose={() => setShowSiloFuelSelectionModal(null)}
                     siloRegionId={showSiloFuelSelectionModal || ''}
                 />
@@ -1378,19 +834,14 @@ export const TegMap: React.FC<{ spectator?: boolean }> = ({ spectator = false })
                         />
                     )
                 }
-                {/* Espionage Generation */}
-                <EspionageGenerationModal
-                    show={showEspionageGenSelection}
-                    onClose={() => setShowEspionageGenSelection(false)}
-                    hqId={null}
-                />
                 {/* Mission Notification */}
                 <MissionNotificationOverlay />
-                {state.notification?.type === 'NEUTRALIZED' ? (
+                {!spectator && <ServerRejectionToast />}
+                {state.notification?.title === 'DETENCIÓN MUTUA' ? (
                     <MADOverlay
                         involvedPlayers={players.filter(p => p.siloStatus && Object.values(p.siloStatus).some(s => s.status === 'cooldown'))}
-                        currentPlayerId={multiplayer.playerId || players[currentPlayerIndex]?.id}
-                        onClose={() => dispatch({ type: 'SET_NOTIFICATION', payload: null })}
+                        currentPlayerId={multiplayer.playerId ?? ''}
+                        onClose={() => state.notification && dismissNotification(state.notification.id)}
                     />
                 ) : (
                     <YearStartOverlay

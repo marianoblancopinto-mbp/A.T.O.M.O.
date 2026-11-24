@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useGameContext } from '../../../../context/GameContext';
+import { useGameActions } from '../../../../hooks/useGameActions';
+import { useMyPlayer } from '../../../../hooks/useMyPlayer';
 import { MissionModalBase } from '../MissionModalBase';
 import { useSupplyRoute } from '../../../../hooks/useSupplyRoute';
 import type { RegionData } from '../../../../data/mapRegions';
-import type { TerritoryCard } from '../../../../types/productionTypes';
-import type { SpecialCard } from '../../../../types/playerTypes';
 
 interface DesalinizacionMissionModalProps {
     show: boolean;
@@ -23,15 +23,17 @@ export const DesalinizacionMissionModal: React.FC<DesalinizacionMissionModalProp
     onSuccess,
     onOpenInventory
 }) => {
-    const { state, dispatch } = useGameContext();
-    const { players, currentPlayerIndex } = state; // owners not needed explicitly for supplies if using hook? hook uses state.owners internally
+    const { state } = useGameContext();
+    const actions = useGameActions();
+    const { myPlayerIndex } = useMyPlayer();
+    const { players } = state; // owners not needed explicitly for supplies if using hook? hook uses state.owners internally
     const { checkRoute } = useSupplyRoute();
 
     const [selectedEnergySupplyId, setSelectedEnergySupplyId] = useState<string | null>(null);
 
     const countryName = REGIONS.find(r => r.id === targetCountry)?.title || targetCountry;
 
-    const player = players[currentPlayerIndex];
+    const player = players[myPlayerIndex];
 
     // Check existing plant
     // "hasExistingPlant" logic
@@ -43,7 +45,7 @@ export const DesalinizacionMissionModal: React.FC<DesalinizacionMissionModalProp
     // Get energy supplies with route check
     const energySupplies = player?.supplies.energy.filter(supply => {
         // useSupplyRoute hook
-        return checkRoute(supply.originCountry, targetCountry, currentPlayerIndex);
+        return checkRoute(supply.originCountry, targetCountry, myPlayerIndex);
     }) || [];
 
     const selectedSupply = energySupplies.find(s => s.id === selectedEnergySupplyId);
@@ -51,57 +53,7 @@ export const DesalinizacionMissionModal: React.FC<DesalinizacionMissionModalProp
 
     const handleComplete = () => {
         if (!canComplete || !selectedSupply) return;
-
-        // 1. Consume energy supply - Update Player State
-        // In the original, it filtered the supply out.
-        // We can't easily "remove one supply" via a generic reducer action unless we update the whole player or have a REMOVE_SUPPLY action.
-        // The original used setPlayers with a map.
-        // GameContext has 'UPDATE_PLAYER'.
-
-        // Let's use UPDATE_PLAYERS_FN style or similar if available, or just construct the new player object and use UPDATE_PLAYER.
-
-        // Actually, let's look at GameContext actions.
-        // We don't have a "REMOVE_SUPPLY" action. We have "ADD_SUPPLY".
-        // We can use "UPDATE_PLAYER" to set the new supplies list.
-
-        const newEnergySupplies = player.supplies.energy.filter(s => s.id !== selectedSupply.id);
-
-        const newRawMaterial: TerritoryCard = {
-            id: `desalinization-${targetCountry}-${Date.now()}`,
-            type: 'AGUA_DULCE',
-            category: 'rawMaterial',
-            country: targetCountry,
-            usedThisTurn: false
-        };
-
-        const newSpecialCard: SpecialCard = {
-            id: `special-desalination-${targetCountry}-${Date.now()}`,
-            type: 'PLANTA_DESALINIZADORA',
-            name: 'PLANTA DESALINIZADORA',
-            description: `Planta de desalinización operativa en ${countryName}. Genera AGUA DULCE.`,
-            originCountry: targetCountry,
-            createdAt: Date.now()
-        };
-
-        // Dispatch comprehensive update
-        // We can do it in one big UPDATE_PLAYER
-        dispatch({
-            type: 'UPDATE_PLAYER',
-            payload: {
-                index: currentPlayerIndex,
-                data: {
-                    supplies: {
-                        ...player.supplies,
-                        energy: newEnergySupplies
-                    },
-                    inventory: {
-                        ...player.inventory,
-                        rawMaterials: [...player.inventory.rawMaterials, newRawMaterial]
-                    },
-                    specialCards: [...player.specialCards, newSpecialCard]
-                }
-            }
-        });
+        actions.activateMission({ missionId: 'planta_desalinizacion', baseRegionId: targetCountry, supplyIds: [selectedSupply.id] });
 
         onSuccess(countryName);
         setSelectedEnergySupplyId(null);

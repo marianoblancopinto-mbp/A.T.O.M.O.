@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { useGameContext } from '../../../context/GameContext';
+import { useMyPlayer } from '../../../hooks/useMyPlayer';
 import { type Treaty } from '../../../types/treatyTypes';
 import { TreatyEditor } from './TreatyEditor';
 
@@ -10,8 +11,10 @@ interface TreatiesPanelProps {
 
 export const TreatiesPanel: React.FC<TreatiesPanelProps> = ({ onClose }) => {
     const { state } = useGameContext();
-    const { players, currentPlayerIndex, treaties } = state;
-    const currentPlayer = players[currentPlayerIndex];
+    const { players, treaties } = state;
+    // "Yo" es el jugador de este cliente, no el de turno.
+    const { myPlayer } = useMyPlayer();
+    const currentPlayer = myPlayer ?? { id: '__none__' };
 
     const [isCreating, setIsCreating] = useState(false);
     const [viewingTreaty, setViewingTreaty] = useState<Treaty | null>(null);

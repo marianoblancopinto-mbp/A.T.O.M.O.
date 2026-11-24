@@ -32,10 +32,8 @@ const httpServer = createServer((req, res) => {
 });
 
 const gameServer = new Server({
-    // El default de Colyseus para el tamaño de mensaje es 4KB — demasiado chico:
-    // el estado inicial y las acciones que llevan el estado (SET_PLAYERS, etc.) lo
-    // superan. Se sube a 4MB para dar margen holgado.
-    transport: new WebSocketTransport({ server: httpServer, maxPayload: 4 * 1024 * 1024 }),
+    // Los clientes sólo mandan comandos chicos (el estado viaja del servidor al cliente).
+    transport: new WebSocketTransport({ server: httpServer, maxPayload: 64 * 1024 }),
 });
 
 // Registra el tipo de sala. Los clientes se unen por este nombre.

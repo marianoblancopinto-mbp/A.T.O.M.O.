@@ -1,5 +1,6 @@
 import React from 'react';
 import { useGameContext } from '../../../../context/GameContext';
+import { useMyPlayer } from '../../../../hooks/useMyPlayer';
 import { useGameActions } from '../../../../hooks/useGameActions';
 import { useSupplyRoute } from '../../../../hooks/useSupplyRoute';
 import { REGIONS } from '../../../../data/mapRegions';
@@ -16,17 +17,17 @@ interface NuclearDeploymentModalProps {
 export const NuclearDeploymentModal: React.FC<NuclearDeploymentModalProps> = ({
     show,
     onClose,
-    selectedSiloId,
-    playerIndex
+    selectedSiloId
 }) => {
-    const { state, dispatch } = useGameContext();
-    const { currentPlayerIndex: stateCurrentPlayerIndex, players } = state;
+    const { state } = useGameContext();
+    const { players } = state;
     const { checkRoute } = useSupplyRoute();
     const gameActions = useGameActions();
 
     if (!show) return null;
 
-    const effectivePlayerIndex = playerIndex ?? stateCurrentPlayerIndex;
+    // Siempre actúa el jugador de este cliente (no el de turno).
+    const { myPlayerIndex: effectivePlayerIndex } = useMyPlayer();
     const player = players[effectivePlayerIndex];
     if (!player) return null;
 
@@ -73,82 +74,9 @@ export const NuclearDeploymentModal: React.FC<NuclearDeploymentModalProps> = ({
 
     const canInitiate = routeMineralToSilo && routeFuelToSilo && hasFuelCard;
 
+    // El servidor valida todos los requisitos y, si falta algo, responde con el motivo.
     const handleInitiate = () => {
-        // Detailed Validation for Private Toasts
-        if (!assignedFuelCardId) {
-            dispatch({
-                type: 'SET_NOTIFICATION',
-                payload: {
-                    type: 'NUCLEAR_ALERT',
-                    title: 'FALLO EN SECUENCIA DE LANZAMIENTO',
-                    message: 'No se ha asignado combustible nuclear al silo.',
-                    color: '#ff0000',
-                    targetPlayerId: player.id
-                }
-            });
-            return;
-        }
-
-        if (!routeMineralToSilo) {
-            dispatch({
-                type: 'SET_NOTIFICATION',
-                payload: {
-                    type: 'NUCLEAR_ALERT',
-                    title: 'FALLO EN SECUENCIA DE LANZAMIENTO',
-                    message: `Ruta de Mineral Secreto interrumpida hacia el Silo en ${REGIONS.find(r => r.id === siloRegionId)?.title}.`,
-                    color: '#ff0000',
-                    targetPlayerId: player.id
-                }
-            });
-            return;
-        }
-
-        if (!routeFuelToSilo) {
-            dispatch({
-                type: 'SET_NOTIFICATION',
-                payload: {
-                    type: 'NUCLEAR_ALERT',
-                    title: 'FALLO EN SECUENCIA DE LANZAMIENTO',
-                    message: `Ruta de Combustible interrumpida desde ${REGIONS.find(r => r.id === fuelRegionId)?.title} hacia el Silo.`,
-                    color: '#ff0000',
-                    targetPlayerId: player.id
-                }
-            });
-            return;
-        }
-
-        if (assignedFuelCard && assignedFuelCard.usedThisTurn) {
-            dispatch({
-                type: 'SET_NOTIFICATION',
-                payload: {
-                    type: 'NUCLEAR_ALERT',
-                    title: 'SISTEMA BLOQUEADO',
-                    message: 'El combustible nuclear ya ha sido consumido este turno.',
-                    color: '#ff9900',
-                    targetPlayerId: player.id
-                }
-            });
-            return;
-        }
-
-        const isSiloAlreadyUsed = player.usedNuclearSilos?.includes(siloRegionId);
-        if (isSiloAlreadyUsed) {
-            dispatch({
-                type: 'SET_NOTIFICATION',
-                payload: {
-                    type: 'NUCLEAR_ALERT',
-                    title: 'SILO AGOTADO',
-                    message: `Este silo ya ha realizado un lanzamiento en el turno actual. Solo se permite un ataque por país por turno.`,
-                    color: '#ff4400',
-                    targetPlayerId: player.id
-                }
-            });
-            return;
-        }
-
-        if (!canInitiate) return;
-
-        gameActions.initiateNuclearDeployment(assignedFuelCardId, siloRegionId, effectivePlayerIndex);
+        gameActions.initiateNuclearDeployment(siloRegionId);
         onClose();
     };
 

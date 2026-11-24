@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { EspionageReport } from '../../../../types/playerTypes';
 import { useGameContext } from '../../../../context/GameContext';
 import { useGameActions } from '../../../../hooks/useGameActions';
+import { useMyPlayer } from '../../../../hooks/useMyPlayer';
 
 interface EspionageTargetSelectionModalProps {
     show: boolean;
@@ -15,20 +16,25 @@ export const EspionageTargetSelectionModal: React.FC<EspionageTargetSelectionMod
     onClose
 }) => {
     const { state } = useGameContext();
-    const { players, currentPlayerIndex } = state;
+    const { players } = state;
     const gameActions = useGameActions();
+    const { myPlayer, myPlayerIndex: currentPlayerIndex } = useMyPlayer();
 
     const [selectedTargetId, setSelectedTargetId] = useState<number | null>(null);
-    const [result, setResult] = useState<EspionageReport | null>(null);
+    // El informe lo calcula el servidor y llega SÓLO a este jugador (intelReports).
+    // Guardamos cuántos informes había al pedirlo y mostramos el siguiente.
+    const [awaitingFrom, setAwaitingFrom] = useState<number | null>(null);
+    const result: EspionageReport | null = awaitingFrom !== null ? myPlayer?.intelReports?.[awaitingFrom] ?? null : null;
 
-    const handleExecute = (targetId: number, type: 'silos' | 'mineral') => {
-        if (!cardId) return;
-        const report = gameActions.executeEspionage(targetId, type, cardId);
-        setResult(report);
+    const handleExecute = (targetIdx: number, type: 'silos' | 'mineral') => {
+        const target = players[targetIdx];
+        if (!cardId || !target) return;
+        setAwaitingFrom(myPlayer?.intelReports?.length ?? 0);
+        gameActions.executeEspionage(target.id, type, cardId);
     };
 
     const handleClose = () => {
-        setResult(null);
+        setAwaitingFrom(null);
         setSelectedTargetId(null);
         onClose();
     };
@@ -55,7 +61,7 @@ export const EspionageTargetSelectionModal: React.FC<EspionageTargetSelectionMod
                         <div style={{ color: '#aaa', marginBottom: '15px', fontSize: '0.9rem' }}>Seleccionar Objetivo:</div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '25px' }}>
                             {players.map((p, idx) => (
-                                idx !== currentPlayerIndex && (
+                                idx !== currentPlayerIndex && !p.isEliminated && (
                                     <button
                                         key={p.id}
                                         onClick={() => setSelectedTargetId(idx)}

@@ -168,7 +168,7 @@ export const ConfidentialInfoModal: React.FC<ConfidentialInfoModalProps> = ({
     onOpenInventoryWithFilter
 }) => {
     const { state, multiplayer } = useGameContext();
-    const { players, currentPlayerIndex, owners } = state;
+    const { players, owners } = state;
     const { checkRoute } = useSupplyRoute();
 
     // const isMyTurn = (multiplayer.connectionStatus === 'PLAYING' && multiplayer.playerId)
@@ -184,17 +184,9 @@ export const ConfidentialInfoModal: React.FC<ConfidentialInfoModalProps> = ({
     const [showWarSecrets, setShowWarSecrets] = useState(false);
 
     // Determine which player's info and index to show
-    let targetPlayer = players[currentPlayerIndex];
-    let targetPlayerIndex = currentPlayerIndex;
-
-    // In multiplayer, ALWAYS show the local player's info, regardless of whose turn it is
-    if (multiplayer.connectionStatus === 'PLAYING' && multiplayer.playerId) {
-        const localPlayerIdx = players.findIndex(p => p.id === multiplayer.playerId);
-        if (localPlayerIdx !== -1) {
-            targetPlayer = players[localPlayerIdx];
-            targetPlayerIndex = localPlayerIdx;
-        }
-    }
+    // Siempre el expediente del jugador de ESTE cliente (es el único que el servidor manda completo).
+    const targetPlayerIndex = players.findIndex(p => String(p.id) === String(multiplayer.playerId));
+    const targetPlayer = players[targetPlayerIndex];
 
     if (!targetPlayer) return null;
 

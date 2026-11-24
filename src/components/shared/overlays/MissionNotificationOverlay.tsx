@@ -2,50 +2,27 @@ import React, { useEffect } from 'react';
 import { useGameContext } from '../../../context/GameContext';
 
 export const MissionNotificationOverlay: React.FC = () => {
-    const { state, dispatch, multiplayer } = useGameContext();
-    const notification = state.notification;
-    const { players, currentPlayerIndex } = state;
+    const { state, dismissNotification, dismissedNotificationIds } = useGameContext();
+    // El servidor ya decidió quién ve cada notificación (las privadas sólo le
+    // llegan a su destinatario). Acá sólo se muestra la última no descartada.
+    const latest = state.notification;
+    const notification = latest && !dismissedNotificationIds.has(latest.id) ? latest : null;
 
     const onClose = () => {
-        dispatch({ type: 'SET_NOTIFICATION', payload: null });
+        if (notification) dismissNotification(notification.id);
     };
 
     useEffect(() => {
         if (notification) {
             const displayTime = notification.type === 'NEUTRALIZED' ? 10000 : 5000;
-            const timer = setTimeout(() => {
-                onClose();
-            }, displayTime);
+            const timer = setTimeout(onClose, displayTime);
             return () => clearTimeout(timer);
         }
-    }, [notification]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [notification?.id]);
 
     if (!notification) return null;
 
-    // Visibility Logic: 
-    // 1. If targetPlayerId is set, only that specific player sees it.
-    // 2. Otherwise:
-    //    a. CONQUEST notifications are global.
-    //    b. Others are only for the player whose turn it is.
-    const localPlayerId = multiplayer.playerId;
-
-    if (notification.targetPlayerId !== undefined) {
-        // Multi-player: must match my ID
-        if (localPlayerId !== undefined && notification.targetPlayerId !== localPlayerId) return null;
-        // Hot-seat/Solo: only show if it matches the current player's ID (or just show it anyway?)
-        // Usually, in hot-seat, the 'victim' isn't at the screen, so showing it during the attacker's turn 
-        // is okay but not 'private'. However, the attacker should know they destroyed something.
-        // But the user specifically asked for 'private overlays'.
-        // So for the attacker to NOT see it, we check if target !== current player.
-        if (multiplayer.connectionStatus !== 'PLAYING' && players[currentPlayerIndex]?.id !== notification.targetPlayerId) return null;
-    } else {
-        const isGlobal = notification.type === 'CONQUEST';
-        const isMyTurn = (multiplayer.connectionStatus === 'PLAYING' && localPlayerId)
-            ? players[currentPlayerIndex]?.id === localPlayerId
-            : true;
-
-        if (!isGlobal && !isMyTurn) return null;
-    }
     // Use current notification properties
     return (
         <div

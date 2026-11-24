@@ -1,25 +1,26 @@
 import React, { useState } from 'react';
 import { useGameContext } from '../../../../context/GameContext';
+import { useGameActions } from '../../../../hooks/useGameActions';
+import { useMyPlayer } from '../../../../hooks/useMyPlayer';
 import { MissionModalBase } from '../MissionModalBase';
 import { useSupplyRoute } from '../../../../hooks/useSupplyRoute';
-import type { SpecialCard } from '../../../../types/playerTypes';
 
 interface PacificFireMissionModalProps {
     show: boolean;
     onClose: () => void;
     onSuccess: (playerName: string) => void;
     onOpenInventory: () => void;
-    playerIndex: number;
 }
 
 export const PacificFireMissionModal: React.FC<PacificFireMissionModalProps> = ({
     show,
     onClose,
     onSuccess,
-    onOpenInventory,
-    playerIndex
+    onOpenInventory
 }) => {
-    const { state, dispatch } = useGameContext();
+    const { state } = useGameContext();
+    const actions = useGameActions();
+    const { myPlayerIndex } = useMyPlayer();
     const { players, owners } = state;
     const { checkRoute } = useSupplyRoute();
 
@@ -27,7 +28,7 @@ export const PacificFireMissionModal: React.FC<PacificFireMissionModalProps> = (
     const [selectedManufactureId, setSelectedManufactureId] = useState<string | null>(null);
     const [selectedFoodId, setSelectedFoodId] = useState<string | null>(null);
 
-    const player = players[playerIndex];
+    const player = players[myPlayerIndex];
     if (!player) return null;
 
     const hasJapan = String(owners['japon']) === String(player.id);
@@ -39,38 +40,7 @@ export const PacificFireMissionModal: React.FC<PacificFireMissionModalProps> = (
 
     const handleComplete = () => {
         if (!canComplete) return;
-
-        // Create new special card
-        const newSpecialCard: SpecialCard = {
-            id: `pacific-fire-${Date.now()}`,
-            type: 'PACIFIC_FIRE',
-            name: 'FUEGO DEL PACÍFICO',
-            description: 'Bonus +1 Fuerza Aérea en Japón, Corea, Kamchatka y Filipinas.',
-            originCountry: 'japon',
-            createdAt: Date.now()
-        };
-
-        // Prepare new supplies lists
-        const newEnergy = player.supplies.energy.filter(s => s.id !== selectedEnergyId);
-        const newManufacture = player.supplies.manufacture.filter(s => s.id !== selectedManufactureId);
-        const newFood = player.supplies.food.filter(s => s.id !== selectedFoodId);
-
-        // Dispatch Update
-        dispatch({
-            type: 'UPDATE_PLAYER',
-            payload: {
-                index: playerIndex,
-                data: {
-                    supplies: {
-                        energy: newEnergy,
-                        manufacture: newManufacture,
-                        food: newFood
-                    },
-                    pacificFireActive: true,
-                    specialCards: [...player.specialCards, newSpecialCard]
-                }
-            }
-        });
+        actions.activateMission({ missionId: 'fuego_del_pacifico', supplyIds: [selectedEnergyId!, selectedManufactureId!, selectedFoodId!] });
 
         onSuccess(player.name);
         onClose();
@@ -97,8 +67,8 @@ export const PacificFireMissionModal: React.FC<PacificFireMissionModalProps> = (
                         <div style={{ marginBottom: '20px' }}>
                             <div style={{ color: '#aaa', marginBottom: '8px', fontSize: '0.85rem', fontWeight: 'bold' }}>SUMINISTRO DE ENERGÍA:</div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                {energySupplies.filter(s => checkRoute(s.originCountry, 'japon', playerIndex)).length > 0 ? (
-                                    energySupplies.filter(s => checkRoute(s.originCountry, 'japon', playerIndex)).map(s => (
+                                {energySupplies.filter(s => checkRoute(s.originCountry, 'japon', myPlayerIndex)).length > 0 ? (
+                                    energySupplies.filter(s => checkRoute(s.originCountry, 'japon', myPlayerIndex)).map(s => (
                                         <div
                                             key={s.id}
                                             onClick={() => setSelectedEnergyId(s.id)}
@@ -126,8 +96,8 @@ export const PacificFireMissionModal: React.FC<PacificFireMissionModalProps> = (
                         <div style={{ marginBottom: '20px' }}>
                             <div style={{ color: '#aaa', marginBottom: '8px', fontSize: '0.85rem', fontWeight: 'bold' }}>SUMINISTRO DE MANUFACTURAS:</div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                {manufactureSupplies.filter(s => checkRoute(s.originCountry, 'japon', playerIndex)).length > 0 ? (
-                                    manufactureSupplies.filter(s => checkRoute(s.originCountry, 'japon', playerIndex)).map(s => (
+                                {manufactureSupplies.filter(s => checkRoute(s.originCountry, 'japon', myPlayerIndex)).length > 0 ? (
+                                    manufactureSupplies.filter(s => checkRoute(s.originCountry, 'japon', myPlayerIndex)).map(s => (
                                         <div
                                             key={s.id}
                                             onClick={() => setSelectedManufactureId(s.id)}
@@ -155,8 +125,8 @@ export const PacificFireMissionModal: React.FC<PacificFireMissionModalProps> = (
                         <div style={{ marginBottom: '25px' }}>
                             <div style={{ color: '#aaa', marginBottom: '8px', fontSize: '0.85rem', fontWeight: 'bold' }}>SUMINISTRO DE ALIMENTOS:</div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                {foodSupplies.filter(s => checkRoute(s.originCountry, 'japon', playerIndex)).length > 0 ? (
-                                    foodSupplies.filter(s => checkRoute(s.originCountry, 'japon', playerIndex)).map(s => (
+                                {foodSupplies.filter(s => checkRoute(s.originCountry, 'japon', myPlayerIndex)).length > 0 ? (
+                                    foodSupplies.filter(s => checkRoute(s.originCountry, 'japon', myPlayerIndex)).map(s => (
                                         <div
                                             key={s.id}
                                             onClick={() => setSelectedFoodId(s.id)}

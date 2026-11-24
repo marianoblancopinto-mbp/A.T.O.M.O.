@@ -1,5 +1,6 @@
 import React from 'react';
 import { useGameContext } from '../../../context/GameContext';
+import { useGameActions } from '../../../hooks/useGameActions';
 
 interface ProductionPhaseOverlayProps {
     /** Abre el inventario para producir suministros. */
@@ -19,13 +20,11 @@ export const ProductionPhaseOverlay: React.FC<ProductionPhaseOverlayProps> = ({
     onOpenInventory,
     isSpectator = false
 }) => {
-    const { state, dispatch, multiplayer } = useGameContext();
+    const { state, multiplayer } = useGameContext();
+    const actions = useGameActions();
     const { players, productionReadyIds } = state;
 
-    const isMultiplayer = multiplayer.connectionStatus === 'PLAYING' && !!multiplayer.playerId;
-    const localId = isMultiplayer
-        ? multiplayer.playerId
-        : players[state.currentPlayerIndex]?.id;
+    const localId = multiplayer.playerId;
     const isHost = !!multiplayer.isHost;
 
     const readySet = new Set(productionReadyIds.map(String));
@@ -34,11 +33,11 @@ export const ProductionPhaseOverlay: React.FC<ProductionPhaseOverlayProps> = ({
 
     const toggleReady = () => {
         if (localId == null) return;
-        dispatch({ type: 'SET_PRODUCTION_READY', payload: { playerId: localId, ready: !localReady } });
+        actions.setProductionReady(!localReady);
     };
 
     const forceStart = () => {
-        dispatch({ type: 'START_ACTION_PHASE' });
+        actions.forceActionPhase();
     };
 
     const readyCount = activePlayers.filter(p => readySet.has(String(p.id))).length;

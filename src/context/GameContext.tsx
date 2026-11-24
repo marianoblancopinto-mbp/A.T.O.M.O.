@@ -1,166 +1,100 @@
 /**
- * GameContext - Gestión centralizada del estado de juego (capa React).
+ * GameContext — estado de juego en el cliente.
  *
- * Los tipos, el initialState, los sanitizadores y el reducer PURO viven en
- * @atomo/shared. Este archivo conserva el Provider de React, los hooks y el
- * cableado con el SERVIDOR AUTORITATIVO (Colyseus).
- *
- * Modelo (Fase 3): el servidor es la única fuente de verdad. El cliente aplica
- * la acción localmente (optimista, para responder rápido) y la manda como Intent
- * al servidor; cuando el servidor difunde el estado autoritativo, se reconcilia
- * con SYNC_STATE. Se eliminó todo el netcode viejo de Supabase (dos canales,
- * refs de autoridad, takeover, forceSyncFromDatabase).
+ * El cliente NO calcula el estado: muestra la vista que le manda el servidor
+ * (su proyección: lo propio completo, lo ajeno redactado) y manda comandos con
+ * `send`. No hay reducer local ni actualizaciones optimistas: para un juego por
+ * turnos, la ida y vuelta al servidor es imperceptible y evita desincronías.
  */
 
-import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef, type ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import type { PlayerData } from '../types/playerTypes';
-import { gameReducer, initialState, sanitizePlayers, toSerializableAction } from '@atomo/shared';
-import type { GamePhase, GameState, GameAction } from '@atomo/shared';
+import { initialState, sanitizePlayers, toGameDate } from '@atomo/shared';
+import type { GamePhase, GameState, Command } from '@atomo/shared';
 import { useColyseus } from '../hooks/useColyseus';
 
-// Re-export de tipos de estado para compatibilidad con imports existentes.
-export type { GamePhase, MissionNotification, GameSettings, GameState, GameAction } from '@atomo/shared';
-
-// ============================================================================
-// Context
-// ============================================================================
+export type { GamePhase, MissionNotification, GameSettings, GameState, Command } from '@atomo/shared';
 
 interface GameContextValue {
     state: GameState;
-    dispatch: React.Dispatch<GameAction>;
+    /** Manda una intención al servidor. */
+    send: (command: Command) => void;
     multiplayer: ReturnType<typeof useColyseus>;
+    /** Notificaciones que este cliente ya cerró (el descarte es local). */
+    dismissNotification: (id: number) => void;
+    dismissedNotificationIds: ReadonlySet<number>;
 }
 
 const GameContext = createContext<GameContextValue | null>(null);
 
-// Acciones que NUNCA se mandan al servidor (son locales/de reconciliación).
-const LOCAL_ONLY_ACTIONS = new Set<GameAction['type']>(['SYNC_STATE', 'RESET_GAME']);
-
-// ============================================================================
-// Provider
-// ============================================================================
+/** Rehidrata la vista que llega por la red (fechas, campos faltantes). */
+function hydrate(remote: any): GameState {
+    return {
+        ...initialState,
+        ...remote,
+        gameDate: toGameDate(remote.gameDate),
+        players: sanitizePlayers(remote.players ?? []),
+        owners: remote.owners ?? {},
+        notifications: remote.notifications ?? [],
+        notification: remote.notification ?? null,
+    };
+}
 
 interface GameProviderProps {
     children: ReactNode;
-    /** For spectator mode or testing - override initial phase */
+    /** Modo espectador (pantalla de mapa) */
     initialPhase?: GamePhase;
 }
 
 export const GameProvider: React.FC<GameProviderProps> = ({ children, initialPhase }) => {
     const multiplayer = useColyseus();
-    const [state, dispatch] = useReducer(
-        gameReducer,
-        {
-            ...initialState,
-            gamePhase: initialPhase ?? initialState.gamePhase,
-            gameStarted: initialPhase === 'playing',
-        }
-    );
+    const [state, setState] = useState<GameState>({
+        ...initialState,
+        gamePhase: initialPhase ?? initialState.gamePhase,
+    });
+    const [dismissed, setDismissed] = useState<Set<number>>(() => new Set());
 
-    // Ref para saber si ya arrancamos, sin re-crear el handler en cada cambio.
-    const gameStartedRef = useRef(state.gameStarted);
-    gameStartedRef.current = state.gameStarted;
-
-    // Estado autoritativo que llega del servidor.
-    const handleRemoteState = useCallback((remoteState: any) => {
-        if (!remoteState) return;
-
-        // msgpack (Colyseus) entrega los timestamps grandes como BigInt; normalizar
-        // gameDate a número para que el reducer pueda hacer new Date() sin romper.
-        if (typeof remoteState.gameDate === 'bigint') {
-            remoteState.gameDate = Number(remoteState.gameDate);
-        }
-
-        // Primera vez que llega un estado ya iniciado: entrar en "playing".
-        if (!gameStartedRef.current && remoteState.gameStarted) {
-            dispatch({
-                type: 'START_GAME',
-                payload: {
-                    players: sanitizePlayers(remoteState.players ?? []),
-                    owners: remoteState.owners ?? {},
-                    settings: remoteState.settings ?? initialState.settings,
-                },
-            });
-        }
-
-        // Reconciliar el resto del estado (SYNC_STATE sanea y rehidrata gameDate).
-        dispatch({ type: 'SYNC_STATE', payload: remoteState });
+    const handleRemoteState = useCallback((remote: any) => {
+        if (remote) setState(hydrate(remote));
     }, []);
 
     useEffect(() => {
         multiplayer.setOnStateReceived(handleRemoteState);
     }, [multiplayer.setOnStateReceived, handleRemoteState]);
 
-    // ============================================================================
-    // Dispatch: aplica local (optimista) + envía al servidor autoritativo
-    // ============================================================================
-
-    const dispatchWithSync = (action: GameAction) => {
-        const isPlaying = multiplayer.connectionStatus === 'PLAYING';
-
-        // Única restricción por turno del lado del cliente: ATACAR. El servidor
-        // igual valida (rules), esto sólo evita el flicker optimista.
-        if (isPlaying && state.gameStarted && action.type === 'INIT_BATTLE') {
-            const currentPlayer = state.players[state.currentPlayerIndex];
-            const isMyTurn = currentPlayer && String(currentPlayer.id) === String(multiplayer.playerId);
-            if (!isMyTurn) {
-                console.warn('[GameContext] 🚫 Ataque bloqueado: no es tu turno.');
-                return;
-            }
-        }
-
-        // 1. Aplicar localmente (optimista).
-        dispatch(action);
-
-        // 2. Enviar al servidor autoritativo (convierte las acciones *_FN a serializable).
-        if (isPlaying && !LOCAL_ONLY_ACTIONS.has(action.type)) {
-            multiplayer.sendAction(toSerializableAction(action, state));
-        }
-    };
+    const dismissNotification = useCallback((id: number) => {
+        setDismissed(prev => new Set(prev).add(id));
+    }, []);
 
     return (
-        <GameContext.Provider value={{ state, dispatch: dispatchWithSync, multiplayer }}>
+        <GameContext.Provider value={{
+            state,
+            send: multiplayer.sendCommand,
+            multiplayer,
+            dismissNotification,
+            dismissedNotificationIds: dismissed,
+        }}>
             {children}
         </GameContext.Provider>
     );
 };
 
-// ============================================================================
-// Hooks
-// ============================================================================
-
-/** Main hook to access state and dispatch */
 export const useGameContext = (): GameContextValue => {
     const context = useContext(GameContext);
-    if (!context) {
-        throw new Error('useGameContext must be used within a GameProvider');
-    }
+    if (!context) throw new Error('useGameContext must be used within a GameProvider');
     return context;
 };
 
-/** Get only the game state (read-only access) */
-export const useGameState = (): GameState => {
-    const { state } = useGameContext();
-    return state;
-};
+export const useGameState = (): GameState => useGameContext().state;
 
-/** Get the current player's data */
+/** El jugador de turno (puede no ser yo). */
 export const useCurrentPlayer = (): PlayerData | null => {
     const { state } = useGameContext();
     return state.players[state.currentPlayerIndex] ?? null;
 };
 
-/** Get a specific player by index */
-export const usePlayer = (index: number): PlayerData | null => {
-    const { state } = useGameContext();
-    return state.players[index] ?? null;
-};
+export const usePlayer = (index: number): PlayerData | null => useGameContext().state.players[index] ?? null;
 
-/** Access multiplayer controls */
-export const useMultiplayerContext = () => {
-    const { multiplayer } = useGameContext();
-    return multiplayer;
-};
+export const useMultiplayerContext = () => useGameContext().multiplayer;
 
-// Re-export for backwards compatibility
 export { GameContext };

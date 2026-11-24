@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useGameContext } from '../../../../context/GameContext';
+import { useMyPlayer } from '../../../../hooks/useMyPlayer';
 import { useGameActions } from '../../../../hooks/useGameActions';
 import { usePlayerResources } from '../../../../hooks/usePlayerResources';
 import { useSupplyRoute } from '../../../../hooks/useSupplyRoute';
@@ -15,12 +16,12 @@ interface NuclearDesignGenerationModalProps {
 
 export const NuclearDesignGenerationModal: React.FC<NuclearDesignGenerationModalProps> = ({
     onClose,
-    locationId,
-    playerIndex
+    locationId
 }) => {
     const { state } = useGameContext();
-    const { currentPlayerIndex: stateCurrentPlayerIndex, owners } = state;
-    const effectivePlayerIndex = playerIndex ?? stateCurrentPlayerIndex;
+    const { owners } = state;
+    // Siempre actúa el jugador de este cliente (no el de turno).
+    const { myPlayerIndex: effectivePlayerIndex } = useMyPlayer();
 
     const { technologies, rawMaterials } = usePlayerResources(effectivePlayerIndex);
     const { checkRoute } = useSupplyRoute();

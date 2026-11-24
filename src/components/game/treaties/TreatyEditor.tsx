@@ -15,13 +15,13 @@ interface TreatyEditorProps {
 }
 
 export const TreatyEditor: React.FC<TreatyEditorProps> = ({ onClose, initialTreaty, isNew }) => {
-    const { state, dispatch } = useGameContext();
+    const { state } = useGameContext();
     const { players } = state;
-    const { acceptTreaty } = useGameActions();
+    const { acceptTreaty, rejectTreaty, proposeTreaty } = useGameActions();
     const { myPlayer } = useMyPlayer();
 
     // Fallback if useMyPlayer returns null (shouldn't happen in game)
-    const currentPlayer = myPlayer || state.players[state.currentPlayerIndex];
+    const currentPlayer = myPlayer ?? { id: '__none__' } as PlayerData;
 
     const [targetPlayerId, setTargetPlayerId] = useState<string | number>(
         (initialTreaty?.targetPlayerId && initialTreaty.targetPlayerId != currentPlayer.id)
@@ -106,30 +106,11 @@ export const TreatyEditor: React.FC<TreatyEditorProps> = ({ onClose, initialTrea
         setClauses(clauses.filter(c => c.id !== clauseId));
     };
 
+    // El servidor valida que cada parte comprometa sólo lo que tiene, genera los
+    // ids y define el estado del tratado. Una contraoferta reusa el id existente.
     const handleSendOffer = () => {
         if (!targetPlayerId) return;
-
-        const newTreaty: Treaty = initialTreaty ? {
-            ...initialTreaty,
-            clauses,
-            status: 'PENDING_APPROVAL',
-            history: [...initialTreaty.history, { date: new Date(), action: 'MODIFIED', actorId: currentPlayer.id }]
-        } : {
-            id: `treaty-${Date.now()}`,
-            creatorId: currentPlayer.id,
-            targetPlayerId: targetPlayerId,
-            status: 'PENDING_APPROVAL',
-            clauses,
-            createdAtMonth: state.turnOrderIndex,
-            createdAtYear: state.gameDate.getFullYear(),
-            history: [{ date: new Date(), action: 'CREATED', actorId: currentPlayer.id }]
-        };
-
-        if (isNew) {
-            dispatch({ type: 'CREATE_TREATY_OFFER', payload: newTreaty });
-        } else {
-            dispatch({ type: 'UPDATE_TREATY', payload: newTreaty });
-        }
+        proposeTreaty(targetPlayerId, clauses, isNew ? undefined : initialTreaty?.id);
         onClose();
     };
 
@@ -397,9 +378,9 @@ export const TreatyEditor: React.FC<TreatyEditorProps> = ({ onClose, initialTrea
             {/* Footer */}
             {targetPlayerId && (
                 <div style={{ padding: '20px', borderTop: '1px solid #333', display: 'flex', justifyContent: 'center', gap: '20px' }}>
-                    {initialTreaty?.status === 'PENDING_APPROVAL' && (
+                    {initialTreaty?.status === 'PENDING_APPROVAL' && initialTreaty.targetPlayerId == currentPlayer.id && (
                         <button onClick={() => {
-                            dispatch({ type: 'UPDATE_TREATY', payload: { ...initialTreaty, status: 'REJECTED', history: [...initialTreaty.history, { date: new Date(), action: 'REJECTED', actorId: currentPlayer.id }] } });
+                            rejectTreaty(initialTreaty);
                             onClose();
                         }} style={{ padding: '10px 30px', backgroundColor: '#ff0000', border: 'none', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', color: '#fff' }}>
                             RECHAZAR OFERTA
