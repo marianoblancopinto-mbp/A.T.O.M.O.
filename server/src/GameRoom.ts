@@ -44,7 +44,8 @@ export class GameRoom extends Room {
         this.onMessage('start', (client: Client) => this.guard(client, playerId => {
             const err = this.session.start(playerId);
             if (err) return this.reject(client, err);
-            this.lock();
+            // La sala NO se bloquea: quien recarga la página vuelve a entrar con su
+            // token. Los desconocidos entran como espectadores (sin asiento).
             console.log(`[GameRoom] Partida iniciada en ${this.roomId}`);
             this.broadcastLobby();
             this.broadcastState();

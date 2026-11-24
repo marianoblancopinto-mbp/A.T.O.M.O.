@@ -38,6 +38,7 @@ export const BattleCard: React.FC<BattleCardProps> = ({
     return (
         <div
             onClick={!disabled && onClick ? onClick : undefined}
+            data-battle-card={!disabled && onClick ? role : undefined}
             style={{
                 width: '180px',
                 height: '240px',

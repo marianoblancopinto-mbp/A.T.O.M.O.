@@ -7,7 +7,7 @@
  * turnos, la ida y vuelta al servidor es imperceptible y evita desincronías.
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from 'react';
 import type { PlayerData } from '../types/playerTypes';
 import { initialState, sanitizePlayers, toGameDate } from '@atomo/shared';
 import type { GamePhase, GameState, Command } from '@atomo/shared';
@@ -54,6 +54,12 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children, initialPha
     });
     const [dismissed, setDismissed] = useState<Set<number>>(() => new Set());
 
+    // Recordar (por pestaña) la última notificación cerrada, para que no reaparezcan al recargar.
+    const seenKey = multiplayer.gameId ? `atomo_seen_${multiplayer.gameId}` : null;
+    const lastSeen = (() => {
+        try { return seenKey ? Number(sessionStorage.getItem(seenKey) || 0) : 0; } catch { return 0; }
+    })();
+
     const handleRemoteState = useCallback((remote: any) => {
         if (remote) setState(hydrate(remote));
     }, []);
@@ -64,7 +70,12 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children, initialPha
 
     const dismissNotification = useCallback((id: number) => {
         setDismissed(prev => new Set(prev).add(id));
-    }, []);
+        try { if (seenKey && id > Number(sessionStorage.getItem(seenKey) || 0)) sessionStorage.setItem(seenKey, String(id)); } catch { /* sin storage */ }
+    }, [seenKey]);
+
+    const isDismissed = useMemo(() => ({
+        has: (id: number) => id <= lastSeen || dismissed.has(id),
+    }) as ReadonlySet<number>, [dismissed, lastSeen]);
 
     return (
         <GameContext.Provider value={{
@@ -72,7 +83,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children, initialPha
             send: multiplayer.sendCommand,
             multiplayer,
             dismissNotification,
-            dismissedNotificationIds: dismissed,
+            dismissedNotificationIds: isDismissed,
         }}>
             {children}
         </GameContext.Provider>
