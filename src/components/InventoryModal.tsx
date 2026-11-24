@@ -74,12 +74,16 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({ isOpen, onClose,
                         <div className="ui-grid">
                             {resources.technologies.map(c => {
                                 const type = c.type as TechnologyType;
+                                const needs = TECHNOLOGY_REQUIREMENTS[type];
+                                const hasRaw = resources.rawMaterials.some(r => r.type === needs && !r.usedThisTurn);
                                 return (
                                     <Option key={c.id}
                                         label={TECHNOLOGY_DATA[type]?.name ?? c.type}
-                                        meta={c.usedThisTurn ? 'Consumida esta ronda' : `${regionTitle(c.country)} · usa ${RAW_MATERIAL_DATA[TECHNOLOGY_REQUIREMENTS[type]].name}`}
+                                        meta={c.usedThisTurn ? 'Consumida esta ronda'
+                                            : hasRaw ? `${regionTitle(c.country)} · usa ${RAW_MATERIAL_DATA[needs].name}`
+                                            : `${regionTitle(c.country)} · te falta ${RAW_MATERIAL_DATA[needs].name}`}
                                         selected={tech === c.id}
-                                        disabled={!producing || c.usedThisTurn}
+                                        disabled={!producing || c.usedThisTurn || !hasRaw}
                                         onSelect={() => { setTech(tech === c.id ? null : c.id); setRaw(null); }} />
                                 );
                             })}

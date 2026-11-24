@@ -25,7 +25,7 @@ export const SecondaryMissionsModal: React.FC<SecondaryMissionsModalProps> = ({
     const renderEspionage = () => (
         <div style={sectionStyle}>
             <div style={{
-                color: '#00ffff',
+                color: 'var(--cyan)',
                 fontSize: '0.8rem',
                 letterSpacing: '5px',
                 marginBottom: '10px',
@@ -34,16 +34,16 @@ export const SecondaryMissionsModal: React.FC<SecondaryMissionsModalProps> = ({
             }}>
                 PROTOCOLO DE INTELIGENCIA
             </div>
-            <h2 style={{ color: '#00ffff', fontSize: '2rem', margin: '0 0 20px 0', letterSpacing: '3px' }}>
+            <h2 style={{ color: 'var(--cyan)', fontSize: '2rem', margin: '0 0 20px 0', letterSpacing: '3px' }}>
                 INTELIGENCIA Y ESPIONAJE
             </h2>
 
-            <h3 style={{ ...h3Style, color: '#00ffff', borderColor: '#00ffff44' }}>FUNDAMENTOS OPERATIVOS</h3>
+            <h3 style={{ ...h3Style, color: 'var(--cyan)', borderColor: 'rgba(0, 229, 255, 0.27)' }}>FUNDAMENTOS OPERATIVOS</h3>
             <p style={{ textAlign: 'justify' }}>
                 El espionaje no es una condición de victoria directa, pero es el pilar sobre el cual se construyen las estrategias de defensa y ataque nuclear. Sin inteligencia, el despliegue de un ataque nuclear es un salto al vacío.
             </p>
 
-            <h3 style={{ ...h3Style, color: '#00ffff', borderColor: '#00ffff44' }}>CREACIÓN DE UNA RED</h3>
+            <h3 style={{ ...h3Style, color: 'var(--cyan)', borderColor: 'rgba(0, 229, 255, 0.27)' }}>CREACIÓN DE UNA RED</h3>
             <p>Para establecer una <strong>Red de Inteligencia</strong> operativa, se requiere procesar recursos en una sede oficial:</p>
             <ul style={{ paddingLeft: '20px' }}>
                 <li><strong>Sedes Válidas:</strong> Nueva York (EE.UU.), Londres (Reino Unido), Beijing (China) o Moscú (Rusia).</li>
@@ -51,27 +51,27 @@ export const SecondaryMissionsModal: React.FC<SecondaryMissionsModalProps> = ({
                 <li><strong>Materia Prima:</strong> Se deben suministrar <strong>Semiconductores</strong> (requiere ruta de suministro activa a la sede).</li>
             </ul>
 
-            <h3 style={{ ...h3Style, color: '#00ffff', borderColor: '#00ffff44' }}>CAPACIDADES DE INFILTRACIÓN</h3>
+            <h3 style={{ ...h3Style, color: 'var(--cyan)', borderColor: 'rgba(0, 229, 255, 0.27)' }}>CAPACIDADES DE INFILTRACIÓN</h3>
             <div style={{ ...boxStyle, backgroundColor: 'rgba(0, 255, 255, 0.05)', border: '1px solid #00ffff44' }}>
-                <div style={{ color: '#00ffff', fontWeight: 'bold', marginBottom: '10px', fontSize: '1.1rem' }}>
+                <div style={{ color: 'var(--cyan)', fontWeight: 'bold', marginBottom: '10px', fontSize: '1.1rem' }}>
                     EFECTO DE ACTIVACIÓN (UN SOLO USO)
                 </div>
-                <p style={{ margin: 0, color: '#fff', lineHeight: '1.5' }}>
+                <p style={{ margin: 0, color: 'var(--fg-strong)', lineHeight: '1.5' }}>
                     Una vez establecida la red, el jugador puede consumir la carta de espionaje para ejecutar una de las siguientes acciones:
                 </p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '15px' }}>
-                    <div style={{ border: '1px solid #00ffff22', padding: '10px', backgroundColor: '#001111' }}>
-                        <div style={{ color: '#00ffff', fontWeight: 'bold', fontSize: '0.8rem', marginBottom: '5px' }}>REVELAR SILOS</div>
-                        <div style={{ fontSize: '0.8rem', color: '#888' }}>Muestra la ubicación de todos los silos enemigos, su nivel de combustible y si tienen misiles listos.</div>
+                    <div style={{ border: '1px solid #00ffff22', padding: '10px', backgroundColor: 'var(--surface-2)' }}>
+                        <div style={{ color: 'var(--cyan)', fontWeight: 'bold', fontSize: '0.8rem', marginBottom: '5px' }}>REVELAR SILOS</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>Muestra la ubicación de todos los silos enemigos, su nivel de combustible y si tienen misiles listos.</div>
                     </div>
-                    <div style={{ border: '1px solid #00ffff22', padding: '10px', backgroundColor: '#001111' }}>
-                        <div style={{ color: '#00ffff', fontWeight: 'bold', fontSize: '0.8rem', marginBottom: '5px' }}>LOCALIZAR MINERAL</div>
-                        <div style={{ fontSize: '0.8rem', color: '#888' }}>Identifica qué país contiene el depósito de Mineral Secreto y revela si el enemigo ya ha comenzado la extracción.</div>
+                    <div style={{ border: '1px solid #00ffff22', padding: '10px', backgroundColor: 'var(--surface-2)' }}>
+                        <div style={{ color: 'var(--cyan)', fontWeight: 'bold', fontSize: '0.8rem', marginBottom: '5px' }}>LOCALIZAR MINERAL</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>Identifica qué país contiene el depósito de Mineral Secreto y revela si el enemigo ya ha comenzado la extracción.</div>
                     </div>
                 </div>
             </div>
             
-            <h3 style={{ ...h3Style, color: '#00ffff', borderColor: '#00ffff44' }}>AGENCIAS ACTIVAS</h3>
+            <h3 style={{ ...h3Style, color: 'var(--cyan)', borderColor: 'rgba(0, 229, 255, 0.27)' }}>AGENCIAS ACTIVAS</h3>
             <p style={{ fontSize: '0.85rem' }}>
                 Dependiendo de la sede controlada, se activa una agencia específica con protocolos propios:
                 <br /><br />
@@ -88,7 +88,7 @@ export const SecondaryMissionsModal: React.FC<SecondaryMissionsModalProps> = ({
                     {activeSection === 'espionage' ? renderEspionage() : (
                         <div style={sectionStyle}>
                             <div style={{
-                                color: '#ff8800',
+                                color: 'var(--orange)',
                                 fontSize: '0.8rem',
                                 letterSpacing: '5px',
                                 marginBottom: '10px',
@@ -99,7 +99,7 @@ export const SecondaryMissionsModal: React.FC<SecondaryMissionsModalProps> = ({
                             </div>
 
                             <h2 style={{
-                                color: '#ff8800',
+                                color: 'var(--orange)',
                                 fontSize: '2rem',
                                 margin: '0 0 20px 0',
                                 letterSpacing: '3px',
@@ -128,7 +128,7 @@ export const SecondaryMissionsModal: React.FC<SecondaryMissionsModalProps> = ({
 
                             <h3 style={h3Style}>DETALLE DEL EFECTO</h3>
                             <div style={boxStyle}>
-                                <div style={{ color: '#ffcc88', fontWeight: 'bold', marginBottom: '10px', fontSize: '1.2rem', letterSpacing: '1px' }}>
+                                <div style={{ color: 'var(--fg-strong)', fontWeight: 'bold', marginBottom: '10px', fontSize: '1.2rem', letterSpacing: '1px' }}>
                                     {activeMission.mechanicalEffect.toUpperCase()}
                                 </div>
                                 <div style={{ 
@@ -136,26 +136,26 @@ export const SecondaryMissionsModal: React.FC<SecondaryMissionsModalProps> = ({
                                     paddingTop: '15px', 
                                     borderTop: '1px dashed #ff880044',
                                     fontSize: '0.9rem',
-                                    color: '#ccc',
+                                    color: 'var(--fg)',
                                     lineHeight: '1.4'
                                 }}>
                                     <strong>Impacto Mecánico:</strong> El beneficio es permanente mientras se mantenga el control de los territorios requeridos. No requiere consumo de turno una vez activado.
                                     <br /><br />
-                                    <span style={{ fontSize: '0.85rem', color: '#888', fontStyle: 'italic' }}>
+                                    <span style={{ fontSize: '0.85rem', color: 'var(--muted)', fontStyle: 'italic' }}>
                                         * {activeMission.description}
                                     </span>
                                 </div>
                             </div>
 
-                            <h3 style={{ ...h3Style, color: '#ff4444', marginTop: '30px' }}>PROTOCOLOS DE INTERRUPCIÓN</h3>
-                            <div style={{ ...boxStyle, border: '1px solid #ff444440', backgroundColor: '#1a0000' }}>
-                                <div style={{ color: '#ffaaaa', fontSize: '0.95rem', lineHeight: '1.5' }}>
-                                    <span style={{ fontWeight: 'bold', color: '#ff4444' }}>CONDICIÓN DE DESACTIVACIÓN:</span> {activeMission.deactivationConditions}
+                            <h3 style={{ ...h3Style, color: 'var(--red)', marginTop: '30px' }}>PROTOCOLOS DE INTERRUPCIÓN</h3>
+                            <div style={{ ...boxStyle, border: '1px solid #ff444440', backgroundColor: 'var(--surface-2)' }}>
+                                <div style={{ color: 'var(--fg-strong)', fontSize: '0.95rem', lineHeight: '1.5' }}>
+                                    <span style={{ fontWeight: 'bold', color: 'var(--red)' }}>CONDICIÓN DE DESACTIVACIÓN:</span> {activeMission.deactivationConditions}
                                 </div>
                                 <div style={{ 
                                     marginTop: '10px', 
                                     fontSize: '0.8rem', 
-                                    color: '#888', 
+                                    color: 'var(--muted)', 
                                     fontStyle: 'italic',
                                     borderTop: '1px solid #ff444420',
                                     paddingTop: '10px'
@@ -169,7 +169,7 @@ export const SecondaryMissionsModal: React.FC<SecondaryMissionsModalProps> = ({
                     {/* Footer info */}
                     <div style={{
                         marginTop: '60px',
-                        color: '#222',
+                        color: 'var(--surface-3)',
                         fontSize: '0.7rem',
                         letterSpacing: '2px',
                         textAlign: 'right',

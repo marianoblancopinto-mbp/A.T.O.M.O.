@@ -6,6 +6,7 @@ import { HistoryModal } from './shared/modals/HistoryModal';
 import { MissionModal } from './shared/modals/MissionModal';
 import { SecondaryMissionsModal } from './shared/modals/SecondaryMissionsModal';
 import { GameSettingsModal } from './shared/modals/GameSettingsModal';
+import { Button, Option, Section } from '../ui/components';
 
 interface LobbyProps {
     onGameStart?: () => void;
@@ -110,292 +111,86 @@ export const Lobby: React.FC<LobbyProps> = ({ onGameStart, muted, onMuteToggle }
         }
     };
 
-    const isMobile = window.innerWidth <= 768;
+    const errorBox = error ? <p className="ui-note" data-tone="danger" role="alert">⚠ {error}</p> : null;
+    const muteButton = (
+        <Button size="sm" variant="ghost" onClick={onMuteToggle} title={muted ? 'Activar música' : 'Silenciar música'} aria-label={muted ? 'Activar música' : 'Silenciar música'}>
+            {muted ? '🔇' : '🔊'}
+        </Button>
+    );
 
     if ((connectionStatus === 'CONNECTED' || connectionStatus === 'PLAYING') && gameId) {
-
-        // Proxy War Country for Lore
         const proxyCountry = gameSettings?.proxyWarCountry || 'País Desconocido';
-
+        const canStart = lobbyPlayers.length >= 2;
         return (
-            <div style={{
-                position: 'relative',
-                display: 'flex',
-                flexDirection: isMobile ? 'column' : 'row',
-                width: '100vw',
-                minHeight: '100vh',
-                height: 'auto',
-                backgroundColor: '#0a0a0a',
-                color: '#00ff00',
-                fontFamily: 'monospace',
-                overflowY: 'auto',
-                overflowX: 'auto'
-            }}>
-                {/* Background Grid/Effect */}
-                <div style={{
-                    position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-                    backgroundImage: 'radial-gradient(circle, #001100 0%, #000000 100%)',
-                    zIndex: 0
-                }} />
-                <div style={{
-                    position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-                    backgroundSize: '40px 40px',
-                    backgroundImage: 'linear-gradient(to right, rgba(0, 50, 0, 0.1) 1px, transparent 1px), linear-gradient(to bottom, rgba(0, 50, 0, 0.1) 1px, transparent 1px)',
-                    zIndex: 0, pointerEvents: 'none'
-                }} />
-
-                {/* Left Panel: Status & Players */}
-                <div style={{
-                    flex: isMobile ? 'none' : 1,
-                    borderRight: isMobile ? 'none' : '2px solid #004400',
-                    borderBottom: isMobile ? '2px solid #004400' : 'none',
-                    padding: isMobile ? '20px' : '40px',
-                    display: 'flex', flexDirection: 'column', zIndex: 1,
-                    backgroundColor: 'rgba(0,0,0,0.5)',
-                    width: isMobile ? '100%' : 'auto',
-                    position: 'relative'
-                }}>
-                    <div style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 10 }}>
-                        <button 
-                            onClick={onMuteToggle}
-                            title={muted ? "Activar Música" : "Desactivar Música"}
-                            style={{
-                                backgroundColor: 'transparent',
-                                border: '1px solid #00ff00',
-                                color: '#00ff00',
-                                padding: '5px 12px',
-                                cursor: 'pointer',
-                                fontSize: '0.9rem',
-                                borderRadius: '0',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                transition: 'all 0.2s',
-                                fontFamily: 'monospace',
-                                fontWeight: 'bold'
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = 'rgba(0, 255, 0, 0.2)';
-                                e.currentTarget.style.boxShadow = '0 0 10px rgba(0, 255, 0, 0.3)';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = 'transparent';
-                                e.currentTarget.style.boxShadow = 'none';
-                            }}
-                        >
-                            AUDIO: <span style={{ color: muted ? '#ff4444' : '#00ff00' }}>{muted ? 'MUTED' : 'ENABLED'}</span>
-                        </button>
-                    </div>
-                    <h1 style={{ fontSize: isMobile ? '1.8rem' : '2.5rem', marginBottom: '10px', textShadow: '0 0 10px #00ff00' }}>SALA DE OPERACIONES</h1>
-                    <div style={{ marginBottom: isMobile ? '20px' : '40px', color: '#666', fontSize: '0.9rem' }}>
-                        ID DE MISIÓN: <span style={{ color: '#fff', letterSpacing: '2px' }}>{gameId}</span>
-                    </div>
-
-                    <h3 style={{ borderBottom: '1px solid #004400', paddingBottom: '10px', color: '#00cc00' }}>
-                        PERSONAL AUTORIZADO [{lobbyPlayers.length}]
-                    </h3>
-                    <ul style={{
-                        listStyle: 'none',
-                        padding: 0,
-                        flex: isMobile ? 'none' : 1,
-                        maxHeight: isMobile ? '300px' : 'none',
-                        overflowY: 'auto'
-                    }}>
-                        {lobbyPlayers.map((p: any, idx: number) => (
-                            <li key={p.playerId} style={{
-                                padding: '15px 10px',
-                                backgroundColor: String(p.playerId) === String(playerId) ? 'rgba(0, 50, 0, 0.5)' : 'transparent',
-                                borderBottom: '1px solid #002200',
-                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                animation: 'fadeIn 0.5s ease-in'
-                            }}>
-                                <span>
-                                    <span style={{ color: '#006600', marginRight: '10px' }}>{String(idx + 1).padStart(2, '0')}</span>
-                                    {p.name} {String(p.playerId) === String(playerId) ? '(TÚ)' : ''}
-                                </span>
-                                {p.isHost && <span style={{
-                                    fontSize: '0.7rem', padding: '2px 6px', border: '1px solid #ffff00', color: '#ffff00'
-                                }}>ANFITRIÓN</span>}
-                            </li>
-                        ))}
-                    </ul>
-
-                    {/* Chat or Status Log could go here */}
-                    <div style={{ marginTop: 'auto', paddingTop: '20px', borderTop: '1px solid #004400', color: '#444' }}>
-                        Estado del enlace: <span style={{ color: '#00ff00' }}>ESTABLE</span>
-                    </div>
-                </div>
-
-                {/* Right Panel: Menu */}
-                <div style={{
-                    flex: 1,
-                    padding: isMobile ? '20px' : '40px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    zIndex: 1,
-                    width: isMobile ? '100%' : 'auto'
-                }}>
-                    <div style={{ width: '100%', maxWidth: '500px' }}>
-                        <h2 style={{
-                            textAlign: 'center', marginBottom: '40px', fontSize: '2rem',
-                            borderBottom: '2px solid #00ff00', paddingBottom: '20px'
-                        }}>
-                            ARCHIVOS CLASIFICADOS
-                        </h2>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                            {MENU_SECTIONS.map((section) => (
-                                <button
-                                    key={section.phase}
-                                    onClick={() => handleMenuClick(section.phase)}
-                                    // disabled={!section.available} 
-                                    style={{
-                                        padding: '20px',
-                                        backgroundColor: 'rgba(0, 20, 0, 0.8)',
-                                        border: '1px solid #00ff00',
-                                        color: '#00ff00',
-                                        fontSize: '1.2rem',
-                                        textAlign: 'left',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.2s',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '2px',
-                                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                        opacity: section.available ? 1 : 0.5
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        if (section.available) {
-                                            e.currentTarget.style.backgroundColor = '#00ff00';
-                                            e.currentTarget.style.color = '#000';
-                                        }
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.backgroundColor = 'rgba(0, 20, 0, 0.8)';
-                                        e.currentTarget.style.color = '#00ff00';
-                                    }}
-                                >
-                                    {section.label}
-                                    <span>&gt;</span>
-                                </button>
-                            ))}
+            <div className="lobby" data-tone="default">
+                <div className="lobby__room">
+                    <section className="lobby__card" style={{ maxWidth: 'none' }}>
+                        <div className="ui-row" style={{ justifyContent: 'space-between' }}>
+                            <div className="ui-kicker">Sala de operaciones</div>
+                            {muteButton}
                         </div>
-
-                        <div style={{ marginTop: '60px', textAlign: 'center' }}>
-                            {isHost ? (
-                                <button
-                                    onClick={() => {
-                                        // El servidor genera la partida (reparto, recursos y
-                                        // minerales secretos); el anfitrión sólo da la orden.
-                                        startGame();
-                                    }}
-                                    style={{
-                                        padding: '20px 40px', fontSize: '1.5rem', fontWeight: 'bold',
-                                        backgroundColor: '#00ff00', color: '#000', border: 'none', cursor: 'pointer',
-                                        borderRadius: '0', boxShadow: '0 0 20px #00ff00',
-                                        animation: 'pulse 2s infinite'
-                                    }}
-                                >
-                                    INICIAR OPERACIÓN
-                                </button>
-                            ) : (
-                                <div style={{
-                                    padding: '20px', border: '1px dashed #004400', color: '#008800',
-                                    animation: 'blink 2s infinite'
-                                }}>
-                                    ESPERANDO INICIO DE OPERACIÓN DEL ANFITRIÓN...
+                        <p className="ui-text" style={{ margin: '8px 0 18px' }}>ID DE MISIÓN: <span className="lobby__code">{gameId}</span></p>
+                        <Section title={`Personal autorizado · ${lobbyPlayers.length}`}>
+                            {lobbyPlayers.map((p, idx) => (
+                                <div key={p.playerId} className="ui-kv">
+                                    <span><span className="ui-muted">{String(idx + 1).padStart(2, '0')}</span> {p.name}{String(p.playerId) === String(playerId) ? ' (vos)' : ''}</span>
+                                    {p.isHost && <span className="ui-badge" style={{ color: 'var(--yellow)' }}>Anfitrión</span>}
                                 </div>
-                            )}
-                        </div>
-                    </div>
+                            ))}
+                        </Section>
+                        <p className="ui-muted" style={{ fontSize: '0.85rem' }}>Compartí el ID para que se unan otros comandantes (2 a 8).</p>
+                    </section>
+
+                    <section className="lobby__card" style={{ maxWidth: 'none' }}>
+                        <Section title="Archivos clasificados">
+                            <div className="ui-stack">
+                                {MENU_SECTIONS.map(section => (
+                                    <Option key={section.phase} label={section.label} onSelect={() => handleMenuClick(section.phase)} />
+                                ))}
+                            </div>
+                        </Section>
+                        {errorBox}
+                        {isHost ? (
+                            <Button variant="primary" size="lg" block disabled={!canStart} onClick={startGame}>
+                                {canStart ? 'Iniciar operación' : 'Esperando comandantes…'}
+                            </Button>
+                        ) : (
+                            <p className="ui-note">Esperando que el anfitrión inicie la operación…</p>
+                        )}
+                    </section>
                 </div>
 
                 <HistoryModal isOpen={showHistory} onClose={() => setShowHistory(false)} proxyWarCountry={proxyCountry} />
                 <MissionModal isOpen={showMission} onClose={() => setShowMission(false)} />
-                <SecondaryMissionsModal 
-                    isOpen={showSecondaryMissions} 
-                    onClose={() => setShowSecondaryMissions(false)} 
-                    proxyWarCountry={proxyCountry}
-                />
+                <SecondaryMissionsModal isOpen={showSecondaryMissions} onClose={() => setShowSecondaryMissions(false)} proxyWarCountry={proxyCountry} />
                 <RulesModal isOpen={showRules} onClose={() => setShowRules(false)} />
-                <GameSettingsModal
-                    isOpen={showSettings}
-                    onClose={() => setShowSettings(false)}
-                    onUpdate={updateSettings}
-                    isHost={isHost}
-                    currentSettings={gameSettings}
-                />
+                <GameSettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} onUpdate={updateSettings} isHost={isHost} currentSettings={gameSettings} />
             </div>
         );
     }
 
-    // Default View (Join/Create)
+    const connecting = connectionStatus === 'CONNECTING';
     return (
-        <div style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh',
-            backgroundColor: '#050505', color: '#fff', fontFamily: 'monospace'
-        }}>
-            <h1 style={{ fontSize: '4rem', color: '#00ff00', marginBottom: '40px', textShadow: '0 0 20px rgba(0,255,0,0.5)' }}>A.T.O.M.O v2</h1>
-
-            <div style={{
-                width: '400px', padding: '30px', border: '1px solid #333', borderRadius: '12px',
-                backgroundColor: '#111', boxShadow: '0 0 50px rgba(0,0,0,0.8)'
-            }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-
-                    <input
-                        type="text"
-                        placeholder="TU NOMBRE DE GENERAL"
-                        value={playerName}
-                        onChange={(e) => setPlayerName(e.target.value)}
-                        style={{
-                            padding: '15px', backgroundColor: '#222', border: '1px solid #444',
-                            color: '#fff', fontSize: '1.2rem', textAlign: 'center', outline: 'none'
-                        }}
-                    />
-
-                    <button
-                        onClick={handleCreate}
-                        disabled={connectionStatus === 'CONNECTING'}
-                        style={{
-                            padding: '15px', backgroundColor: '#004400', color: '#00ff00', border: '1px solid #00ff00',
-                            fontSize: '1.1rem', cursor: connectionStatus === 'CONNECTING' ? 'wait' : 'pointer', fontWeight: 'bold',
-                            opacity: connectionStatus === 'CONNECTING' ? 0.7 : 1
-                        }}
-                    >
-                        {connectionStatus === 'CONNECTING' ? 'CREATING...' : 'CREAR NUEVA PARTIDA'}
-                    </button>
-
-                    {error && (
-                        <div style={{ color: '#ff0000', textAlign: 'center', backgroundColor: 'rgba(255,0,0,0.1)', padding: '10px', borderRadius: '4px' }}>
-                            ⚠ {error}
+        <div className="lobby" data-tone="default">
+            <div style={{ width: '100%', maxWidth: 460 }}>
+                <h1 className="lobby__brand">A.T.O.M.O.</h1>
+                <p className="ui-kicker" style={{ textAlign: 'center', marginBottom: 24 }}>Guerra fría · año 2100</p>
+                <section className="lobby__card">
+                    <div className="ui-stack" style={{ gap: 14 }}>
+                        <input className="ui-input" type="text" placeholder="TU NOMBRE DE GENERAL" maxLength={24}
+                            value={playerName} onChange={e => setPlayerName(e.target.value)} aria-label="Tu nombre" />
+                        <Button variant="primary" size="lg" block onClick={handleCreate} disabled={connecting}>
+                            {connecting ? 'Conectando…' : 'Crear nueva partida'}
+                        </Button>
+                        <div className="ui-row" style={{ flexWrap: 'nowrap' }}>
+                            <input className="ui-input" type="text" placeholder="CÓDIGO DE PARTIDA"
+                                value={joinGameId} onChange={e => setJoinGameId(e.target.value)} aria-label="Código de partida" />
+                            <Button onClick={handleJoin} disabled={connecting}>{connecting ? '…' : 'Unirse'}</Button>
                         </div>
-                    )}
-
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                        <input
-                            type="text"
-                            placeholder="CÓDIGO DE PARTIDA"
-                            value={joinGameId}
-                            onChange={(e) => setJoinGameId(e.target.value)}
-                            style={{
-                                flex: 1, padding: '15px', backgroundColor: '#222', border: '1px solid #444',
-                                color: '#fff', textAlign: 'center', outline: 'none'
-                            }}
-                        />
-                        <button
-                            onClick={handleJoin}
-                            disabled={connectionStatus === 'CONNECTING'}
-                            style={{
-                                padding: '15px', backgroundColor: '#002244', color: '#00ffff', border: '1px solid #00ffff',
-                                fontSize: '1.1rem', cursor: connectionStatus === 'CONNECTING' ? 'wait' : 'pointer', fontWeight: 'bold'
-                            }}
-                        >
-                            {connectionStatus === 'CONNECTING' ? 'CONECTANDO...' : 'UNIRSE'}
-                        </button>
+                        {errorBox}
                     </div>
-                </div>
+                </section>
+                <div style={{ textAlign: 'center', marginTop: 12 }}>{muteButton}</div>
             </div>
         </div>
     );

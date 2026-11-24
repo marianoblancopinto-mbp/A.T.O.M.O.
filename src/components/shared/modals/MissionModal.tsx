@@ -133,16 +133,16 @@ export const MissionModal: React.FC<MissionModalProps> = ({ isOpen, onClose }) =
                                 display: 'flex',
                                 gap: '15px',
                                 padding: '12px 15px',
-                                backgroundColor: '#0a0a0a',
+                                backgroundColor: 'var(--surface-2)',
                                 border: '1px solid #222',
                             }}>
                                 <span style={{
-                                    color: '#00ff00',
+                                    color: 'var(--green)',
                                     fontWeight: 'bold',
                                     fontSize: '1.2rem',
                                     minWidth: '25px',
                                 }}>{obj.code})</span>
-                                <span style={{ color: '#ccc' }}>{obj.text}</span>
+                                <span style={{ color: 'var(--fg)' }}>{obj.text}</span>
                             </div>
                         ))}
                     </div>
@@ -186,7 +186,7 @@ export const MissionModal: React.FC<MissionModalProps> = ({ isOpen, onClose }) =
                         borderTop: '1px solid #00ff0044',
                         borderBottom: '1px solid #00ff0044',
                         textAlign: 'center',
-                        color: '#00ff00',
+                        color: 'var(--green)',
                         letterSpacing: '3px',
                         fontSize: '1rem',
                     }}>
