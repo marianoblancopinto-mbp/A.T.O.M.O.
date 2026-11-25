@@ -50,6 +50,8 @@ function projectBattle(b: BattleState, viewerId: unknown): BattleState {
     const isDefender = sameId(b.defender.id, viewerId);
     const { isAiCheating: _hidden, ...rest } = b;
     const view: BattleState = { ...rest, deck: [] };
+    // Correspondencia: el ataque comprometido sólo lo ve el atacante; los demás ven el regimiento de cada ronda.
+    if (!isAttacker) view.attackerCommit = null;
     if (isAttacker) {
         view.defenderHand = [];
         view.opponentHandSize = b.defenderHand.length;

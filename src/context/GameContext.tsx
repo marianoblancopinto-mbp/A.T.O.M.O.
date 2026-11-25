@@ -11,7 +11,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import type { PlayerData } from '../types/playerTypes';
 import { initialState, sanitizePlayers, toGameDate } from '@atomo/shared';
 import type { GamePhase, GameState, Command } from '@atomo/shared';
-import { useColyseus } from '../hooks/useColyseus';
+import { useTransport } from '../hooks/useTransport';
 
 export type { GamePhase, MissionNotification, GameSettings, GameState, Command } from '@atomo/shared';
 
@@ -19,7 +19,7 @@ interface GameContextValue {
     state: GameState;
     /** Manda una intención al servidor. */
     send: (command: Command) => void;
-    multiplayer: ReturnType<typeof useColyseus>;
+    multiplayer: ReturnType<typeof useTransport>;
     /** Notificaciones que este cliente ya cerró (el descarte es local). */
     dismissNotification: (id: number) => void;
     dismissedNotificationIds: ReadonlySet<number>;
@@ -47,7 +47,7 @@ interface GameProviderProps {
 }
 
 export const GameProvider: React.FC<GameProviderProps> = ({ children, initialPhase }) => {
-    const multiplayer = useColyseus();
+    const multiplayer = useTransport();
     const [state, setState] = useState<GameState>({
         ...initialState,
         gamePhase: initialPhase ?? initialState.gamePhase,

@@ -52,6 +52,14 @@ npm run dev
 npm test
 ```
 
+Partidas por correspondencia en local (otra terminal; sin `DATABASE_URL` guarda en memoria, con `DATABASE_URL` usa Postgres):
+
+```bash
+npm run api
+```
+
+Vite redirige `/api` a `localhost:3001`.
+
 Para probar con varios jugadores en el mismo navegador, abrí cada pestaña con `?seat=1`, `?seat=2`, etc. El parámetro sólo separa el almacenamiento local de cada pestaña; no da ningún privilegio.
 
 La ruta `/map` abre una pantalla de mapa en modo espectador, que recibe únicamente la vista pública.
@@ -62,8 +70,9 @@ El juego tiene dos piezas que se despliegan por separado:
 
 | Pieza | Dónde | Configuración |
 |---|---|---|
-| Servidor (Colyseus, WebSockets) | Render | `render.yaml` |
-| Cliente (React estático) | Vercel | `vercel.json` |
+| Servidor en vivo (Colyseus, WebSockets) | Render | `render.yaml` |
+| Cliente (React estático) + API de correspondencia (función) | Vercel | `vercel.json`, `scripts/build-vercel.mjs` |
+| Partidas por correspondencia | Postgres (Neon, Supabase, Vercel Postgres…) | `DATABASE_URL` |
 
 El servidor necesita un proceso persistente que mantenga WebSockets abiertos, por eso no puede correr en funciones serverless de Vercel. Toda la lógica de la partida vive en `GameSession` y en el motor puro de `shared`, sin depender de Colyseus: cambiar de transporte o de hosting sólo requiere reescribir el adaptador.
 
@@ -79,6 +88,18 @@ En el plan gratuito el servidor se duerme tras ~15 minutos sin uso y tarda ~50 s
 
 1. En Vercel: **Add New → Project** e importá este repo. No hace falta cambiar nada: `vercel.json` define instalación, build y salida.
 2. En **Settings → Environment Variables** agregá `VITE_SERVER_URL` con el host del servidor de Render (sólo el host; el cliente le antepone `wss://`). Aplicala a Production y Preview.
-3. Desplegá. Si agregás o cambiás la variable después, hay que volver a desplegar: Vite la incrusta al compilar.
+3. Para las partidas por correspondencia, conectá una base Postgres: desde **Storage / Marketplace** (por ejemplo Neon) o agregando a mano `DATABASE_URL`. La tabla `atomo_games` se crea sola en el primer pedido.
+4. Desplegá. Si agregás o cambiás la variable después, hay que volver a desplegar: Vite la incrusta al compilar.
 
 Sin `VITE_SERVER_URL` el cliente intenta conectarse a `localhost` y no funciona en producción.
+
+### Partidas por correspondencia
+
+Cada jugada es un pedido HTTP a `/api` (una función de Vercel) y la partida vive en Postgres: nadie tiene que estar conectado. Los plazos se aplican de forma perezosa: cuando alguien consulta o juega, el servidor resuelve lo que haya vencido (producción, defensa automática, turno). No hace falta un proceso ni un cron.
+
+El build (`npm run build:vercel`) usa la Build Output API: copia el cliente a `.vercel/output/static` y empaqueta la API con esbuild en `.vercel/output/functions/api.func`.
+
+Cada jugador recibe un token secreto al crear o unirse; en la base sólo se guarda su hash. El **enlace personal** (`/?partida=<id>#t=<token>`) abre la partida en otro dispositivo.
+
+La conexión a Postgres verifica el certificado TLS. Para una base local sin TLS usá `PGSSLMODE=disable`.
+

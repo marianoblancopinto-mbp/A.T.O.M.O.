@@ -31,3 +31,5 @@ export * from './engine/actions';
 export * from './engine/reconcile';
 export * from './engine/commands';
 export * from './engine/view';
+export * from './engine/committed';
+export * from './engine/deadlines';

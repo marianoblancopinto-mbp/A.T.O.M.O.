@@ -69,7 +69,17 @@ export interface BattleState {
     deck: Card[];
 
     // New fields for Sync
-    phase: 'ATTACKER_SELECTION' | 'DEFENDER_SELECTION' | 'RESOLUTION' | 'VICTORY' | 'DEFEAT';
+    /**
+     * Modo en vivo: ATTACKER_SELECTION → DEFENDER_SELECTION → RESOLUTION (×3) → VICTORY/DEFEAT.
+     * Modo correspondencia: ATTACKER_COMMIT → DEFENDER_COMMIT → (resolución inmediata, se cierra sola).
+     */
+    phase: 'ATTACKER_SELECTION' | 'DEFENDER_SELECTION' | 'RESOLUTION' | 'VICTORY' | 'DEFEAT' | 'ATTACKER_COMMIT' | 'DEFENDER_COMMIT';
+    /** Correspondencia: las 3 cartas del atacante, en orden (sólo las ve el atacante). */
+    attackerCommit?: Card[] | null;
+    /** Correspondencia: el regimiento de cada ronda del ataque (lo ve el defensor; no el tier). */
+    incomingRegiments?: Regiment[] | null;
+    /** Correspondencia: tiempo de turno que le quedaba al atacante cuando empezó a esperar la defensa. */
+    turnRemainingMs?: number;
     currentAttackerCard: Card | null;
     currentDefenderCard: Card | null;
     clashResult: {

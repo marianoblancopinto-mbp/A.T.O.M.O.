@@ -14,7 +14,9 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "api": "tsx server/src/async/dev.ts",
+    "build:vercel": "node scripts/build-vercel.mjs"
   },
   "dependencies": {
     "@atomo/shared": "*",
@@ -37,7 +39,8 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
     "vite": "^7.2.4",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.11",
+    "esbuild": "^0.27.2"
   },
   "engines": {
     "node": ">=20.19"

@@ -30,3 +30,6 @@ dist-ssr
 build_errors*.txt
 build_log*.txt
 tsc_errors*.txt
+
+# Vercel
+.vercel
