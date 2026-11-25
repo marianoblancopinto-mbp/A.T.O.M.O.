@@ -26,6 +26,8 @@ export const useGameActions = () => {
         nextBattleRound: () => send({ type: 'BATTLE_NEXT_ROUND' }),
         useBattleSupplies: (supplyIds: string[]) => send({ type: 'BATTLE_USE_SUPPLIES', supplyIds }),
         closeBattle: () => send({ type: 'BATTLE_CLOSE' }),
+        /** Correspondencia: comprometer 3 cartas en orden (atacante o defensor). */
+        commitBattle: (cardIds: string[]) => send({ type: 'BATTLE_COMMIT', cardIds }),
 
         // Misiones
         activateMission: (input: Omit<MissionInput, 'missionId'> & { missionId: string }) =>

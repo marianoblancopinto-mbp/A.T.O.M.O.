@@ -6,6 +6,8 @@ import { RegionInfoPanel } from './game/RegionInfoPanel';
 import { ResourceCatalogModal } from './game/ResourceCatalogModal';
 import { ConfidentialInfoModal } from './game/ConfidentialInfoModal';
 import { Announcements } from './game/Announcements';
+import { CommittedBattle } from './game/CommittedBattle';
+import { BattleReportView } from './game/BattleReportView';
 import { ProductionPhaseOverlay } from './shared/overlays/ProductionPhaseOverlay';
 import { InventoryModal } from './InventoryModal';
 import { TreatiesPanel } from './game/treaties/TreatiesPanel';
@@ -124,7 +126,10 @@ const GameScreen: React.FC<{ spectator: boolean }> = ({ spectator }) => {
             {roundPhase === 'PRODUCTION' && !state.winner && !state.gameOver && (
                 <ProductionPhaseOverlay isSpectator={spectator} onOpenInventory={() => openInventory()} />
             )}
-            {battleState?.isActive && <BattleOverlay battleState={battleState} onOpenInventory={() => openInventory()} />}
+            {battleState?.isActive && (battleState.phase === 'ATTACKER_COMMIT' || battleState.phase === 'DEFENDER_COMMIT'
+                ? <CommittedBattle battle={battleState} />
+                : <BattleOverlay battleState={battleState} onOpenInventory={() => openInventory()} />)}
+            {!spectator && <BattleReportView />}
 
             {/* Origen del ataque */}
             {!spectator && attackSourceSelection && (

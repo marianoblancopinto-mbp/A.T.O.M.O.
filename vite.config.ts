@@ -6,5 +6,10 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 8888,
+    // Partidas por correspondencia: en desarrollo la API corre aparte (npm run api).
+    proxy: { '/api': 'http://localhost:3001' },
+  },
+  preview: {
+    proxy: { '/api': 'http://localhost:3001' },
   },
 })

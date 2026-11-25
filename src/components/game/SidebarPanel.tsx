@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useGameContext } from '../../context/GameContext';
 import { useGameActions } from '../../hooks/useGameActions';
 import { Button } from '../../ui/components';
+import { useCountdown } from '../../hooks/useCountdown';
 
 interface SidebarPanelProps {
     onEndTurn: () => void;
@@ -33,6 +34,8 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
     // las reglas de hooks).
     const [showKickConfirm, setShowKickConfirm] = useState<string | null>(null);
     const [showEndConfirm, setShowEndConfirm] = useState(false);
+    const [linkCopied, setLinkCopied] = useState(false);
+    const remaining = useCountdown(state.deadline?.at);
 
     if (!currentPlayer) return null;
 
@@ -51,6 +54,11 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
             <div className="sidebar__turn">
                 <div className="ui-kicker">{isMyTurn ? 'Tu turno' : 'Turno de'}</div>
                 <div style={{ color: currentPlayer.color, fontSize: '1.3rem', fontWeight: 'bold', textShadow: `0 0 8px ${currentPlayer.color}` }}>{currentPlayer.name}</div>
+                {multiplayer.pace === 'async' && remaining && (
+                    <div className="ui-muted" style={{ marginTop: 4 }}>
+                        {state.deadline?.kind === 'defense' ? 'Defensa en curso' : state.deadline?.kind === 'production' ? 'Producción' : 'Plazo del turno'}: {remaining}
+                    </div>
+                )}
             </div>
 
             {isMyTurn && <Button variant="primary" block onClick={go(onEndTurn)}>Terminar turno</Button>}
@@ -84,6 +92,17 @@ export const SidebarPanel: React.FC<SidebarPanelProps> = ({
                     ) : (
                         <Button size="sm" variant="ghost" tone="danger" block onClick={() => setShowEndConfirm(true)}>Finalizar partida</Button>
                     )}
+                </div>
+            )}
+
+            {multiplayer.pace === 'async' && (
+                <div className="sidebar__group">
+                    <div className="ui-kicker">Partida por correspondencia · {multiplayer.gameId}</div>
+                    <Button size="sm" variant="ghost" block onClick={() => {
+                        const link = multiplayer.personalLink();
+                        if (link) void navigator.clipboard?.writeText(link).then(() => setLinkCopied(true), () => window.prompt('Tu enlace personal:', link));
+                    }}>{linkCopied ? 'Enlace copiado' : 'Copiar mi enlace personal'}</Button>
+                    <Button size="sm" variant="ghost" block onClick={() => { multiplayer.leaveGame(); window.location.assign('/'); }}>Mis partidas</Button>
                 </div>
             )}
 

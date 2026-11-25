@@ -7,6 +7,16 @@ import { MissionModal } from './shared/modals/MissionModal';
 import { SecondaryMissionsModal } from './shared/modals/SecondaryMissionsModal';
 import { GameSettingsModal } from './shared/modals/GameSettingsModal';
 import { Button, Option, Section } from '../ui/components';
+import { listSavedGames } from '../hooks/useAsyncGame';
+import type { GamePace } from '../hooks/useTransport';
+
+const TURN_OPTIONS = [
+    { value: 10, label: '10 minutos (prueba)' },
+    { value: 60, label: '1 hora' },
+    { value: 12 * 60, label: '12 horas' },
+    { value: 24 * 60, label: '24 horas' },
+    { value: 48 * 60, label: '48 horas' },
+];
 
 interface LobbyProps {
     onGameStart?: () => void;
@@ -26,8 +36,14 @@ export const Lobby: React.FC<LobbyProps> = ({ onGameStart, muted, onMuteToggle }
         createGame,
         joinGame,
         startGame,
-        updateSettings
+        updateSettings,
+        pace,
+        personalLink,
+        openSavedGame,
     } = useMultiplayerContext();
+    const [newPace, setNewPace] = useState<GamePace>('live');
+    const [copied, setCopied] = useState(false);
+    const savedGames = listSavedGames();
 
 
 
@@ -51,7 +67,7 @@ export const Lobby: React.FC<LobbyProps> = ({ onGameStart, muted, onMuteToggle }
     // Handle Create Game
     const handleCreate = async () => {
         if (!playerName) return alert('Ingresa tu nombre primero');
-        await createGame(playerName);
+        await createGame(playerName, newPace);
     };
 
     // Handle Join Game
@@ -139,6 +155,28 @@ export const Lobby: React.FC<LobbyProps> = ({ onGameStart, muted, onMuteToggle }
                             ))}
                         </Section>
                         <p className="ui-muted" style={{ fontSize: '0.85rem' }}>Compartí el ID para que se unan otros comandantes (2 a 8).</p>
+                        {pace === 'async' && (
+                            <Section title="Partida por correspondencia">
+                                <p className="ui-text" style={{ fontSize: '0.9rem' }}>
+                                    Cada comandante juega cuando puede. Si alguien no actúa antes del plazo, el sistema actúa por él.
+                                </p>
+                                <label className="ui-muted" style={{ fontSize: '0.8rem' }} htmlFor="turn-minutes">Plazo para cada jugada</label>
+                                <select id="turn-minutes" className="ui-select" disabled={!isHost}
+                                    value={gameSettings?.turnMinutes ?? 1440}
+                                    onChange={e => updateSettings({ turnMinutes: Number(e.target.value) })}>
+                                    {TURN_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                </select>
+                                <div className="ui-row" style={{ marginTop: 12 }}>
+                                    <Button size="sm" onClick={async () => {
+                                        const link = personalLink();
+                                        if (link) { await navigator.clipboard?.writeText(link).catch(() => {}); setCopied(true); }
+                                    }}>{copied ? 'Enlace copiado' : 'Copiar mi enlace personal'}</Button>
+                                </div>
+                                <p className="ui-muted" style={{ fontSize: '0.78rem', marginTop: 6 }}>
+                                    Con tu enlace personal abrís esta partida desde otro dispositivo. No lo compartas: es tu asiento.
+                                </p>
+                            </Section>
+                        )}
                     </section>
 
                     <section className="lobby__card" style={{ maxWidth: 'none' }}>
@@ -179,6 +217,10 @@ export const Lobby: React.FC<LobbyProps> = ({ onGameStart, muted, onMuteToggle }
                     <div className="ui-stack" style={{ gap: 14 }}>
                         <input className="ui-input" type="text" placeholder="TU NOMBRE DE GENERAL" maxLength={24}
                             value={playerName} onChange={e => setPlayerName(e.target.value)} aria-label="Tu nombre" />
+                        <div className="ui-grid" style={{ gridTemplateColumns: '1fr 1fr' }} role="radiogroup" aria-label="Tipo de partida">
+                            <Option label="En vivo" meta="Todos conectados a la vez" selected={newPace === 'live'} onSelect={() => setNewPace('live')} />
+                            <Option label="Correspondencia" meta="Turnos con plazo, cada uno cuando puede" selected={newPace === 'async'} onSelect={() => setNewPace('async')} />
+                        </div>
                         <Button variant="primary" size="lg" block onClick={handleCreate} disabled={connecting}>
                             {connecting ? 'Conectando…' : 'Crear nueva partida'}
                         </Button>
@@ -190,6 +232,17 @@ export const Lobby: React.FC<LobbyProps> = ({ onGameStart, muted, onMuteToggle }
                         {errorBox}
                     </div>
                 </section>
+                {savedGames.length > 0 && (
+                    <section className="lobby__card" style={{ marginTop: 16 }}>
+                        <Section title="Tus partidas por correspondencia">
+                            <div className="ui-stack">
+                                {savedGames.map(g => (
+                                    <Option key={g.id} label={g.name} meta={`Código ${g.id}`} onSelect={() => void openSavedGame(g.id)} />
+                                ))}
+                            </div>
+                        </Section>
+                    </section>
+                )}
                 <div style={{ textAlign: 'center', marginTop: 12 }}>{muteButton}</div>
             </div>
         </div>
