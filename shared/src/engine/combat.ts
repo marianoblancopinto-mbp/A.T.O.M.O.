@@ -140,7 +140,7 @@ export function attack(state: GameState, actorId: unknown, sourceId: unknown, ta
         attackSourceId: sourceId,
         targetRegionId: targetId,
         deck,
-        phase: 'ATTACKER_SELECTION',
+        phase: state.settings.pace === 'async' ? 'ATTACKER_COMMIT' : 'ATTACKER_SELECTION',
         currentAttackerCard: null,
         currentDefenderCard: null,
         clashResult: null,
@@ -273,6 +273,10 @@ export function useBattleSupplies(state: GameState, actorId: unknown, supplyIds:
     if (!b || b.phase === 'VICTORY' || b.phase === 'DEFEAT') return fail('No hay batalla en curso.');
     const role = sameId(b.attacker.id, actorId) ? 'attacker' : sameId(b.defender.id, actorId) ? 'defender' : null;
     if (!role) return fail('No participás de esta batalla.');
+    // Con cartas comprometidas, sólo roba quien todavía tiene que elegir.
+    if ((b.phase === 'ATTACKER_COMMIT' && role !== 'attacker') || (b.phase === 'DEFENDER_COMMIT' && role !== 'defender')) {
+        return fail('Ya comprometiste tus cartas.');
+    }
     const player = getPlayer(state, actorId)!;
     const items = pickSupplies(player, supplyIds);
     if (typeof items === 'string') return fail(items);

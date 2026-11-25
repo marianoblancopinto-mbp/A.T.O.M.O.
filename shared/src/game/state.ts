@@ -14,7 +14,7 @@
 import type { PlayerData } from '../playerTypes';
 import type { ProductionDeck, ActiveProviders } from '../productionTypes';
 import type { Treaty } from '../treatyTypes';
-import type { BattleState, PlayerRef } from '../gameTypes';
+import type { BattleState, PlayerRef, Card } from '../gameTypes';
 
 export type GamePhase = 'splash' | 'menu' | 'history' | 'mission' | 'setup' | 'playing';
 
@@ -41,6 +41,41 @@ export interface GameSettings {
     aiActive: boolean;
     aiDifficulty: number;
     gameMode: 'classic' | 'chaos';
+    /**
+     * Ritmo de la partida. 'live': todos conectados a la vez, combate interactivo
+     * ronda por ronda. 'async' (correspondencia): cada jugador tiene un plazo
+     * para actuar y el combate se resuelve con cartas comprometidas.
+     */
+    pace: 'live' | 'async';
+    /** Plazo para actuar en modo correspondencia, en minutos (turno, preturno, defensa). */
+    turnMinutes: number;
+}
+
+/** Plazo vigente en modo correspondencia. Vencido, el motor resuelve por el jugador. */
+export interface Deadline {
+    kind: 'production' | 'turn' | 'defense';
+    /** Epoch ms. */
+    at: number;
+}
+
+/** Resultado de una batalla resuelta con cartas comprometidas (público tras la resolución). */
+export interface BattleReport {
+    id: string;
+    at: number;
+    attacker: PlayerRef;
+    defender: PlayerRef;
+    sourceId: string;
+    targetId: string;
+    clashes: {
+        attackerCard: Card;
+        defenderCard: Card | null;
+        attackerScore: number;
+        defenderScore: number;
+        winner: 'attacker' | 'defender';
+    }[];
+    winner: 'attacker' | 'defender';
+    /** La defensa la eligió el sistema (defensor neutral o plazo vencido). */
+    autoDefense: boolean;
 }
 
 export interface GameState {
@@ -91,6 +126,11 @@ export interface GameState {
 
     /** Partida finalizada por el anfitrión (sin ganador). */
     gameOver: boolean;
+
+    /** Modo correspondencia: plazo vigente (null en modo en vivo o con la partida terminada). */
+    deadline: Deadline | null;
+    /** Modo correspondencia: últimas batallas resueltas. */
+    battleReports: BattleReport[];
 }
 
 export const DEFAULT_SETTINGS: GameSettings = {
@@ -99,6 +139,8 @@ export const DEFAULT_SETTINGS: GameSettings = {
     aiActive: false,
     aiDifficulty: 50,
     gameMode: 'classic',
+    pace: 'live',
+    turnMinutes: 24 * 60,
 };
 
 export const initialState: GameState = {
@@ -127,6 +169,8 @@ export const initialState: GameState = {
     roundPhase: 'PRODUCTION',
     productionReadyIds: [],
     gameOver: false,
+    deadline: null,
+    battleReports: [],
 };
 
 /** Rellena los campos de PlayerData con defaults seguros (datos que llegan por la red). */

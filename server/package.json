@@ -12,6 +12,11 @@
     "@atomo/shared": "*",
     "@colyseus/ws-transport": "^0.15.0",
     "colyseus": "^0.15.0",
+    "pg": "^8.23.1",
     "tsx": "^4.0.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.6.0",
+    "@types/pg": "^8.23.1"
   }
 }

@@ -11,6 +11,7 @@ import { getProxyWarCountry } from '../data/missionData';
 import { initialState, DEFAULT_SETTINGS, type GameSettings, type GameState } from '../game/state';
 import { shuffled, pick, type Random } from './rng';
 import { notify } from './helpers';
+import { syncDeadline } from './deadlines';
 
 const PLAYER_PALETTE = [
     '#ff0000', '#0088ff', '#0023beff', '#ffff00',
@@ -36,6 +37,10 @@ export function sanitizeSettings(input: unknown, base: GameSettings = DEFAULT_SE
             ? Math.max(0, Math.min(100, Math.round(s.aiDifficulty)))
             : base.aiDifficulty,
         gameMode: s.gameMode === 'chaos' || s.gameMode === 'classic' ? s.gameMode : base.gameMode,
+        pace: s.pace === 'async' || s.pace === 'live' ? s.pace : base.pace,
+        turnMinutes: typeof s.turnMinutes === 'number' && isFinite(s.turnMinutes)
+            ? Math.max(1, Math.min(7 * 24 * 60, Math.round(s.turnMinutes)))
+            : base.turnMinutes,
     };
 }
 
@@ -71,7 +76,7 @@ export function newPlayer(id: string, name: string, color: string): PlayerData {
  * Crea el estado inicial completo: jugadores, reparto del mapa, recursos,
  * minerales secretos y orden de turnos. Todo el azar sale de `random`.
  */
-export function createGame(seats: SeatInfo[], hostId: string, settings: GameSettings, random: Random): GameState {
+export function createGame(seats: SeatInfo[], hostId: string, settings: GameSettings, random: Random, now: number = Date.now()): GameState {
     if (seats.length < MIN_PLAYERS) throw new Error(`Se necesitan al menos ${MIN_PLAYERS} jugadores.`);
     if (seats.length > MAX_PLAYERS) throw new Error(`Máximo ${MAX_PLAYERS} jugadores.`);
 
@@ -121,5 +126,5 @@ export function createGame(seats: SeatInfo[], hostId: string, settings: GameSett
         message: 'Preturno de producción: decidí qué suministros vas a necesitar esta ronda.',
         color: '#00ff00',
     });
-    return state;
+    return syncDeadline(null, state, now);
 }

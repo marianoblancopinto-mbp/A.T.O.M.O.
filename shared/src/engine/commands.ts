@@ -19,6 +19,8 @@ import {
     assignSiloFuel, initiateDeployment, createEspionageNetwork, executeEspionage, type MissionInput,
 } from './actions';
 import { reconcile } from './reconcile';
+import { commitBattle } from './committed';
+import { applyDeadlines, syncDeadline } from './deadlines';
 
 export type Command =
     // Preturno
@@ -32,6 +34,7 @@ export type Command =
     | { type: 'BATTLE_NEXT_ROUND' }
     | { type: 'BATTLE_USE_SUPPLIES'; supplyIds: string[] }
     | { type: 'BATTLE_CLOSE' }
+    | { type: 'BATTLE_COMMIT'; cardIds: string[] }
     // Misiones
     | ({ type: 'ACTIVATE_MISSION' } & { missionId: string; baseRegionId?: string; techIds?: string[]; rawIds?: string[]; supplyIds?: string[]; cityName?: string; agency?: 'CIA' | 'MSS'; resourceType?: string })
     // Nuclear
@@ -71,6 +74,7 @@ function run(state: GameState, actorId: unknown, c: any, ctx: EngineContext): En
         case 'BATTLE_NEXT_ROUND': return nextRound(state, actorId);
         case 'BATTLE_USE_SUPPLIES': return useBattleSupplies(state, actorId, c.supplyIds);
         case 'BATTLE_CLOSE': return closeBattle(state, actorId);
+        case 'BATTLE_COMMIT': return commitBattle(state, actorId, c.cardIds, ctx.now, ctx.random);
         case 'ACTIVATE_MISSION': return activateMission(state, actorId, c as MissionInput, ctx);
         case 'GENERATE_NUCLEAR_DESIGN': return generateNuclearDesign(state, actorId, c.regionId, c.techId, c.rawId, ctx);
         case 'EXTRACT_MINERAL': return extractMineral(state, actorId, c.regionId, c, ctx);
@@ -98,6 +102,8 @@ export function executeCommand(state: GameState, actorId: string | number, comma
     if (!command || typeof command !== 'object' || typeof (command as any).type !== 'string') return fail('Comando inválido.');
     const c = command as Command;
     if (!state.gameStarted) return fail('La partida no empezó.');
+    // Correspondencia: antes de actuar, se aplican los plazos que hayan vencido.
+    state = applyDeadlines(state, ctx.now, ctx.random);
     if ((state.winner || state.gameOver) && !ALLOWED_AFTER_END.has(c.type)) return fail('La partida terminó.');
     // Mientras hay una batalla, sólo se juegan comandos de batalla (y los del anfitrión).
     if (state.battleState && !c.type.startsWith('BATTLE_') && !['KICK_PLAYER', 'END_GAME'].includes(c.type)) {
@@ -106,7 +112,7 @@ export function executeCommand(state: GameState, actorId: string | number, comma
     }
     const result = run(state, actorId, c, ctx);
     if (!result.ok) return result;
-    return { ok: true, state: reconcile(state, result.state) };
+    return { ok: true, state: syncDeadline(state, reconcile(state, result.state), ctx.now) };
 }
 
 export function isMyTurn(state: GameState, playerId: unknown): boolean {
