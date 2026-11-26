@@ -97,3 +97,15 @@ describe('rutas HTTP', () => {
         expect((await handleApi(svc, { method: 'GET', path: '/api/health', body: {} })).body).toEqual({ ok: true });
     });
 });
+
+describe('findDatabaseEnv', async () => {
+    const { findDatabaseEnv } = await import('./runtime');
+    it('prefiere los nombres estándar', () => {
+        expect(findDatabaseEnv({ POSTGRES_URL: 'postgres://a', DATABASE_URL: 'postgres://b' })).toBe('DATABASE_URL');
+    });
+    it('acepta prefijos de integraciones y exige una URL postgres', () => {
+        expect(findDatabaseEnv({ STORAGE_DATABASE_URL: 'postgresql://x' })).toBe('STORAGE_DATABASE_URL');
+        expect(findDatabaseEnv({ OTHER_DATABASE_URL: 'mysql://x' })).toBeNull();
+        expect(findDatabaseEnv({})).toBeNull();
+    });
+});

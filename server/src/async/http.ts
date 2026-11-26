@@ -63,7 +63,14 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
     try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { throw new ApiError(400, 'JSON inválido.'); }
 }
 
-export function nodeHandler(getService: () => AsyncGameService) {
+export interface NodeHandlerOptions {
+    /** Información de configuración para /api/health (sin secretos). */
+    health?: () => Record<string, unknown> | Promise<Record<string, unknown>>;
+    /** Errores de configuración cuyo mensaje se puede mostrar al cliente. */
+    isConfigError?: (e: unknown) => boolean;
+}
+
+export function nodeHandler(getService: () => AsyncGameService, opts: NodeHandlerOptions = {}) {
     return async (req: IncomingMessage, res: ServerResponse) => {
         const send = (status: number, body: unknown) => {
             res.statusCode = status;
@@ -77,11 +84,17 @@ export function nodeHandler(getService: () => AsyncGameService) {
             const path = url.searchParams.get('__path') ? `/api/${url.searchParams.get('__path')}` : url.pathname;
             const auth = req.headers.authorization ?? '';
             const token = auth.startsWith('Bearer ') ? auth.slice(7) : undefined;
+            if (req.method === 'GET' && /^\/?(api\/)?health\/?$/.test(path.replace(/^\//, ''))) {
+                const info = (await opts.health?.()) ?? {};
+                const healthy = info.database === undefined || info.database === 'postgres' || info.database === 'memory';
+                return send(healthy ? 200 : 503, { ok: healthy, ...info });
+            }
             const body = req.method === 'POST' ? await readBody(req) : {};
             const result = await handleApi(getService(), { method: req.method ?? 'GET', path, token, body });
             send(result.status, result.body);
         } catch (e) {
             if (e instanceof ApiError) return send(e.status, { error: e.message });
+            if (opts.isConfigError?.(e)) { console.error('[api]', (e as Error).message); return send(503, { error: (e as Error).message }); }
             console.error('[api] error inesperado:', e);
             send(500, { error: 'Error interno del servidor.' });
         }
